@@ -23,7 +23,7 @@ const initialState: ProductsState = {
   error: null,
   sort: "default",
   grid: "one",
-  visibleCount: 9,
+  visibleCount: 12,
 }
 
 export const fetchProducts = createAsyncThunk(
