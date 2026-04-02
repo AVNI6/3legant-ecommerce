@@ -78,9 +78,20 @@ export default function ReviewTab({
         table: 'reviews',
         filter: `product_id=eq.${productId}`
       }, (payload) => {
-        if (payload.new.status === 'spam') {
+        if (payload.new.status === 'spam' || payload.new.status === 'rejected') {
           setReviews(prev => prev.filter(r => r.id !== payload.new.id));
+        } else {
+          // Update the review in the list if it's still visible
+          setReviews(prev => prev.map(r => r.id === payload.new.id ? { ...r, ...payload.new } : r));
         }
+      })
+      .on('postgres_changes', {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'reviews',
+        filter: `product_id=eq.${productId}`
+      }, (payload) => {
+        setReviews(prev => prev.filter(r => r.id !== payload.old.id));
       })
       .subscribe();
   };
@@ -238,6 +249,9 @@ export default function ReviewTab({
             key={review.id}
             review={review}
             onDelete={(id: string) => setReviews(prev => prev.filter(r => r.id !== id))}
+            onUpdate={(id: string, updates: any) =>
+              setReviews(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r))
+            }
           />
         ))}
       </div>

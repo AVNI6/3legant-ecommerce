@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { JSXElementConstructor, optimisticKey, ReactElement, ReactNode, ReactPortal, useState } from "react"
 import { useToast } from "@/components/admin/Toast"
 import { useAdminReviews, useUpdateReviewStatus, useDeleteReview } from "@/hooks/admin/use-admin-queries"
 import { TableSkeleton } from "@/components/ui/skeleton"
@@ -44,10 +44,7 @@ export default function ReviewsManagement() {
     })
   }
 
-  const getStatusColor = (status?: string) => {
-    if (status === "spam") return "bg-red-100 text-red-700"
-    return "bg-blue-100 text-blue-700"
-  }
+
 
   const renderStars = (rating: number) => (
     <div className="flex gap-0.5">
@@ -62,7 +59,7 @@ export default function ReviewsManagement() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Customer Reviews</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage product ratings and feedback ({totalCount})</p>
+          <p className="text-sm text-gray-500 mt-1">Manage ratings and flag SCAM feedback ({totalCount})</p>
         </div>
 
         <div className="flex bg-white p-1 rounded-xl border border-gray-100 shadow-sm self-start">
@@ -73,7 +70,7 @@ export default function ReviewsManagement() {
               className={`px-4 py-1.5 rounded-lg text-[10px] md:text-xs font-black transition-all uppercase tracking-widest ${filter === s ? "bg-gray-900 text-white shadow-md" : "text-gray-400 hover:text-gray-900"
                 }`}
             >
-              {s}
+              {s === "spam" ? "SCAM" : s}
             </button>
           ))}
         </div>
@@ -88,7 +85,7 @@ export default function ReviewsManagement() {
             <p className="text-gray-400 font-bold italic">No reviews found in this category</p>
           </div>
         ) : (
-          reviews.map(r => (
+          reviews.map((r: any) => (
             <div key={r.id} className={`bg-white rounded-2xl shadow-sm border transition-all duration-300 p-4 md:p-6 ${expandedId === r.id ? "border-black/10 shadow-xl shadow-gray-100 -translate-y-0.5" : "border-gray-50 hover:border-gray-100"}`}>
               <div className="flex flex-col sm:flex-row items-start gap-4">
                 <div className="flex items-center justify-between w-full sm:w-auto">
@@ -110,8 +107,8 @@ export default function ReviewsManagement() {
                 <div className="flex-1 min-w-0 w-full">
                   <div className="flex flex-wrap items-center gap-2 mb-2">
                     <p className="text-sm font-black text-gray-900 uppercase tracking-tight truncate max-w-[200px] md:max-w-md">{r.products?.name || `Product #${r.product_id}`}</p>
-                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg tracking-widest ${getStatusColor(r.status)}`}>
-                      {r.status || "new"}
+                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg tracking-widest ${r.status === 'spam' ? "bg-red-600 text-white" : "bg-blue-100 text-blue-700"}`}>
+                      {r.status === 'spam' ? "SCAM" : (r.status || "new")}
                     </span>
                   </div>
 
@@ -133,14 +130,13 @@ export default function ReviewsManagement() {
                     <button
                       onClick={() => handleUpdateStatus(r.id, r.status === "spam" ? null : "spam")}
                       disabled={isUpdating}
-                      className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-transparent shadow-sm ${
-                        r.status === "spam" 
-                          ? "bg-indigo-50 text-indigo-700 hover:bg-indigo-100" 
-                          : "bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-700"
-                      }`}
+                      className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-transparent shadow-sm ${r.status === "spam"
+                        ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                        : "bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-700"
+                        }`}
                     >
                       <HiOutlineExclamationCircle className="w-4 h-4" />
-                      {r.status === "spam" ? "RESTORE TO LIST" : "MARK AS SPAM"}
+                      {r.status === "spam" ? "RESTORE FROM SCAM" : "MARK AS SCAM"}
                     </button>
 
                     <button

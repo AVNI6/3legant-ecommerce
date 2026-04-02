@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  experimental: {
+    optimizePackageImports: ["react-icons", "lucide-react", "@react-icons/all-files", "react-slick"],
+  },
   logging: {
     fetches: {
       fullUrl: true,

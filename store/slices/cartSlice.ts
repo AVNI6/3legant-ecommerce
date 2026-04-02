@@ -94,7 +94,7 @@ export const fetchCart = createAsyncThunk(
             variant_id, 
             quantity,
             product_variant (
-              id, color, color_images, thumbnails, price, old_price, product_id,
+              id, color, color_images, thumbnails, price, old_price, product_id, stock,
               products (id, name, image, validation_till)
             )
           )
@@ -294,7 +294,7 @@ export const updateQuantity = createAsyncThunk(
       const cartId = (state.cart as CartState).cartId
       const { error } = await supabase.from("cart_items").update({ quantity: newQuantity }).eq("cart_id", cartId).eq("variant_id", variant_id)
       if (error) throw error
-      return { variant_id, quantity: newQuantity, updated: true }
+      return { variant_id, quantity: newQuantity, updated: true, stock: availableStock }
     } catch (error: any) {
       return rejectWithValue(error.message || error)
     }
@@ -399,7 +399,13 @@ const cartSlice = createSlice({
     },
     removeProductFromCartStore: (state, action: PayloadAction<number>) => {
       state.items = state.items.filter((item) => item.id !== action.payload)
-    }
+    },
+    updateCartItemQuantity: (state, action: PayloadAction<{ variant_id: number; quantity: number }>) => {
+      const item = state.items.find((i) => i.variant_id === action.payload.variant_id)
+      if (item) {
+        item.quantity = action.payload.quantity
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -415,7 +421,7 @@ const cartSlice = createSlice({
       )
       .addMatcher(
         (action) => action.type.startsWith('cart/') && action.type.endsWith('/fulfilled'),
-        (state, action: PayloadAction<{ items: CartItem[]; cartId: string | null; addedItem?: CartItem; variant_id?: number; quantity?: number; removed?: boolean }>) => {
+        (state, action: PayloadAction<{ items: CartItem[]; cartId: string | null; addedItem?: CartItem; variant_id?: number; quantity?: number; removed?: boolean; stock?: number }>) => {
           state.loading = false
 
           if (action.type === 'cart/fetchCart/fulfilled' || action.payload.items?.length > 0) {
@@ -433,6 +439,9 @@ const cartSlice = createSlice({
             const item = state.items.find(i => i.variant_id === action.payload.variant_id);
             if (item) {
               item.quantity = action.payload.quantity!;
+              if (action.payload.stock !== undefined) {
+                item.stock = action.payload.stock;
+              }
             }
           } else if (action.type === 'cart/removeFromCart/fulfilled' && action.payload.variant_id) {
             state.items = state.items.filter(i => i.variant_id !== action.payload.variant_id);
@@ -454,5 +463,5 @@ const cartSlice = createSlice({
   },
 })
 
-export const { loadGuestCart, clearCartState, setActiveStep, setShipping, clearCartItems, removeProductFromCartStore } = cartSlice.actions
+export const { loadGuestCart, clearCartState, setActiveStep, setShipping, clearCartItems, removeProductFromCartStore, updateCartItemQuantity } = cartSlice.actions
 export default cartSlice.reducer

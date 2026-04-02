@@ -28,7 +28,7 @@ const UserAvatar = ({ profile, name, size = "w-12 h-12" }: any) => {
     );
 };
 
-export default function ReviewItem({ review, onDelete }: any) {
+export default function ReviewItem({ review, onDelete, onUpdate }: any) {
     const { user } = useAppSelector((state: any) => state.auth);
     const [likesCount, setLikesCount] = useState(review.review_likes?.[0]?.count || 0);
     const [isLiked, setIsLiked] = useState(false);
@@ -48,8 +48,8 @@ export default function ReviewItem({ review, onDelete }: any) {
             supabase.from("profiles").select("name, avatar_url").eq("id", user.id).single().then(({ data }) => setState(s => ({ ...s, profile: data })));
         }
         const sub = supabase.channel(`rv-${review.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'review_likes', filter: `review_id=eq.${review.id}` }, (p) => {
-            if (p.eventType === 'INSERT') { setLikesCount(v => v + 1); if (p.new.user_id === user?.id) setIsLiked(true); }
-            else if (p.eventType === 'DELETE') { setLikesCount(v => Math.max(0, v - 1)); if (p.old?.user_id === user?.id) setIsLiked(false); }
+            if (p.eventType === 'INSERT') { setLikesCount((v: number) => v + 1); if (p.new.user_id === user?.id) setIsLiked(true); }
+            else if (p.eventType === 'DELETE') { setLikesCount((v: number) => Math.max(0, v - 1)); if (p.old?.user_id === user?.id) setIsLiked(false); }
         }).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'review_replies', filter: `review_id=eq.${review.id}` }, async (p) => {
             const { data } = await supabase.from("review_replies").select("*, profiles(name, avatar_url)").eq("id", p.new.id).single();
             if (data) setReplies((prev: any) => prev.some((r: any) => r.id === data.id) ? prev : [...prev, data]);
@@ -75,7 +75,10 @@ export default function ReviewItem({ review, onDelete }: any) {
         if (!state.editTxt.trim()) return;
         setState(s => ({ ...s, isUpdating: true }));
         const { error } = await supabase.from("reviews").update({ comment: state.editTxt.trim(), rating: state.editStar }).eq("id", review.id);
-        if (!error) { setState(s => ({ ...s, isEditing: false })); review.comment = state.editTxt; review.rating = state.editStar; }
+        if (!error) { 
+            setState(s => ({ ...s, isEditing: false })); 
+            onUpdate?.(review.id, { comment: state.editTxt, rating: state.editStar });
+        }
         setState(s => ({ ...s, isUpdating: false }));
     };
 
@@ -85,7 +88,7 @@ export default function ReviewItem({ review, onDelete }: any) {
                 <UserAvatar profile={review.profiles} name={review.name} />
                 <div className="flex-1 space-y-3">
                     <div className="flex justify-between items-start relative">
-                        <div className="flex items-center gap-3">
+                        <div className="flex flex-col sm:flex-row items-center gap-3">
                             <h4 className="font-semibold text-lg text-[#141718]">{review.profiles?.name || review.name}</h4>
                             {user?.id === review.user_id && <div className="flex items-center gap-3"><span className="bg-gray-100 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase text-gray-500">You</span>
                                 {!state.isEditing && <div className="flex items-center gap-2 border-l pl-3 ml-1 border-gray-200">
@@ -123,5 +126,7 @@ export default function ReviewItem({ review, onDelete }: any) {
                                         <span className="text-[10px] text-gray-400 italic">{new Date(r.created_at).toLocaleDateString()}</span></div>
                                         <p className="text-sm text-[#343839] leading-relaxed italic border-l-4 border-gray-50 pl-3">{r.content}</p></div></div>))}
                         </div>)}
-                </div></div></div>);
+                </div>
+            </div>
+            </div>);
 }

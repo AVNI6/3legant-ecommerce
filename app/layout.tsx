@@ -1,4 +1,3 @@
-
 import type { Metadata } from "next";
 import { Inter, Poppins, Space_Grotesk } from "next/font/google";
 import "./globals.css";

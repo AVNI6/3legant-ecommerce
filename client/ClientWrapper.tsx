@@ -13,11 +13,6 @@ interface Props {
 
 export default function ClientWrapper({ children }: Props) {
     const pathname = usePathname();
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => {
-        setMounted(true);
-    }, []);
 
     const noLayoutPages = [
         APP_ROUTE.signin,
@@ -27,7 +22,7 @@ export default function ClientWrapper({ children }: Props) {
     ];
 
     const isAdminRoute = pathname?.startsWith("/pages/admin") ?? false;
-    const showLayout = mounted && !noLayoutPages.includes(pathname) && !isAdminRoute;
+    const showLayout = !noLayoutPages.includes(pathname) && !isAdminRoute;
 
     return (
         <>

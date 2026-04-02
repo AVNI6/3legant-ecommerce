@@ -11,6 +11,7 @@ export type InvoiceItem = {
   quantity?: number;
   price?: number;
   color?: string;
+  image?: string;
 };
 
 export type InvoiceAddress = {

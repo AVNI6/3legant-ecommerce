@@ -1,7 +1,8 @@
+"use client"
 import { useAppDispatch } from "@/store/hooks";
-import { updateQuantity, setQuantity } from "@/store/slices/cartSlice";
+import { updateQuantity, setQuantity, updateCartItemQuantity } from "@/store/slices/cartSlice";
 import { toast } from "react-toastify";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface Props {
   quantity: number;
@@ -14,36 +15,44 @@ interface Props {
 const QuantityInput = ({
   quantity,
   variant_id,
-  stock = 100, // Default fallback
+  stock = 100,
   onQuantityChange,
   maxWidth = "w-20 sm:w-24 lg:w-32",
 }: Props) => {
   const dispatch = useAppDispatch();
   const [inputValue, setInputValue] = useState(String(quantity));
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    setInputValue(String(quantity));
+    // Synchronize local input value with prop if it changes and we're not debouncing
+    if (!debounceRef.current) {
+      setInputValue(String(quantity));
+    }
   }, [quantity]);
 
   const handleUpdate = async (type: "inc" | "dec") => {
-    if (type === "inc") {
-      if (quantity >= stock) {
-        toast.warn("Item out of stock");
-        return;
-      }
+    const nextVal = type === "inc" ? quantity + 1 : quantity - 1;
+
+    // Boundary check using prop stock (now reliably fetched)
+    if (type === "inc" && quantity >= stock) {
+      return;
+    }
+
+    if (nextVal >= 1) {
+      // 1. Immediate UI update
       if (variant_id) {
-        dispatch(updateQuantity({ variant_id, type: "inc" }));
+        dispatch(updateCartItemQuantity({ variant_id, quantity: nextVal }));
+        // 2. Trigger async DB update
+        dispatch(updateQuantity({ variant_id, type }));
       } else if (onQuantityChange) {
-        onQuantityChange(quantity + 1);
+        onQuantityChange(nextVal);
       }
-    } else {
-      if (quantity > 1) {
-        if (variant_id) {
-          dispatch(updateQuantity({ variant_id, type: "dec" }));
-        } else if (onQuantityChange) {
-          onQuantityChange(quantity - 1);
-        }
-      }
+    }
+  };
+
+  const syncToDatabase = (val: number) => {
+    if (variant_id) {
+      dispatch(setQuantity({ variant_id, quantity: val }));
     }
   };
 
@@ -54,32 +63,46 @@ const QuantityInput = ({
     const numValue = parseInt(value, 10);
     if (!isNaN(numValue) && numValue > 0) {
       const finalValue = Math.min(numValue, stock);
+
+      // 1. Immediate UI update via synchronous Redux action
       if (variant_id) {
-        dispatch(setQuantity({ variant_id, quantity: finalValue }));
-      } else if (onQuantityChange) {
+        dispatch(updateCartItemQuantity({ variant_id, quantity: finalValue }));
+      }
+
+      // 2. Parent callback (if any)
+      if (onQuantityChange) {
         onQuantityChange(finalValue);
       }
+
+      // 3. Debounced Database/GuestCart update
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        syncToDatabase(finalValue);
+        debounceRef.current = null;
+      }, 500);
     }
   };
 
   const handleBlur = () => {
     const numValue = parseInt(inputValue, 10);
+    let finalValue = numValue;
+
     if (isNaN(numValue) || numValue < 1) {
-      setInputValue("1");
-      if (variant_id) {
-        dispatch(setQuantity({ variant_id, quantity: 1 }));
-      } else if (onQuantityChange) {
-        onQuantityChange(1);
-      }
+      finalValue = 1;
     } else if (numValue > stock) {
-      setInputValue(String(stock));
+      finalValue = stock;
+    }
+
+    setInputValue(String(finalValue));
+
+    // Force sync on blur if different
+    if (finalValue !== quantity) {
       if (variant_id) {
-        dispatch(setQuantity({ variant_id, quantity: stock }));
+        dispatch(updateCartItemQuantity({ variant_id, quantity: finalValue }));
+        syncToDatabase(finalValue);
       } else if (onQuantityChange) {
-        onQuantityChange(stock);
+        onQuantityChange(finalValue);
       }
-    } else {
-      setInputValue(String(numValue));
     }
   };
 

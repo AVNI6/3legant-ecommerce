@@ -1,8 +1,7 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.192.0/http/server.ts";
 import Stripe from "npm:stripe@^13.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// --- ENUMS & TYPES (Exactly as in types/enums.ts) ---
 enum OrderStatus {
   PENDING = 'pending',
   CONFIRMED = 'confirmed',

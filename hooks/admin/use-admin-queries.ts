@@ -342,23 +342,12 @@ export function useAdminReviews(page: number, pageSize: number, status: string =
   return useQuery({
     queryKey: ADMIN_KEYS.reviews({ page, status }),
     queryFn: async () => {
-      let query = supabase
-        .from("reviews")
-        .select("*, products(name, image)", { count: "exact" })
-        .order("created_at", { ascending: false })
-        .range(page * pageSize, (page + 1) * pageSize - 1)
-
-      if (status !== "all") query = query.eq("status", status)
-
-      const { data, error, count } = await query
-      if (error) throw error
-
-      const mapped = (data || []).map((r: any) => ({
-        ...r,
-        products: Array.isArray(r.products) ? r.products[0] : (r.products || r.product || null)
-      }))
-
-      return { data: mapped, count: count || 0 }
+      const response = await fetch(`/api/admin/reviews?page=${page}&pageSize=${pageSize}&status=${status}`)
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to fetch reviews")
+      }
+      return await response.json()
     }
   })
 }
@@ -384,13 +373,9 @@ export function useAdminRefunds(page: number, pageSize: number, statusFilter: st
       let query = supabase
         .from("orders")
         .select("*", { count: "exact" })
-        .not("refund_status", "is", null)
+        .or("refund_status.not.is.null,status.eq.refunded,payment_status.eq.refunded")
         .order("order_date", { ascending: false })
         .range(page * pageSize, (page + 1) * pageSize - 1)
-
-      if (statusFilter !== "all") {
-        query = query.eq("refund_status", statusFilter)
-      }
 
       const { data, error, count } = await query
       if (error) throw error
@@ -407,7 +392,7 @@ export function useAdminActionRequiredOrders() {
         .from("orders")
         .select("id, status, order_date, total_price, shipping_address, items_snapshot")
         .in("status", ["confirmed", "processing", "shipped"])
-        .order("order_date", { ascending: true }) // Oldest first for fulfillment
+        .order("order_date", { ascending: false }) // Newest first for fulfillment dashboard
         .limit(20)
 
       if (error) throw error
@@ -423,7 +408,7 @@ export function useAdminRefundedOrders() {
       const { data, error } = await supabase
         .from("orders")
         .select("id, status, order_date, total_price, shipping_address, items_snapshot, refund_amount, refund_reason")
-        .eq("status", "refunded")
+        .or("status.eq.refunded,payment_status.eq.refunded")
         .order("order_date", { ascending: false })
         .limit(30)
 
@@ -519,8 +504,15 @@ export function useUpdateReviewStatus() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ reviewId, status }: { reviewId: string; status: string | null }) => {
-      const { error } = await supabase.from("reviews").update({ status }).eq("id", reviewId)
-      if (error) throw error
+      const response = await fetch("/api/admin/reviews", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviewId, status })
+      })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to update review status")
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.reviews() })
@@ -532,8 +524,13 @@ export function useDeleteReview() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (reviewId: string) => {
-      const { error } = await supabase.from("reviews").delete().eq("id", reviewId)
-      if (error) throw error
+      const response = await fetch(`/api/admin/reviews?id=${reviewId}`, {
+        method: "DELETE"
+      })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to delete review")
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.reviews() })
