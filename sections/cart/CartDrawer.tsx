@@ -132,8 +132,10 @@ export default function CartDrawer({ isOpen, onClose }: Props) {
           <button
             className="w-full text-center text-[10px] min-[375px]:text-sm sm:text-base font-medium text-gray-500 hover:text-black transition-colors"
             onClick={() => {
+               requireLogin(() => {
               onClose()
               router.push(APP_ROUTE.cart)
+             }, user, "Please sign in to proceed to checkout.")
             }}
           >
             View Cart
