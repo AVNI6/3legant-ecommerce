@@ -216,26 +216,30 @@ const Products = ({ products, grid = "4", variant = "grid", isLoading }: Props) 
                                                 </p>
                                             )}
                                         </div>
-                                        <button
-                                            onClick={(e) => handleWishlistToggle(e, product, effectivePrice)}
-                                            className="pointer-auto pointer-events-auto absolute top-2 sm:top-3 right-2 sm:right-3"
-                                        >
-                                            {inWishlist ? (
-                                                <GoHeartFill className="bg-white text-red-500 rounded-full text-3xl sm:text-4xl p-1.5 sm:p-2 opacity-0 group-hover:opacity-100 transition shadow-sm" />
-                                            ) : (
-                                                <GoHeart className="bg-white text-gray-500 rounded-full text-3xl sm:text-4xl p-1.5 sm:p-2 opacity-0 group-hover:opacity-100 transition shadow-sm" />
-                                            )}
-                                        </button>
+                                        {grid !== "three" && grid !== "four" && (
+                                            <button
+                                                onClick={(e) => handleWishlistToggle(e, product, effectivePrice)}
+                                                className="pointer-auto pointer-events-auto absolute top-2 sm:top-3 right-2 sm:right-3"
+                                            >
+                                                {inWishlist ? (
+                                                    <GoHeartFill className="bg-white text-red-500 rounded-full text-3xl sm:text-4xl p-1.5 sm:p-2 opacity-0 group-hover:opacity-100 transition shadow-sm" />
+                                                ) : (
+                                                    <GoHeart className="bg-white text-gray-500 rounded-full text-3xl sm:text-4xl p-1.5 sm:p-2 opacity-0 group-hover:opacity-100 transition shadow-sm" />
+                                                )}
+                                            </button>
+                                        )}
                                     </div>
 
-                                    <button
-                                        onClick={(e) => handleAddToCart(e, product, effectivePrice, productReviewStats)}
-                                        disabled={product.stock === 0}
-                                        className={`w-[90%] absolute z-20 bottom-4 left-1/2 -translate-x-1/2 bg-black text-white py-2 rounded-lg opacity-0 group-hover:opacity-100 transition text-xs sm:text-sm md:text-base
+                                    {grid !== "three" && grid !== "four" && (
+                                        <button
+                                            onClick={(e) => handleAddToCart(e, product, effectivePrice, productReviewStats)}
+                                            disabled={product.stock === 0}
+                                            className={`w-[90%] absolute z-20 bottom-4 left-1/2 -translate-x-1/2 bg-black text-white py-2 rounded-lg opacity-0 group-hover:opacity-100 transition text-xs sm:text-sm md:text-base
                                             ${product.stock === 0 ? 'bg-gray-400 text-gray-200 cursor-not-allowed hidden' : 'hover:bg-gray-800'} shadow-lg`}
-                                    >
-                                        {product.stock === 0 ? "Out of Stock" : "Add to cart"}
-                                    </button>
+                                        >
+                                            {product.stock === 0 ? "Out of Stock" : "Add to cart"}
+                                        </button>
+                                    )}
 
                                     {(() => {
                                         const displayImage = product.color_image?.[0] || product.image;
