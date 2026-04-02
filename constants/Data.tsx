@@ -103,6 +103,20 @@ export const getEffectivePrice = (product: { price: number; old_price: number; v
   };
 };
 
+export const NEW_PRODUCT_DAYS = 7;
+
+export const isNewProduct = (createdAt: string | null | undefined) => {
+  if (!createdAt) return false;
+
+  const createdDate = new Date(createdAt);
+  if (isNaN(createdDate.getTime())) return false;
+
+  const thresholdDate = new Date();
+  thresholdDate.setDate(thresholdDate.getDate() - NEW_PRODUCT_DAYS);
+
+  return createdDate > thresholdDate;
+};
+
 export const features = [
   { icon: <MdOutlineLocalShipping />, title: "Free Shipping", des: `Order above ${formatCurrency(200)}` },
   { icon: <LiaMoneyBillSolid />, title: "Money-back", des: "30 days guarantee" },

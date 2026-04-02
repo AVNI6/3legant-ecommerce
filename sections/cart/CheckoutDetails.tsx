@@ -262,7 +262,14 @@ function CheckoutDetail() {
     country: data.differentBilling ? (data.billingCountry || data.country) : data.country,
   });
 
+  const handleFormKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && (e.target as HTMLElement).tagName !== "TEXTAREA") {
+      e.preventDefault();
+    }
+  };
+
   const handleCheckout = async (data: CheckoutFormData) => {
+    if (loading) return;
     setCheckoutDraft(data);
 
     if (!cartItems.length) return toast.error("Cart is empty");
@@ -373,7 +380,7 @@ function CheckoutDetail() {
   }
 
   return (
-    <form onSubmit={handleSubmit(handleCheckout)}>
+    <form onSubmit={handleSubmit(handleCheckout)} onKeyDown={handleFormKeyDown}>
       <div className="flex flex-col lg:flex-row gap-4 min-[375px]:gap-6 lg:gap-6 xl:gap-10 px-3 min-[375px]:px-5 sm:px-10 lg:px-10 xl:px-30 items-start my-4 min-[375px]:my-6 sm:my-10">
         <CheckoutForm
           register={register}

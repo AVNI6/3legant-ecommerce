@@ -6,7 +6,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { CiSearch } from "react-icons/ci"
 import { type ProductType } from '@/types/index'
-import { formatCurrency } from "@/constants/Data"
+import { formatCurrency, isNewProduct } from "@/constants/Data"
 import { useAppSelector } from "@/store/hooks"
 import { APP_ROUTE } from "@/constants/AppRoutes"
 import { ProductGridSkeleton } from "@/components/ui/skeleton"
@@ -141,7 +141,7 @@ export default function SearchPage() {
                     className="object-cover group-hover:scale-105 transition-transform duration-300"
                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
                   />
-                  {product.is_new && (
+                  {isNewProduct(product.created_at) && (
                     <span className="absolute top-2 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded">
                       New
                     </span>
@@ -150,7 +150,7 @@ export default function SearchPage() {
               </Link>
 
               <div className="p-4">
-         <Link href={`${APP_ROUTE.product}/${product.id}`}>
+                <Link href={`${APP_ROUTE.product}/${product.id}`}>
                   <h3 className="font-medium text-gray-900 mb-1 line-clamp-2 hover:text-black transition-colors">
                     {product.name}
                   </h3>

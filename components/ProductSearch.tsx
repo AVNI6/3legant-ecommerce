@@ -5,7 +5,7 @@ import { CiSearch } from "react-icons/ci"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { type ProductType } from '@/types/index'
-import { formatCurrency, SearchData } from "@/constants/Data"
+import { formatCurrency, getEffectivePrice, isNewProduct, SearchData } from "@/constants/Data"
 import { useAppSelector } from "@/store/hooks"
 
 function useDebounce(value: string, delay: number) {
@@ -205,7 +205,7 @@ export default function ProductSearch() {
                                 className="object-cover group-hover:scale-105 transition-transform duration-500"
                                 sizes="(max-width: 768px) 50vw, 25vw"
                               />
-                              {product.is_new && (
+                              {isNewProduct(product.created_at) && (
                                 <span className="absolute top-2 left-2 bg-black text-white text-[7px] sm:text-[8px] font-black px-1.5 py-0.5 uppercase tracking-widest rounded-sm">
                                   New
                                 </span>

@@ -1,4 +1,3 @@
-// Form-related types shared across components
 export interface BaseFormData {
   [key: string]: string | number | boolean;
 }

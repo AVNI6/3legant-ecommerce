@@ -59,14 +59,12 @@ export default function ReviewTab({
   const setupRealtime = () => {
     supabase
       .channel(`product-reviews-${productId}`)
-      // 1. Listen for New Reviews (Instant Display)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'reviews',
         filter: `product_id=eq.${productId}`
       }, async (payload) => {
-        // Fetch full data for the new review (including profile)
         const { data } = await supabase
           .from("reviews")
           .select("*, profiles(name, avatar_url), review_likes(count), review_replies(*)")
@@ -74,7 +72,6 @@ export default function ReviewTab({
           .single();
         if (data) setReviews(prev => [data, ...prev]);
       })
-      // 2. Listen for Spam/Updates
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
@@ -91,7 +88,6 @@ export default function ReviewTab({
   const loadData = async () => {
     lastFetchedProductIdRef.current = productId;
 
-    // Optimized joined query
     const { data: reviewsData, error: reviewsError } = await supabase
       .from("reviews")
       .select(`
@@ -101,7 +97,7 @@ export default function ReviewTab({
         review_replies(*, profiles(name, avatar_url))
       `)
       .eq("product_id", productId)
-      .or("status.neq.spam,status.is.null"); // SHOW BOTH APPROVED AND NEW REVIEWS
+      .or("status.neq.spam,status.is.null");
 
     let finalReviews = reviewsData || [];
 
@@ -112,12 +108,10 @@ export default function ReviewTab({
 
     setReviews(finalReviews);
 
-    // Calculate and notify stats from fetched reviews
     const avgRating = finalReviews.length > 0
       ? finalReviews.reduce((s, r) => s + r.rating, 0) / finalReviews.length
       : 0;
 
-    // Safety: Only notify if values actually changed to prevent loops
     onReviewStatsChange?.({ rating: avgRating, count: finalReviews.length });
 
     setLoading(false);
@@ -151,7 +145,6 @@ export default function ReviewTab({
 
       setComment("");
       setRating(5);
-      // Removed manual loadData() as we rely on Realtime INSERT
     } catch (err: any) {
       setModal({ show: true, msg: "An unexpected error occurred." });
     }
@@ -166,43 +159,56 @@ export default function ReviewTab({
   if (loading) return <ReviewSkeleton />;
 
   return (
-    <div className="mt-8 sm:mt-12">
-      <div className="flex flex-col gap-4 mb-8">
-        <h1 className="font-poppins font-medium text-2xl sm:text-[28px] text-[#141718] tracking-tight">Customer Reviews</h1>
-        <div className="flex items-center gap-4">
-          <ReviewSummary rating={reviews.length ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : 0} count={reviews.length} />
+    <div className="mt-6 sm:mt-10 md:mt-12 lg:mt-14 px-3 sm:px-4 md:px-6 lg:px-0">
+      <div className="flex flex-col gap-3 sm:gap-4 mb-6 sm:mb-8">
+        <h1 className="font-poppins font-medium text-xl sm:text-2xl md:text-3xl lg:text-[32px] text-[#141718] tracking-tight">
+          Customer Reviews
+        </h1>
+
+        <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
+          <ReviewSummary
+            rating={reviews.length ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : 0}
+            count={reviews.length}
+          />
         </div>
       </div>
 
-      {/* Review Box - Conditional Visibility */}
-      <div className="relative mb-12">
+      <div className="relative mb-8 sm:mb-10 md:mb-12">
         {user && reviews.some(r => r.user_id === user.id) ? (
-          <div className="bg-gray-50 border border-gray-100 rounded-2xl p-6 text-center">
-            <p className="text-[#141718] font-medium mb-1">You have already reviewed this product.</p>
-            <p className="text-gray-400 text-sm">You can edit or delete your existing review in the list below.</p>
+          <div className="bg-gray-50 border border-gray-100 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center">
+            <p className="text-[#141718] font-medium text-sm sm:text-base mb-1">
+              You have already reviewed this product.
+            </p>
+            <p className="text-gray-400 text-xs sm:text-sm">
+              You can edit or delete your existing review in the list below.
+            </p>
           </div>
         ) : (
-          <div className="flex flex-col sm:flex-row gap-4 items-center bg-white border-2 border-gray-100 rounded-2xl p-4 sm:p-6 transition-shadow hover:shadow-md">
+          <div className="flex flex-col md:flex-row gap-3 sm:gap-4 items-stretch md:items-center bg-white border-2 border-gray-100 rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-6 transition-shadow hover:shadow-md">
+
             <textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder={user ? "Share your thoughts..." : "Please login to write a review"}
               disabled={!user}
               rows={1}
-              className="w-full sm:flex-1 resize-none border-none text-sm focus:outline-none placeholder:text-gray-400 font-inter py-2"
+              className="w-full md:flex-1 resize-none border-none text-sm sm:text-base focus:outline-none placeholder:text-gray-400 font-inter py-2"
             />
-            <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+
+            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 w-full md:w-auto justify-between md:justify-end">
+
               <div className="flex gap-1">
                 {[1, 2, 3, 4, 5].map((s) => (
                   <button key={s} onClick={() => user && setRating(s)}>
-                    <FaStar className={`text-xl transition-colors ${rating >= s ? "text-[#141718]" : "text-gray-200"}`} />
+                    <FaStar className={`text-lg sm:text-xl transition-colors ${rating >= s ? "text-[#141718]" : "text-gray-200"}`} />
                   </button>
                 ))}
               </div>
+
               <button
                 onClick={postReview}
                 disabled={!user || !comment.trim()}
-                className="bg-[#141718] text-white px-8 py-3 rounded-full text-sm font-bold transition-all hover:bg-gray-800 disabled:opacity-30 disabled:grayscale"
+                className="w-full sm:w-auto bg-[#141718] text-white px-5 sm:px-6 md:px-8 py-2.5 sm:py-3 rounded-full text-xs sm:text-sm font-bold transition-all hover:bg-gray-800 disabled:opacity-30 disabled:grayscale"
               >
                 Write Review
               </button>
@@ -211,13 +217,15 @@ export default function ReviewTab({
         )}
       </div>
 
-      {/* Reviews List Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <h2 className="text-xl sm:text-2xl font-bold text-[#141718] tracking-tight">{reviews.length} Reviews</h2>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 sm:gap-4 mb-5 sm:mb-6">
+        <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-[#141718] tracking-tight">
+          {reviews.length} Reviews
+        </h2>
+
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value as any)}
-          className="w-full sm:w-auto border border-gray-200 rounded-lg px-4 py-2 text-sm font-bold bg-white outline-none"
+          className="w-full md:w-auto border border-gray-200 rounded-lg px-3 sm:px-4 py-2 text-xs sm:text-sm font-bold bg-white outline-none"
         >
           <option value="newest">Newest</option>
           <option value="oldest">Oldest</option>
@@ -229,28 +237,32 @@ export default function ReviewTab({
           <ReviewItem
             key={review.id}
             review={review}
-            onDelete={(id) => setReviews(prev => prev.filter(r => r.id !== id))}
+            onDelete={(id: string) => setReviews(prev => prev.filter(r => r.id !== id))}
           />
         ))}
       </div>
 
       {visible < reviews.length && (
-        <div className="text-center mt-12 mb-16">
+        <div className="text-center mt-8 sm:mt-10 md:mt-12 mb-12 sm:mb-14 md:mb-16">
           <button
             onClick={() => setVisible(v => v + 5)}
-            className="border-2 border-[#141718] px-10 py-3 rounded-full font-bold hover:bg-gray-50 transition-all text-[#141718] text-sm"
+            className="border-2 border-[#141718] px-6 sm:px-8 md:px-10 py-2.5 sm:py-3 rounded-full font-bold hover:bg-gray-50 transition-all text-[#141718] text-xs sm:text-sm"
           >
             Load more
           </button>
         </div>
       )}
 
-      {/* Modal for alerts */}
       {modal.show && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4" onClick={() => setModal({ show: false, msg: "" })}>
-          <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center" onClick={e => e.stopPropagation()}>
-            <p className="mb-8 font-medium text-[#141718]">{modal.msg}</p>
-            <button onClick={() => setModal({ show: false, msg: "" })} className="w-full py-3 bg-[#141718] text-white rounded-xl font-bold">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-3 sm:p-4">
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 md:p-8 max-w-xs sm:max-w-sm w-full text-center">
+            <p className="mb-6 sm:mb-8 font-medium text-[#141718] text-sm sm:text-base">
+              {modal.msg}
+            </p>
+            <button
+              onClick={() => setModal({ show: false, msg: "" })}
+              className="w-full py-2.5 sm:py-3 bg-[#141718] text-white rounded-xl font-bold text-sm sm:text-base"
+            >
               Got it
             </button>
           </div>

@@ -124,7 +124,7 @@ export default function AccountDetails() {
   return (
     <div className="max-w-3xl">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 text-gray-500">
-        <h2 className="text-2xl font-semibold text-black">Account Details</h2>
+        <h2 className="font-inter font-semibold text-[20px] leading-[32px] tracking-normal text-black">Account Details</h2>
 
         {updateError && (
           <div className="p-4 bg-red-50 text-red-700 rounded-lg text-sm border border-red-100 animate-in fade-in slide-in-from-top-1">

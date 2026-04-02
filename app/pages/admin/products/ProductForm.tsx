@@ -383,11 +383,11 @@ export default function ProductForm({
   )
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto"
       onClick={close}
     >
-      <div 
+      <div
         className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl my-8 relative"
         onClick={(e) => e.stopPropagation()}
       >

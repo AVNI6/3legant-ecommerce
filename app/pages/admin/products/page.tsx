@@ -2,7 +2,7 @@
 
 import { useMemo, useState, Fragment } from "react"
 import { supabase } from "@/lib/supabase/client"
-import { formatCurrency } from "@/constants/Data"
+import { formatCurrency, isNewProduct } from "@/constants/Data"
 import { type ProductType } from '@/types/index'
 import ProductForm from "./ProductForm"
 import ConfirmModal from "@/components/admin/ConfirmModal"
@@ -13,7 +13,7 @@ import { HiPlus, HiSearch, HiChevronDown, HiChevronUp, HiOutlineTrash, HiOutline
 import Link from "next/link"
 
 type DisplayProduct =
-  Pick<ProductType, "id" | "name" | "image" | "category" | "is_new" | "price" | "old_price" | "sku"> & {
+  Pick<ProductType, "id" | "name" | "image" | "category" | "is_new" | "price" | "old_price" | "sku" | "created_at"> & {
     variants: ProductType[]
     stock: number
   }
@@ -57,7 +57,7 @@ export default function AdminProducts() {
     const q = query.trim().toLowerCase()
     if (!q) return grouped
     return grouped.filter(p =>
-      [p.name, p.category, p.sku, p.is_new ? "new" : ""].some(v =>
+      [p.name, p.category, p.sku, isNewProduct(p.created_at) ? "new" : ""].some(v =>
         (v ?? "").toLowerCase().includes(q)
       )
     )
@@ -215,7 +215,7 @@ export default function AdminProducts() {
                                 <div className="min-w-0">
                                   <p className="font-bold text-sm text-gray-900 truncate">{product.name}</p>
                                   <code className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">{product.sku || "NO-SKU"}</code>
-                                  <div>  {product.is_new && (
+                                  <div>  {isNewProduct(product.created_at) && (
                                     <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider">NEW</span>
                                   )}</div>
                                 </div>

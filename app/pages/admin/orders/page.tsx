@@ -49,7 +49,7 @@ function CommandCenter() {
   return (
     <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-2xl shadow-gray-200/50 overflow-hidden">
       <div className="grid grid-cols-1 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-gray-100">
-        
+
         {/* 🚀 LEFT PANEL: OUTBOUND FULFILLMENT (3/4 Width) */}
         <div className="lg:col-span-3 p-8 space-y-6">
           <div className="flex items-center justify-between">

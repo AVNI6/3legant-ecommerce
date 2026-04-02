@@ -97,7 +97,7 @@ const Address = () => {
   return (
     <div className="w-full">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-        <h1 className="text-2xl font-bold tracking-tight">Address</h1>
+        <h1 className="font-inter font-semibold text-[20px] leading-[32px] tracking-normalt">Address</h1>
         <button
           className="flex items-center justify-center gap-2 bg-black text-white px-5 py-2.5 rounded-xl hover:bg-gray-800 transition-all font-bold text-sm shadow-lg active:scale-95 w-full sm:w-auto"
           onClick={() => setShowAddForm(true)}
@@ -118,8 +118,8 @@ const Address = () => {
           <div
             key={addr.id}
             className={`group relative border rounded-2xl p-6 transition-all duration-300 bg-white ${defaultAddressId === addr.id
-                ? "border-black ring-1 ring-black shadow-md"
-                : "border-gray-200 hover:border-black hover:shadow-lg"
+              ? "border-black ring-1 ring-black shadow-md"
+              : "border-gray-200 hover:border-black hover:shadow-lg"
               }`}
           >
             <div className="flex justify-between items-start mb-4">

@@ -8,6 +8,7 @@ import { REFUND_REASONS, isWithinRefundWindow, getDaysRemainingForRefund } from 
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { FiChevronDown, FiChevronRight, FiDownload, FiInfo } from "react-icons/fi";
 import { setOrders, cancelOrder, submitRefund } from "@/store/slices/orderSlice";
+import { usePagination } from "@/lib/hooks/usePagination";
 
 type OrderItem = {
   id: number;
@@ -48,13 +49,12 @@ export default function OrdersContent({ initialOrders, refundWindowDays }: Props
   const dispatch = useAppDispatch();
   const { user } = useAppSelector(state => state.auth);
   const { orders: reduxOrders } = useAppSelector(state => state.orders);
-  
+
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
   const [refundModal, setRefundModal] = useState<{ orderid: number | null; visible: boolean }>({ orderid: null, visible: false });
   const [refundForm, setRefundForm] = useState({ reason: "", details: "", amount: 0 });
   const [submitting, setSubmitting] = useState(false);
 
-  // Sync with initial orders data
   useEffect(() => {
     if (initialOrders) {
       dispatch(setOrders(initialOrders as any[]));
@@ -62,6 +62,18 @@ export default function OrdersContent({ initialOrders, refundWindowDays }: Props
   }, [dispatch, initialOrders]);
 
   const orders = reduxOrders.length > 0 ? reduxOrders : (initialOrders || []);
+
+  const {
+    page,
+    totalPages,
+    goToPage,
+    nextPage,
+    previousPage,
+    hasNextPage,
+    hasPreviousPage,
+  } = usePagination(orders.length, { pageSize: 5 });
+
+  const paginatedOrders = orders.slice((page - 1) * 5, page * 5);
 
   const toggleExpand = (orderId: number) => {
     setExpandedOrderId(expandedOrderId === orderId ? null : orderId);
@@ -91,7 +103,7 @@ export default function OrdersContent({ initialOrders, refundWindowDays }: Props
       const totalAmount = order?.total_price || 0;
 
       await dispatch(cancelOrder({ orderId, totalAmount, adminNote: "Customer cancelled the order before shipment" })).unwrap();
-      
+
       alert("Order cancelled successfully.");
     } catch (err: any) {
       console.error("Order cancellation error:", err);
@@ -110,7 +122,7 @@ export default function OrdersContent({ initialOrders, refundWindowDays }: Props
     setSubmitting(true);
     try {
       await dispatch(submitRefund({ orderId: refundModal.orderid, reason: refundForm.reason + (refundForm.details ? ": " + refundForm.details : "") })).unwrap();
-      
+
       alert("Refund request submitted successfully!");
       setRefundModal({ orderid: null, visible: false });
       setRefundForm({ reason: "", details: "", amount: 0 });
@@ -145,9 +157,8 @@ export default function OrdersContent({ initialOrders, refundWindowDays }: Props
 
   return (
     <div className="w-full">
-      <h2 className="text-3xl font-bold mb-8 text-black">Order History</h2>
+      <h2 className="font-inter font-semibold text-[20px] leading-[32px] tracking-normal mb-10">Order History</h2>
 
-      {/* Refund Modal */}
       {refundModal.visible && refundModal.orderid && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full animate-in zoom-in duration-200">
@@ -214,7 +225,7 @@ export default function OrdersContent({ initialOrders, refundWindowDays }: Props
 
       {/* ORDERS LIST */}
       <div className="space-y-3">
-        {orders.map((order) => {
+        {paginatedOrders.map((order) => {
           const isExpanded = expandedOrderId === order.id;
           const itemsCount = (order.items_snapshot?.length || order.order_items?.length || 0);
 
@@ -323,9 +334,7 @@ export default function OrdersContent({ initialOrders, refundWindowDays }: Props
                     </div>
                   </div>
 
-                  {/* Rest of the content */}
                   <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 md:gap-10">
-                    {/* Shipping Info - Simplified Text */}
                     <div className="flex-1 space-y-3">
                       <div>
                         <h4 className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-3">Shipping Details</h4>
@@ -345,15 +354,13 @@ export default function OrdersContent({ initialOrders, refundWindowDays }: Props
                         </div>
                       </div>
 
-                      {/* Payment Method Tiny Badge */}
                       <div className="flex items-center gap-2 pt-2">
                         <span className="text-[9px] font-bold text-gray-300 uppercase tracking-wider">Paid via</span>
                         <span className="text-[9px] font-black text-black px-1.5 py-0.5 border border-black rounded uppercase italic">
                           {order.payment_method || 'Card'}
                         </span>
                       </div>
-
-                      {/* Discount Applied */}
+                      {/* 
                       {order.discount_amount && (
                         <div className="pt-2">
                           <p className="text-[9px] font-bold text-green-600">
@@ -361,10 +368,9 @@ export default function OrdersContent({ initialOrders, refundWindowDays }: Props
                             {order.coupon_code && <span className="ml-1 text-gray-500">(Code: {order.coupon_code})</span>}
                           </p>
                         </div>
-                      )}
+                      )} */}
                     </div>
 
-                    {/* Actions - Vertical Stack */}
                     <div className="w-full md:w-64 flex flex-col gap-2.5">
                       <div className="flex flex-col gap-2.5">
                         {order.invoice_url ? (
@@ -439,6 +445,48 @@ export default function OrdersContent({ initialOrders, refundWindowDays }: Props
           );
         })}
       </div>
+
+      {/* PAGINATION CONTROLS */}
+      {totalPages > 1 && (
+        <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-100 pt-8">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+            Showing Page <span className="text-black">{page}</span> of <span className="text-black">{totalPages}</span>
+          </p>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={previousPage}
+              disabled={!hasPreviousPage}
+              className="p-2.5 rounded-xl border border-gray-200 text-black disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 transition-all active:scale-95"
+            >
+              <FiChevronRight className="w-5 h-5 rotate-180" />
+            </button>
+
+            <div className="flex items-center gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                <button
+                  key={pageNum}
+                  onClick={() => goToPage(pageNum)}
+                  className={`min-w-[40px] h-10 rounded-xl text-xs font-black transition-all active:scale-95 ${page === pageNum
+                    ? "bg-black text-white shadow-lg"
+                    : "text-gray-400 hover:text-black hover:bg-gray-50"
+                    }`}
+                >
+                  {pageNum}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={nextPage}
+              disabled={!hasNextPage}
+              className="p-2.5 rounded-xl border border-gray-200 text-black disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 transition-all active:scale-95"
+            >
+              <FiChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

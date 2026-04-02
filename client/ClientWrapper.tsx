@@ -1,30 +1,3 @@
-// "use client";
-
-// import { usePathname } from "next/navigation";
-// import Navbar from "../components/Navbar";
-// import Footer from "../components/footer";
-// import NotificationWrapper from "../client/NotificationWrapper";import { APP_ROUTE } from "@/constants/AppRoutes";
-
-// interface Props {
-//     children: React.ReactNode;
-// }
-
-// export default function ClientWrapper({ children }: Props) {
-//     const pathname = usePathname();
-
-//     const noLayoutPages = [APP_ROUTE.signin, APP_ROUTE.signup, APP_ROUTE.forgotPassword, APP_ROUTE.resetPassword];
-//     const showLayout = !noLayoutPages.includes(pathname);
-
-//     return (
-//         <>
-//             {showLayout && <NotificationWrapper />}
-//             {showLayout && <Navbar />}
-//             {children}
-//             {showLayout && <Footer />}
-//         </>
-//     );
-// }
-
 "use client";
 
 import { useEffect, useState } from "react";

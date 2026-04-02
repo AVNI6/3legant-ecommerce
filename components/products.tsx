@@ -7,7 +7,7 @@ import { APP_ROUTE } from "@/constants/AppRoutes";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { addToCart } from "@/store/slices/cartSlice";
 import { toggleWishlist } from "@/store/slices/wishlistSlice";
-import { formatCurrency, getEffectivePrice } from "@/constants/Data";
+import { formatCurrency, getEffectivePrice, isNewProduct } from "@/constants/Data";
 import { type ProductType } from '@/types/index'
 import { useRequireLogin } from "@/lib/supabase/context/useRequireLogin";
 import AddToCartButton from "./AddToCartButton";
@@ -130,7 +130,7 @@ const Products = ({ products, grid = "4", variant = "grid", isLoading }: Props) 
         e.preventDefault();
         e.stopPropagation();
         if (product.stock === 0) return;
-        
+
         const resolvedCartImage = product.color_image?.[0] || product.image;
 
         const resultAction = await dispatch(addToCart({
@@ -205,7 +205,7 @@ const Products = ({ products, grid = "4", variant = "grid", isLoading }: Props) 
                                 <div className={`relative ${grid === "four" ? "w-full sm:w-[260px] md:w-[250px] flex-shrink-0" : grid === "three" ? "w-full md:w-[200px] xl:w-[250px] flex-shrink-0 md:flex md:flex-col" : "w-full"}`}>
                                     <div className="absolute z-10 flex justify-between w-full px-2 sm:px-4 top-2 sm:top-3 pointer-events-none">
                                         <div>
-                                            {product.is_new && (
+                                            {isNewProduct(product.created_at) && (
                                                 <p className="w-8 min-[350px]:w-10 md:w-12 mb-1 min-[350px]:mb-2 bg-white text-black text-center rounded-md text-[9px] min-[350px]:text-xs md:text-sm py-0.5">
                                                     NEW
                                                 </p>
@@ -292,16 +292,16 @@ const Products = ({ products, grid = "4", variant = "grid", isLoading }: Props) 
                                                 className="w-full md:w-full lg:w-[50%] flex items-center justify-center gap-1 hover:bg-gray-50 transition py-1"
                                             >
                                                 {inWishlist ? (
-  <>
-    <GoHeartFill className="bg-white text-red-500 rounded-full text-3xl sm:text-4xl md:text-3xl lg:text-4xl p-1.5 sm:p-2" />
-    <p className="font-semibold text-black text-xs sm:text-sm md:text-xs lg:text-sm">Wishlist</p>
-  </>
-) : (
-  <>
-    <GoHeart className="bg-white text-gray-500 rounded-full text-3xl sm:text-4xl md:text-3xl lg:text-4xl p-1.5 sm:p-2" />
-    <p className="font-semibold text-black text-xs sm:text-sm md:text-xs lg:text-sm">Wishlist</p>
-  </>
-)}
+                                                    <>
+                                                        <GoHeartFill className="bg-white text-red-500 rounded-full text-3xl sm:text-4xl md:text-3xl lg:text-4xl p-1.5 sm:p-2" />
+                                                        <p className="font-semibold text-black text-xs sm:text-sm md:text-xs lg:text-sm">Wishlist</p>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <GoHeart className="bg-white text-gray-500 rounded-full text-3xl sm:text-4xl md:text-3xl lg:text-4xl p-1.5 sm:p-2" />
+                                                        <p className="font-semibold text-black text-xs sm:text-sm md:text-xs lg:text-sm">Wishlist</p>
+                                                    </>
+                                                )}
                                             </button>
                                         </div>
                                     )}

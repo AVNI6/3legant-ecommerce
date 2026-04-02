@@ -2,6 +2,7 @@
 import BlackShopButton from "@/components/blackbutton";
 import Products from "@/components/products";
 import { APP_ROUTE } from "@/constants/AppRoutes";
+import { isNewProduct } from "@/constants/Data";
 import { useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { setItems } from "@/store/slices/productSlice";
@@ -22,7 +23,7 @@ const NewArrival = ({ initialProducts }: NewArrivalProps) => {
     }, [initialized, initialProducts, dispatch]);
 
     const allProducts = reduxProducts.length > 0 ? reduxProducts : initialProducts;
-    const products = allProducts?.filter((p: ProductType) => p.is_new) || [];
+    const products = allProducts?.filter((p: ProductType) => isNewProduct(p.created_at)) || [];
     const isProductsHydrating = !initialized && reduxProducts.length === 0;
 
     // Hide component if no products are new (after hydration)
