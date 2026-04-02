@@ -50,7 +50,7 @@ export default function ProductGallery({
             fill
             unoptimized
             className="object-cover"
-            priority
+            loading="eager"
           />
         ) : (
           <div className="flex items-center justify-center w-full h-full text-gray-400 font-medium">
@@ -78,7 +78,7 @@ export default function ProductGallery({
                 alt=""
                 fill
                 unoptimized
-                loading="lazy"
+                loading="eager"
                 className="object-cover hover:scale-105 transition-transform duration-300"
               />
             </div>

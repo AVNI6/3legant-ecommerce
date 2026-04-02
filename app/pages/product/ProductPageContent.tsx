@@ -51,7 +51,7 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
   const isLoading = !initialized || reduxLoading;
 
   const [selectedCategory, setSelectedCategory] = useState(categoryFromURL || "All Rooms");
-  const [selectedPrice, setSelectedPrice] = useState("all");
+  const [selectedPrice, setSelectedPrice] = useState<string[]>([]);
   const PRODUCTS_INCREMENT = 6;
 
   useEffect(() => {
@@ -94,15 +94,17 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
       items = items.filter((p: any) => p.category === selectedCategory);
     }
 
-    if (selectedPrice !== "all") {
+    if (!selectedPrice.includes("all") && selectedPrice.length > 0) {
       items = items.filter((p: any) => {
         const price = p.price;
-        if (selectedPrice === "0-99") return price <= 99;
-        if (selectedPrice === "100-199") return price >= 100 && price <= 199;
-        if (selectedPrice === "200-299") return price >= 200 && price <= 299;
-        if (selectedPrice === "300-399") return price >= 300 && price <= 399;
-        if (selectedPrice === "400+") return price >= 400;
-        return true;
+        return selectedPrice.some(range => {
+          if (range === "0-99") return price <= 99;
+          if (range === "100-199") return price >= 100 && price <= 199;
+          if (range === "200-299") return price >= 200 && price <= 299;
+          if (range === "300-399") return price >= 300 && price <= 399;
+          if (range === "400+") return price >= 400;
+          return false;
+        });
       });
     }
 
@@ -150,8 +152,43 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
     setSelectedCategory(category);
   }, []);
 
-  const handlePriceChange = useCallback((price: string) => {
-    setSelectedPrice(price);
+  const handlePriceChange = useCallback((price: string | string[]) => {
+    if (Array.isArray(price)) {
+      setSelectedPrice(price);
+      return;
+    }
+
+    if (price === "all") {
+      const specificPrices = ["0-99", "100-199", "200-299", "300-399", "400+"];
+      const isCurrentlyAll = selectedPrice.includes("all") && specificPrices.every(p => selectedPrice.includes(p));
+
+      if (isCurrentlyAll) {
+        setSelectedPrice([]);
+      } else {
+        setSelectedPrice(["all", ...specificPrices]);
+      }
+    } else {
+      setSelectedPrice((prev) => {
+        const brands = prev.filter((p) => p !== "all");
+        const alreadySelected = brands.includes(price);
+        let next: string[];
+
+        if (alreadySelected) {
+          next = brands.filter((p) => p !== price);
+        } else {
+          next = [...brands, price];
+        }
+
+        const specificPrices = ["0-99", "100-199", "200-299", "300-399", "400+"];
+        const allSpecificSelected = specificPrices.every(p => next.includes(p));
+
+        if (allSpecificSelected) {
+          return ["all", ...next];
+        }
+
+        return next;
+      });
+    }
   }, []);
 
 
@@ -168,7 +205,7 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
           fill
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 100vw, 100vw"
           className="object-cover"
-          priority
+          loading="lazy"
         />
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center gap-4 bg-black/5 px-6">
           <div className="flex items-center gap-4 text-xs md:text-sm font-medium">
@@ -192,7 +229,7 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
               selectedCategory={selectedCategory}
               setSelectedCategory={setSelectedCategory}
               selectedPrice={selectedPrice}
-              setSelectedPrice={setSelectedPrice}
+              setSelectedPrice={handlePriceChange}
             />
           </div>
         )}

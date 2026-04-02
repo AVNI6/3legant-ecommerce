@@ -373,6 +373,7 @@ export default function OrdersContent({ initialOrders, refundWindowDays }: Props
 
                     <div className="w-full md:w-64 flex flex-col gap-2.5">
                       <div className="flex flex-col gap-2.5">
+                        {/* 
                         {order.invoice_url ? (
                           <a
                             href={order.invoice_url}
@@ -388,6 +389,7 @@ export default function OrdersContent({ initialOrders, refundWindowDays }: Props
                             Invoice processing...
                           </div>
                         )}
+                        */}
 
                         {canCancelOrder(order) && (
                           <button
@@ -428,6 +430,7 @@ export default function OrdersContent({ initialOrders, refundWindowDays }: Props
                         ) : null}
                       </div>
 
+                      {/* 
                       {order.invoice_sent_at && (
                         <div className="flex items-center gap-2 justify-center pt-1.5">
                           <div className="h-px flex-1 bg-gray-100"></div>
@@ -437,6 +440,7 @@ export default function OrdersContent({ initialOrders, refundWindowDays }: Props
                           <div className="h-px flex-1 bg-gray-100"></div>
                         </div>
                       )}
+                      */}
                     </div>
                   </div>
                 </div>

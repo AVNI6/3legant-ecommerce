@@ -3,7 +3,7 @@ import { IoIosArrowBack } from "react-icons/io";
 import { IoIosArrowForward } from "react-icons/io";
 import { slides } from "@/constants/Data";
 import dynamic from "next/dynamic";
-
+import Image from "next/image";
 const Slider = dynamic(() => import("react-slick"), { ssr: false });
 
 const ArrowNext = (props: any) => {
@@ -69,8 +69,13 @@ const ImageSlider = ({ initialBanners }: { initialBanners?: any[] }) => {
       <Slider {...settings}>
         {displaySlides.map((slide) => (
           <div key={slide.id}>
-            <img
+            <Image
               src={slide.image}
+              width={1920}
+              height={1080}
+              loading="eager"
+              unoptimized
+              priority
               className="w-full h-[250px] sm:h-[350px] md:h-[450px] lg:h-[600px] object-cover"
               alt="slider image"
             />

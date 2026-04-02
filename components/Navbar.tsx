@@ -31,7 +31,7 @@ const Navbar = () => {
     } else {
       document.body.style.overflow = 'unset'
     }
-    
+
     // Cleanup on unmount
     return () => {
       document.body.style.overflow = 'unset'
@@ -57,7 +57,7 @@ const Navbar = () => {
             <GiHamburgerMenu />
           </button>
 
-          <Image src="/3legoot.png" width={90} height={32} alt="Logo" priority className="h-auto w-[75px] min-[428px]:w-[90px] sm:w-[110px]" />
+          <Image src="/3legoot.png" width={90} height={32} alt="Logo" priority loading="eager" className="h-auto w-[75px] min-[428px]:w-[90px] sm:w-[110px]" />
         </div>
 
         <nav className="hidden sm:flex sm:gap-3 md:gap-6 lg:gap-8 sm:text-[13px] md:text-sm lg:text-base font-medium transition-all">
@@ -74,7 +74,7 @@ const Navbar = () => {
             {user ? (
               <Link href={accountLink}>
                 {user.user_metadata?.avatar_url ? (
-                  <img
+                  <Image
                     src={supabase.storage.from("avatars").getPublicUrl(user.user_metadata.avatar_url).data.publicUrl}
                     className="w-8 h-8 rounded-full border object-cover bg-gray-50 shadow-sm"
                     alt="User"
@@ -148,13 +148,13 @@ const Navbar = () => {
                     </button>
                     {/* Shop Sub-menu */}
                     <div className={`overflow-hidden transition-all duration-300 ease-in-out ${shopOpen ? 'max-h-64 opacity-100 mt-2 pb-2' : 'max-h-0 opacity-0'}`}>
-                        <Link
-                          href={APP_ROUTE.product}
-                          className="block py-2.5 pl-4 text-sm font-semibold text-black hover:pl-6 transition-all"
-                          onClick={() => { setOpen(false); setShopOpen(false); }}
-                        >
-                          All Products
-                        </Link>
+                      <Link
+                        href={APP_ROUTE.product}
+                        className="block py-2.5 pl-4 text-sm font-semibold text-black hover:pl-6 transition-all"
+                        onClick={() => { setOpen(false); setShopOpen(false); }}
+                      >
+                        All Products
+                      </Link>
                       {["Living Room", "Bedroom", "Kitchen", "Office"].map((sub) => (
                         <Link
                           key={sub}
@@ -219,10 +219,15 @@ const Navbar = () => {
                 onClick={() => setOpen(false)}
               >
                 {user.user_metadata?.avatar_url ? (
-                  <img
+                  <Image
                     src={supabase.storage.from("avatars").getPublicUrl(user.user_metadata.avatar_url).data.publicUrl}
                     className="w-12 h-12 rounded-full border object-cover bg-gray-50 shadow-sm"
                     alt="User"
+                    width={1920}
+                    height={1080}
+                    loading="eager"
+                    unoptimized
+                    priority
                   />
                 ) : (
                   <div className="w-12 h-12 bg-[#141718] text-white rounded-full flex items-center justify-center text-lg font-bold">

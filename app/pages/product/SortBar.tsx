@@ -16,7 +16,7 @@ type Props = {
   setSort: (value: string) => void;
   selectedCategory: string;
   setSelectedCategory: (value: string) => void;
-  selectedPrice: string;
+  selectedPrice: string[];
   setSelectedPrice: (value: string) => void;
 };
 
@@ -105,11 +105,14 @@ const SortBar = ({
             </label>
             <div className="relative">
               <select
-                value={selectedPrice}
+                value={selectedPrice.length === 1 ? selectedPrice[0] : selectedPrice.includes("all") ? "all" : "multiple"}
                 onChange={(e) => setSelectedPrice(e.target.value)}
                 className="w-full border border-gray-300 px-4 py-2.5 rounded-lg appearance-none focus:outline-none focus:border-black text-sm font-semibold"
               >
                 <option value="all">All Price</option>
+                {selectedPrice.length > 1 && !selectedPrice.includes("all") && (
+                  <option value="multiple" disabled>Multiple Selected</option>
+                )}
                 {priceRanges.map((range) => (
                   <option key={range.value} value={range.value}>
                     {range.max

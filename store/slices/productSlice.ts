@@ -18,7 +18,7 @@ interface ProductsState {
 
 const initialState: ProductsState = {
   items: [],
-  loading: false, 
+  loading: false,
   initialized: false,
   error: null,
   sort: "default",
@@ -30,7 +30,6 @@ export const fetchProducts = createAsyncThunk(
   'products/fetchProducts',
   async (_, { rejectWithValue }) => {
     try {
-      // Fetch complete product rows to avoid schema mismatch issues across admin/store views
       const { data, error } = await supabase
         .from("products")
         .select(`

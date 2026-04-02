@@ -1,5 +1,5 @@
 import BlackShopButton from "@/components/blackbutton";
-
+import Image from "next/image";
 const Hundreds = ({ initialBanner }: { initialBanner?: any }) => {
 	const imageUrl = initialBanner?.image_url || "/home2.png";
 	const title = initialBanner?.title || "HUNDREDS of";
@@ -9,9 +9,12 @@ const Hundreds = ({ initialBanner }: { initialBanner?: any }) => {
 	return (
 		<section className="w-full flex flex-col md:flex-row">
 			<div className="w-full md:w-1/2">
-				<img
+				<Image
 					src={imageUrl}
 					alt={title}
+					width={1920}
+					height={1080}
+					loading="eager"
 					className="
 						w-full object-cover
 						h-[260px]
@@ -23,15 +26,9 @@ const Hundreds = ({ initialBanner }: { initialBanner?: any }) => {
 			</div>
 
 			<div className="w-full md:w-1/2 bg-gray-100 flex flex-col justify-center p-5 sm:p-8 md:p-12 lg:p-20">
-				<span
-					className="
+				<span className="
 						text-blue-500 font-semibold uppercase tracking-wide mb-2 sm:mb-3
-						text-[11px]
-						max-[353px]:text-[10px]
-						sm:text-[12px]
-						md:text-[13px]
-					"
-				>
+text-[11px] max-[353px]:text-[10px]sm:text-[12px] md:text-[13px]">
 					{initialBanner?.category === "SALE"
 						? initialBanner.subtitle
 						: "SALE UP TO 35% OFF"}
