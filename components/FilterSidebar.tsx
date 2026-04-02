@@ -95,7 +95,7 @@ const FilterSidebar: React.FC<FilterBarProps> = ({
 }) => {
      const router = useRouter();
     return (
-        <div className="sticky top-10 flex flex-col gap-8 ">
+        <div className="sticky top-22 flex flex-col gap-8 ">
             <div className="overflow-y-auto h-50">
                 <h4 className="uppercase text-sm font-semibold mb-4 ">Categories</h4>
                 <div className="flex flex-col gap-2 ">

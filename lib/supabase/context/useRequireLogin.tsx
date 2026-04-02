@@ -4,24 +4,23 @@ import { APP_ROUTE } from "@/constants/AppRoutes";
 import Link from "next/link";
 
 export const useRequireLogin = () => {
-  const [showModal, setShowModal] = useState(false);
+  const [modalState, setModalState] = useState({ show: false, message: "" });
 
-  // Wrap any action with login check
-  const requireLogin = (action: () => void, user: any) => {
+  const requireLogin = (action: () => void, user: any, message: string = "You must sign in to perform this action.") => {
     if (!user) {
-      setShowModal(true);
+      setModalState({ show: true, message });
       return;
     }
     action();
   };
 
   const LoginModal = () => (
-    showModal ? (
-      <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+    modalState.show ? (
+      <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-[60]">
         <div className="bg-white p-6 rounded-lg w-[90%] max-w-sm text-center shadow-lg">
           <h3 className="text-lg font-semibold mb-4">Sign In Required</h3>
           <p className="text-gray-600 mb-6">
-            You must sign in to perform this action.
+            {modalState.message}
           </p>
           <Link
             href={APP_ROUTE.signin}
@@ -30,8 +29,8 @@ export const useRequireLogin = () => {
             Go to Sign In
           </Link>
           <button
-            onClick={() => setShowModal(false)}
-            className="mt-4 text-gray-500 hover:text-black underline"
+            onClick={() => setModalState({ show: false, message: "" })}
+            className="mt-4 text-gray-500 hover:text-black underline block mx-auto"
           >
             Cancel
           </button>

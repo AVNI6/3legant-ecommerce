@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { APP_ROUTE } from "@/constants/AppRoutes";
+import { toast } from "react-toastify";
 
 type Inputs = {
   email: string;
@@ -24,11 +25,11 @@ export default function ForgotPassword() {
     });
 
     if (error) {
-      alert(error.message);
+      toast.error(error.message);
       return;
     }
 
-    alert("Password reset email sent! Check your inbox.");
+    toast.success("Password reset email sent! Check your inbox.");
     redirect(APP_ROUTE.signin)
   };
 
@@ -40,6 +41,7 @@ export default function ForgotPassword() {
           src="/signup.png"
           alt="Signup Image"
           fill
+          loading="lazy"
           className="object-cover"
         />
 
@@ -56,7 +58,11 @@ export default function ForgotPassword() {
           className="flex flex-col gap-6 w-full max-w-md" >
           <h1 className="text-md md:text-3xl font-bold">Forgot Password</h1>
 
+          <label htmlFor="forgot-email" className="sr-only">Email address</label>
+
           <input
+            id="forgot-email"
+            autoComplete="email"
             type="email"
             placeholder="Enter your email"
             {...register("email", { required: true })}

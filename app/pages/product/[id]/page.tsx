@@ -1,387 +1,78 @@
-"use client";
+import { createClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
+import ProductDetailContent from "@/sections/product/ProductDetailContent";
+import { Suspense } from "react";
+import { GallerySkeleton } from "@/components/ui/skeleton";
+import { mapProducts } from "@/store/slices/productSlice";
 
-import { useParams } from "next/navigation";
-import { formatCurrency } from "@/constants/Data";
-import { useProducts } from "@/lib/supabase/context/ProductContext";
-import { APP_ROUTE } from "@/constants/AppRoutes";
-import { useCart } from "@/sections/cart/context/CartContext";
-import Link from "next/link";
-import { useState } from "react";
-import ProductGallery from "@/components/ProductGallery";
-import OfferCountdown from "@/components/OfferCountdown";
-import ColorSelector from "@/sections/ColorSelector";
-import { GoHeart, GoHeartFill } from "react-icons/go";
-import ReviewTab from "@/sections/account/ReviewTab";
-import Additional from "@/sections/account/Additional";
-import Question from "@/sections/account/Question";
-const colorImages = [
-  { id: 1, image: "/color/c1.png" },
-  { id: 2, image: "/color/c2.png" },
-  { id: 3, image: "/color/c3.png" },
-  { id: 4, image: "/color/c4.png" }
-];
+export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id: idStr } = await params;
+    const id = Number(idStr);
+    const cookieStore = cookies();
+    const supabase = createClient(cookieStore);
 
-export default function ProductPage() {
-  const params = useParams();
-  const id = Number(params.id);
+    const { data: rawData, error: productError } = await supabase
+        .from("products")
+        .select(`
+            *,
+            product_variant (*)
+        `)
+        .eq("id", id)
+        .or("is_deleted.is.null,is_deleted.eq.false");
 
-  const { products } = useProducts();
-  const product = products.find((p) => p.id === id);
-
-  const { addToCart } = useCart();
-  const { addToWishlist, removeWishlistItem, wishlistItems, user  } = useCart();
-  const [qty, setQty] = useState(1);
-  const [tab, setTab] = useState("reviews");
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [colorImage, setColorImage] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false)
-
-
-  if (!product) return <div className="p-10">Product not found</div>;
-
-  const baseImages = [
-    product.image,
-    ...(product.thumbnails ? Object.values(product.thumbnails) : [])
-  ];
-
-  const mainImage = colorImage || baseImages[currentIndex];
-
- const isInWishlist = wishlistItems.some(
-  item => item.id === product.id && item.color === product.color
-)
-
-const handleWishlist = () => {
-  if (!user) {
-    setShowModal(true)
-    return
-  }
-
-  if (isInWishlist) {
-    removeWishlistItem(product.id)
-  } else {
-    addToWishlist({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      image: product.image,
-      color: product.color
-    })
-  }
-}
-
-  return (
-    <div className="mx-5 sm:mx-10 lg:mx-30">
-      <div className="text-sm text-gray-500 mb-6">
-        <Link href="/">Home</Link> &gt;{" "}
-        <Link href={APP_ROUTE.product}>Shop</Link> &gt;{" "}
-        <Link href={{ pathname: APP_ROUTE.product, query: { category: product.category }, }} >
-          {product.category}
-        </Link> &gt;{" "}
-        {/* <Link href={APP_ROUTE.product}>{product.category}</Link> &gt;{" "} */}
-        <span className="text-black">{product.name}</span>
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-10">
-
-        <ProductGallery
-          images={baseImages}
-          product={product}
-          currentIndex={currentIndex}
-          setCurrentIndex={(i: number) => {
-            setCurrentIndex(i);
-            setColorImage(null);
-          }}
-          mainImage={mainImage}
-        />
-
-        <div>
-          <h1 className="text-3xl font-semibold">{product.name}</h1>
-          <p className="text-gray-600 mt-3">{product.description}</p>
-
-          <div className="flex gap-4 mt-4 text-xl">
-            <span className="font-bold">{formatCurrency(product.price)}</span>
-            <span className="line-through text-gray-400">{formatCurrency(product.oldPrice)}</span>
-          </div>
-
-          <hr className="text-gray-300 my-6" />
-          <OfferCountdown validationTill={product.validationTill} />
-          <hr className="text-gray-300 my-6" />
-
-          <div>
-            <h1 className="text-[#6C7275] font-semibold">Measurements</h1>
-            <p className="tracking-widest">{product.measurements}</p>
-          </div>
-
-          <ColorSelector
-            colors={colorImages}
-            selected={colorImages.find(c => c.image === colorImage)?.id || null}
-            onSelect={(id) => {
-              const img = colorImages.find(c => c.id === id)?.image;
-              if (img) setColorImage(img);
-            }} />
-
-          <div className="flex gap-4 items-center">
-            <div className="flex bg-[#F5F5F5] rounded-md p-2">
-              <button onClick={() => setQty(qty > 1 ? qty - 1 : 1)} className="px-3">-</button>
-              <span className="px-4">{qty}</span>
-              <button onClick={() => setQty(qty + 1)} className="px-3">+</button>
+    if (productError || !rawData || rawData.length === 0) {
+        return (
+            <div className="p-10 text-center">
+                <h1 className="text-2xl font-bold mb-4">Product Not Found</h1>
+                <p className="text-gray-500 mb-8">The product you are looking for might have been removed or is temporarily unavailable.</p>
+                <a href="/pages/product" className="bg-black text-white px-6 py-2 rounded-lg hover:bg-gray-800 transition">
+                    Back to Shop
+                </a>
             </div>
-            {/* <button className="border rounded-lg w-full flex items-center justify-center gap-1 px-6 py-2"> <GoHeart /> Wishlist</button> */}
-            <button
-              onClick={handleWishlist}
-              className="border rounded-lg w-full flex items-center justify-center gap-1 px-6 py-2 transition"
-            >
-              {isInWishlist ? (
-                <GoHeartFill className="text-red-500" />
-              ) : (
-                <GoHeart />
-              )}
-              Wishlist
-            </button>
+        );
+    }
 
-          </div>
+    const initialVariants = mapProducts(rawData);
+    const initialProduct = initialVariants[0];
 
-          <button
-            onClick={() =>
-              addToCart({
-                id: product.id,
-                name: product.name,
-                price: product.price,
-                image: product.image,
-                color: product.color
-              })
-            }
-            className="bg-black rounded-lg text-white w-full py-3 mt-4" >
-            Add to Cart
-          </button>
-          <hr className="text-gray-300 my-6" />
+    const { data: reviewData, error: reviewError } = await supabase
+        .from("reviews")
+        .select("rating")
+        .eq("product_id", id)
+        .or("status.neq.spam,status.is.null");
 
-          <div className="space-y-2">
-            <div className="flex items-center gap-10">
-              <span className="text-gray-500 font-medium w-24">SKU</span>
-              <span>{product.id}</span>
-            </div>
-            <div className="flex items-center gap-10">
-              <span className="text-gray-500 font-medium w-24">Category</span>
-              <span>{product.category}</span>
-            </div>
-          </div>
+    const reviewRows = reviewData ?? [];
+    const count = reviewRows.length;
+    const rating = count > 0
+        ? reviewRows.reduce((sum, row) => sum + Number(row.rating ?? 0), 0) / count
+        : 0;
+
+    const initialReviewStats = { rating, count };
+
+    return (
+        <div suppressHydrationWarning>
+            <Suspense fallback={
+                <div className="mx-4 sm:mx-6 md:mx-10 lg:mx-30 animate-pulse">
+                    <div className="h-4 w-32 bg-gray-200 rounded mb-4 sm:mb-6"></div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 lg:gap-10">
+                        <GallerySkeleton />
+                        <div className="space-y-4 sm:space-y-6">
+                            <div className="h-6 w-32 bg-gray-200 rounded"></div>
+                            <div className="h-8 w-3/4 bg-gray-200 rounded"></div>
+                            <div className="h-4 w-full bg-gray-200 rounded"></div>
+                            <div className="h-6 w-24 bg-gray-200 rounded"></div>
+                            <div className="h-20 w-full bg-gray-200 rounded"></div>
+                        </div>
+                    </div>
+                </div>
+            }>
+                <ProductDetailContent
+                    id={id}
+                    initialProduct={initialProduct}
+                    initialVariants={initialVariants}
+                    initialReviewStats={initialReviewStats}
+                />
+            </Suspense>
         </div>
-      </div>
-      {showModal && (
-  <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
-    <div className="bg-white p-6 rounded-lg w-[90%] max-w-sm text-center shadow-lg">
-      <h3 className="text-lg font-semibold mb-4">Sign In Required</h3>
-
-      <p className="text-gray-600 mb-6">
-        Please sign in to add items to wishlist.
-      </p>
-
-      <Link
-        href={APP_ROUTE.signin}
-        className="bg-black text-white px-5 py-2 rounded-lg"
-      >
-        Go to Sign In
-      </Link>
-
-      <button
-        onClick={() => setShowModal(false)}
-        className="block mt-4 text-gray-500 underline"
-      >
-        Cancel
-      </button>
-    </div>
-  </div>
-)}
-
-      <div className="flex gap-8 mt-12 border-b">
-        {["additional", "questions", "reviews"].map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`pb-3 capitalize ${tab === t ? "border-b-2 border-black font-semibold" : ""}`}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
-      {tab === "additional" && <Additional product={product} />}
-      {tab === "questions" && <Question />}
-      {tab === "reviews" && <ReviewTab />}
-    </div>
-  );
+    );
 }
-// "use client";
-
-// import { useParams } from "next/navigation";
-// import { formatCurrency, products } from "@/constants/Data";
-// import { APP_ROUTE } from "@/constants/AppRoutes";
-// import { useCart } from "@/sections/cart/context/CartContext";
-// import Link from "next/link";
-// import { useState } from "react";
-// import ProductGallery from "@/components/ProductGallery";
-// import OfferCountdown from "@/components/OfferCountdown";
-// import ColorSelector from "@/sections/ColorSelector";
-// import { GoHeart, GoHeartFill } from "react-icons/go";
-// import ReviewTab from "@/sections/account/ReviewTab";
-// import Additional from "@/sections/account/Additional";
-// import Question from "@/sections/account/Question";
-// const colorImages = [
-//   { id: 1, image: "/color/c1.png" },
-//   { id: 2, image: "/color/c2.png" },
-//   { id: 3, image: "/color/c3.png" },
-//   { id: 4, image: "/color/c4.png" }
-// ];
-
-// export default function ProductPage() {
-//   const params = useParams();
-//   const id = Number(params.id);
-
-//   const product = products.find((p) => p.id === id);
-//   const { addToCart } = useCart();
-//   const { addToWishlist, removeWishlistItem, wishlistItems } = useCart();
-//   const [qty, setQty] = useState(1);
-//   const [tab, setTab] = useState("reviews");
-//   const [currentIndex, setCurrentIndex] = useState(0);
-//   const [colorImage, setColorImage] = useState<string | null>(null);
-
-
-//   if (!product) return <div className="p-10">Product not found</div>;
-
-//   const baseImages = [
-//     product.image,
-//     ...(product.thumbnails ? Object.values(product.thumbnails) : [])
-//   ];
-
-//   const mainImage = colorImage || baseImages[currentIndex];
-
-//   const isInWishlist = wishlistItems.some(
-//     (item) => item.id === product.id && item.color === product.color
-//   );
-
-//   return (
-//     <div className="mx-5 sm:mx-10 lg:mx-30">
-//       <div className="text-sm text-gray-500 mb-6">
-//         <Link href="/">Home</Link> &gt;{" "}
-//         <Link href={APP_ROUTE.product}>Shop</Link> &gt;{" "}
-//         <Link href={APP_ROUTE.product}>{product.category}</Link> &gt;{" "}
-//         <span className="text-black">{product.name}</span>
-//       </div>
-
-//       <div className="grid md:grid-cols-2 gap-10">
-
-//         <ProductGallery
-//           images={baseImages}
-//           product={product}
-//           currentIndex={currentIndex}
-//           setCurrentIndex={(i: number) => {
-//             setCurrentIndex(i);
-//             setColorImage(null);
-//           }}
-//           mainImage={mainImage}
-//         />
-
-//         <div>
-//           <h1 className="text-3xl font-semibold">{product.name}</h1>
-//           <p className="text-gray-600 mt-3">{product.description}</p>
-
-//           <div className="flex gap-4 mt-4 text-xl">
-//             <span className="font-bold">{formatCurrency(product.price)}</span>
-//             <span className="line-through text-gray-400">{formatCurrency(product.oldPrice)}</span>
-//           </div>
-
-//           <hr className="text-gray-300 my-6" />
-//           <OfferCountdown />
-//           <hr className="text-gray-300 my-6" />
-
-//           <div>
-//             <h1 className="text-[#6C7275] font-semibold">Measurements</h1>
-//             <p className="tracking-widest">{product.measurements}</p>
-//           </div>
-
-//           <ColorSelector
-//             colors={colorImages}
-//             selected={colorImages.find(c => c.image === colorImage)?.id || null}
-//             onSelect={(id) => {
-//               const img = colorImages.find(c => c.id === id)?.image;
-//               if (img) setColorImage(img);
-//             }} />
-
-//           <div className="flex gap-4 items-center">
-//             <div className="flex bg-[#F5F5F5] rounded-md p-2">
-//               <button onClick={() => setQty(qty > 1 ? qty - 1 : 1)} className="px-3">-</button>
-//               <span className="px-4">{qty}</span>
-//               <button onClick={() => setQty(qty + 1)} className="px-3">+</button>
-//             </div>
-//             {/* <button className="border rounded-lg w-full flex items-center justify-center gap-1 px-6 py-2"> <GoHeart /> Wishlist</button> */}
-//             <button
-//               onClick={() => {
-//                 if (isInWishlist) {
-//                   removeWishlistItem(product.id);
-//                 } else {
-//                   addToWishlist({
-//                     id: product.id,
-//                     name: product.name,
-//                     price: product.price,
-//                     image: product.image,
-//                     color: product.color,
-//                   });
-//                 }
-//               }}
-//               className="border rounded-lg w-full flex items-center justify-center gap-1 px-6 py-2 transition"
-//             >
-//               {isInWishlist ? (
-//                 <GoHeartFill className="text-red-500" />
-//               ) : (
-//                 <GoHeart />
-//               )}
-//               Wishlist
-//             </button>
-
-//           </div>
-
-//           <button
-//             onClick={() =>
-//               addToCart({
-//                 id: product.id,
-//                 name: product.name,
-//                 price: product.price,
-//                 image: product.image,
-//                 color: product.color
-//               })
-//             }
-//             className="bg-black rounded-lg text-white w-full py-3 mt-4" >
-//             Add to Cart
-//           </button>
-//           <hr className="text-gray-300 my-6" />
-
-//           <div className="space-y-2">
-//             <div className="flex items-center gap-10">
-//               <span className="text-gray-500 font-medium w-24">SKU</span>
-//               <span>{product.id}</span>
-//             </div>
-//             <div className="flex items-center gap-10">
-//               <span className="text-gray-500 font-medium w-24">Category</span>
-//               <span>{product.category}</span>
-//             </div>
-//           </div>
-//         </div>
-//       </div>
-
-//       <div className="flex gap-8 mt-12 border-b">
-//         {["additional", "questions", "reviews"].map((t) => (
-//           <button
-//             key={t}
-//             onClick={() => setTab(t)}
-//             className={`pb-3 capitalize ${tab === t ? "border-b-2 border-black font-semibold" : ""}`}
-//           >
-//             {t}
-//           </button>
-//         ))}
-//       </div>
-//       {tab === "additional" && <Additional product={product} />}
-//       {tab === "questions" && <Question />}
-//       {tab === "reviews" && <ReviewTab />}
-//     </div>
-//   );
-// }

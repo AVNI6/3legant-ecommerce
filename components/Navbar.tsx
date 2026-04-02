@@ -1,164 +1,66 @@
-// "use client";
-// import CartDrawer from "@/sections/cart/CartDrawer"
-// import Link from "next/link";
-// import Image from "next/image";
-// import { CiSearch } from "react-icons/ci";
-// import { RiAccountCircleLine } from "react-icons/ri";
-// import { TbShoppingBag } from "react-icons/tb";
-// import { GiHamburgerMenu } from "react-icons/gi";
-// import { RxCross1 } from "react-icons/rx";
-// import { useState } from "react";
-// import { APP_ROUTE } from "@/constants/AppRoutes";
-
-// const Navbar = () => {
-//   const [open, setOpen] = useState(false);
-
-//   const navLinks = [
-//     { name: "Home", href: "/" },
-//     { name: "Shop", href: APP_ROUTE.product },
-//     { name: "Product", href:'/'},
-//     { name: "Contact Us", href: APP_ROUTE.contact },
-//   ];
-
-//   const iconLinks = [
-//     { icon: <CiSearch />, href: null, hideOnMobile: true },
-//     { icon: <RiAccountCircleLine />, href: APP_ROUTE.signup, hideOnMobile: true },
-//     { icon: <TbShoppingBag />, href: APP_ROUTE.cart, hideOnMobile: false },
-//   ];
-
-//   return (
-//     <>
-//       <header className="w-full px-5 sm:px-10 lg:px-30 py-5 flex items-center justify-between">
-//         <div className="flex items-center gap-3">
-//           <button className="sm:hidden text-2xl" onClick={() => setOpen(true)}>
-//             <GiHamburgerMenu />
-//           </button>
-//           <Image src="/3legoot.png" width={110} height={40} alt="Logo" priority />
-//         </div>
-
-//         <nav className="hidden sm:flex gap-8 font-medium">
-//           {navLinks.map((link) => (
-//             <Link key={link.name} href={link.href}>
-//               {link.name}
-//             </Link>
-//           ))}
-//         </nav>
-
-//         <div className="flex gap-5 text-2xl">
-//           {iconLinks.map((iconItem, idx) =>
-//             iconItem.href ? (
-//               <Link key={idx} href={iconItem.href}>
-//                 <div className={`${iconItem.hideOnMobile ? "hidden sm:block" : ""} cursor-pointer`}>
-//                   {iconItem.icon}
-//                 </div>
-//               </Link>
-//             ) : (
-//               <div key={idx} className={`${iconItem.hideOnMobile ? "hidden sm:block" : ""} cursor-pointer`}>
-//                 {iconItem.icon}
-//               </div>
-//             )
-//           )}
-//         </div>
-//       </header>
-
-//       {open && <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setOpen(false)} />}
-
-//       <div className={`fixed top-0 left-0 h-full w-[280px] bg-white z-50 shadow-lg transform transition-transform duration-300  ${open ? "translate-x-0" : "-translate-x-full"}`} >
-//         <div className="flex justify-end p-4">
-//           <button onClick={() => setOpen(false)} className="text-2xl">
-//             <RxCross1 />
-//           </button>
-//         </div>
-
-//         <nav className="flex flex-col gap-6 px-6 text-lg font-medium">
-//           {navLinks.map((link) => (
-//             <Link key={link.name} href={link.href} onClick={() => setOpen(false)}>
-//               {link.name}
-//             </Link>
-//           ))}
-//         </nav>
-
-//         <div className="flex gap-6 px-6 mt-10 text-2xl">
-//           {iconLinks.map((iconItem, idx) =>
-//             iconItem.href ? (
-//               <Link key={idx} href={iconItem.href} onClick={() => setOpen(false)}>
-//                 <div>{iconItem.icon}</div>
-//               </Link>
-//             ) : (
-//               <div key={idx}>{iconItem.icon}</div>
-//             )
-//           )}
-//         </div>
-//       </div>
-//     </>
-//   );
-// };
-
-// export default Navbar;
-
-
 "use client"
 import { supabase } from "@/lib/supabase/client"
 import CartDrawer from "@/sections/cart/CartDrawer"
 import Link from "next/link"
 import Image from "next/image"
-import { CiSearch } from "react-icons/ci"
 import { RiAccountCircleLine } from "react-icons/ri"
 import { TbShoppingBag } from "react-icons/tb"
 import { GiHamburgerMenu } from "react-icons/gi"
 import { RxCross1 } from "react-icons/rx"
-import { useEffect, useState } from "react"
 import { APP_ROUTE } from "@/constants/AppRoutes"
-import { useCart } from "@/sections/cart/context/CartContext"
 import { LuSearch } from "react-icons/lu"
 import { GoHeart } from "react-icons/go"
 import { IoLogoFacebook, IoLogoInstagram, IoLogoYoutube } from "react-icons/io"
-import { FaYoutube } from "react-icons/fa6"
-import { FiYoutube } from "react-icons/fi"
-import { SlSocialFacebook } from "react-icons/sl"
+import ProductSearch from "./ProductSearch"
+import { useState, useEffect } from "react"
+import { useAppSelector } from "@/store/hooks"
 
 const Navbar = () => {
   const [open, setOpen] = useState(false)
   const [isCartOpen, setIsCartOpen] = useState(false)
-  const [user, setUser] = useState<any>(null)
-  const { cartItems } = useCart()
+  const [shopOpen, setShopOpen] = useState(false)
+
+  const { user, isAdmin, adminChecked } = useAppSelector((state) => state.auth)
+  const cartItems = useAppSelector((state) => state.cart.items)
+  const wishlistitems = useAppSelector((state) => state.wishlist.items)
+
+  // Prevent body scroll when drawer is open
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [open])
 
   const navLinks = [
     { name: "Home", href: "/" },
     { name: "Shop", href: APP_ROUTE.product },
-    { name: "Product", href: "/" },
+    { name: "Blog", href: APP_ROUTE.blog },
     { name: "Contact Us", href: APP_ROUTE.contact },
   ]
-  useEffect(() => {
-    const fetchSession = async () => {
-      const { data } = await supabase.auth.getSession()
-      setUser(data.session?.user ?? null)
-    }
-
-    fetchSession()
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
 
 
+  // Robust role detection using Redux state and metadata as fallbacks
+  const isUserAdmin = isAdmin || user?.user_metadata?.role === "admin" || user?.app_metadata?.role === "admin"
+  const accountLink = isUserAdmin ? APP_ROUTE.admindashboard : APP_ROUTE.account
   return (
     <>
-      <header className="w-full px-5 sm:px-10 lg:px-30 py-5 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button className="sm:hidden text-2xl" onClick={() => setOpen(true)}>
+      <header className="w-full sticky top-0 z-30 bg-white px-3 min-[428px]:px-4 sm:px-4 md:px-8 lg:px-30 py-3 sm:py-5 flex items-center justify-between shadow-sm">
+        <div className="flex items-center gap-1.5 min-[428px]:gap-2 sm:gap-3">
+          <button className="sm:hidden text-lg min-[428px]:text-xl" onClick={() => setOpen(true)}>
             <GiHamburgerMenu />
           </button>
 
-          <Image src="/3legoot.png" width={110} height={40} alt="Logo" priority />
+          <Image src="/3legoot.png" width={90} height={32} alt="Logo" priority className="h-auto w-[75px] min-[428px]:w-[90px] sm:w-[110px]" />
         </div>
 
-        <nav className="hidden sm:flex gap-8 font-medium">
+        <nav className="hidden sm:flex sm:gap-3 md:gap-6 lg:gap-8 sm:text-[13px] md:text-sm lg:text-base font-medium transition-all">
           {navLinks.map(link => (
             <Link key={link.name} href={link.href}>
               {link.name}
@@ -166,17 +68,22 @@ const Navbar = () => {
           ))}
         </nav>
 
-        <div className="flex gap-5 text-2xl items-center">
-          <div className="hidden sm:block cursor-pointer">
-            <CiSearch />
-          </div>
-
-          <div className="hidden sm:block font-space">
+        <div className="flex gap-2 min-[428px]:gap-3 sm:gap-3 md:gap-5 text-lg min-[428px]:text-xl sm:text-xl md:text-2xl items-center max-[234px]:hidden transition-all">
+          <ProductSearch />
+          <div className="hidden md:block font-space">
             {user ? (
-              <Link href={APP_ROUTE.account}>
-                <div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center text-sm font-semibold cursor-pointer">
-                  {user.email?.charAt(0).toUpperCase()}
-                </div>
+              <Link href={accountLink}>
+                {user.user_metadata?.avatar_url ? (
+                  <img
+                    src={supabase.storage.from("avatars").getPublicUrl(user.user_metadata.avatar_url).data.publicUrl}
+                    className="w-8 h-8 rounded-full border object-cover bg-gray-50 shadow-sm"
+                    alt="User"
+                  />
+                ) : (
+                  <div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center text-sm font-semibold cursor-pointer">
+                    {user.email?.charAt(0).toUpperCase()}
+                  </div>
+                )}
               </Link>
             ) : (
               <Link href={APP_ROUTE.signup}>
@@ -184,11 +91,10 @@ const Navbar = () => {
               </Link>
             )}
           </div>
-
-          <div className="flex gap-1 items-center cursor-pointer" onClick={() => setIsCartOpen(true)}  >
+          <div className="flex gap-0.5 min-[428px]:gap-1 items-center cursor-pointer" onClick={() => setIsCartOpen(true)}  >
             <TbShoppingBag />
-            {cartItems.length > 0 && (
-              <span className="flex items-center bg-black text-white text-xs px-2 py-[4px] rounded-full">
+            {cartItems?.length > 0 && (
+              <span className="flex items-center bg-black text-white text-[11px] sm:text-[13px] px-1.5 sm:px-2.5 py-[3px] sm:py-[6px] rounded-full">
                 {cartItems.length}
               </span>
             )}
@@ -200,77 +106,158 @@ const Navbar = () => {
       {open && (
         <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setOpen(false)} />
       )}
-      <div className={`fixed top-0 left-0 h-screen max-w-[330px] w-[80%] bg-white z-50 shadow-lg transform transition-transform duration-300 
-      ${open ? "translate-x-0" : "-translate-x-full"
-        }`} >
-        <div className="flex  justify-between p-4">
-          <Image src="/3legoot.png" width={100} height={24} alt="Logo" priority />
-          <button onClick={() => setOpen(false)} className="text-2xl">
+      <div className={`fixed top-0 left-0 h-[100dvh] overflow-y-auto max-w-[360px] w-[90%] bg-white z-50 shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col
+      ${open ? "translate-x-0" : "-translate-x-full"}`} >
+
+        {/* Drawer Header */}
+        <div className="flex justify-between items-center p-6 pb-4 shrink-0">
+          <span className="text-xl font-bold tracking-tight">3legant.</span>
+          <button onClick={() => setOpen(false)} className="text-2xl text-gray-400 hover:text-black transition-colors">
             <RxCross1 />
           </button>
         </div>
-        <div className="flex border rounded p-2 gap-2 items-center mx-6 ">
-          <LuSearch />
-          <input placeholder="Search" className="w-full" />
-        </div>
-
-        <div className="p-6 flex flex-col justify-between h-[calc(100%-100px)]">
-          <nav className="flex flex-col gap-6  text-lg font-medium">
-            {navLinks.map(link => (
-              <Link
-                key={link.name}
-                href={link.href}
-                onClick={() => setOpen(false)}>
-                {link.name}
-                <hr className="mt-1 text-gray-300" />
-              </Link>
-
-            ))}
-          </nav>
-          <div className="text-[18px] flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <p className="text-[#6C7275] font-medium">Cart</p>
-              <div onClick={() => {
-                setIsCartOpen(true)
+        <div className="flex-1 px-6 py-2 shrink-0 flex flex-col">
+          <div className="relative mb-6">
+            <div
+              className="flex items-center gap-3 px-4 py-3 border border-gray-300 rounded-lg group cursor-pointer hover:border-black transition-colors"
+              onClick={() => {
                 setOpen(false)
-              }}>
-                <TbShoppingBag size={25} />
-                {cartItems.length > 0 && (
-                  <span className=" bg-black text-white text-xs px-2 py-[2px] rounded-full">
-                    {cartItems.length}
-                  </span>
-                )}</div>
-            </div>
-            <hr className="text-gray-300" />
-            <div className="flex items-center justify-between">
-              <p className="text-[#6C7275] font-medium">Wishlist</p>
-              <GoHeart size={25} />
-            </div>
-            <hr className="text-gray-300" />
-            <Link href={APP_ROUTE.signin} className="bg-black text-white p-2 rounded-md my-5">Signin</Link>
-            <div className="flex items-center gap-4 text-[30px]">
-              <IoLogoInstagram />
-              <SlSocialFacebook />
-              <FiYoutube />
+                window.dispatchEvent(new CustomEvent('toggle-search'))
+              }}
+            >
+              <LuSearch className="text-xl text-gray-500 group-hover:text-black" />
+              <span className="text-gray-400 text-sm">Search</span>
             </div>
           </div>
+          <nav className="flex flex-col mb-8">
+            {navLinks.map((link, index) => (
+              <div key={link.name} className="flex flex-col">
+                {link.name === "Shop" ? (
+                  <>
+                    <button
+                      onClick={() => setShopOpen(!shopOpen)}
+                      className="flex items-center justify-between py-4 text-sm font-semibold text-gray-900 border-b border-gray-100 hover:text-gray-600 transition-colors w-full text-left"
+                    >
+                      {link.name}
+                      <svg
+                        className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${shopOpen ? 'rotate-180 text-black' : ''}`}
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    {/* Shop Sub-menu */}
+                    <div className={`overflow-hidden transition-all duration-300 ease-in-out ${shopOpen ? 'max-h-64 opacity-100 mt-2 pb-2' : 'max-h-0 opacity-0'}`}>
+                        <Link
+                          href={APP_ROUTE.product}
+                          className="block py-2.5 pl-4 text-sm font-semibold text-black hover:pl-6 transition-all"
+                          onClick={() => { setOpen(false); setShopOpen(false); }}
+                        >
+                          All Products
+                        </Link>
+                      {["Living Room", "Bedroom", "Kitchen", "Office"].map((sub) => (
+                        <Link
+                          key={sub}
+                          href={`${APP_ROUTE.product}?category=${sub}`}
+                          className="block py-2.5 pl-4 text-sm text-gray-500 hover:text-black hover:pl-6 transition-all"
+                          onClick={() => { setOpen(false); setShopOpen(false); }}
+                        >
+                          {sub}
+                        </Link>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <Link
+                    href={link.href}
+                    className="flex items-center justify-between py-4 text-sm font-semibold text-gray-900 border-b border-gray-100 hover:text-gray-600 transition-colors"
+                    onClick={() => setOpen(false)}
+                  >
+                    {link.name}
+                  </Link>
+                )}
+              </div>
+            ))}
+          </nav>
 
         </div>
 
+        <div className="px-6 py-6 border-t border-gray-50 bg-white mt-auto shrink-0">
+          <div className="flex flex-col gap-2 mb-6">
+            {/* Cart Row */}
+            <div
+              className="flex items-center justify-between py-2 cursor-pointer group"
+              onClick={() => { setIsCartOpen(true); setOpen(false); }}
+            >
+              <span className="text-base font-medium text-gray-500 group-hover:text-black transition-colors">Cart</span>
+              <div className="flex items-center gap-2">
+                <TbShoppingBag className="text-xl" />
+                <span className="bg-black text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full leading-none">
+                  {cartItems?.length || 0}
+                </span>
+              </div>
+            </div>
+            <div className="h-[1px] bg-gray-100 w-full" />
 
-        <div className="flex gap-6 p-6 mt-10 text-2xl items-center">
-          <div className="hidden sm:block">
-            {user ? (
-              <Link href={APP_ROUTE.account}>
-                <div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center text-sm font-semibold cursor-pointer">
-                  {user.email?.charAt(0).toUpperCase()}
+            <div className="flex items-center justify-between py-2 cursor-pointer group">
+              <span className="text-base font-medium text-gray-500 group-hover:text-black transition-colors">Wishlist</span>
+              <div className="flex items-center gap-2">
+                <GoHeart className="text-xl" />
+                <span className="bg-black text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full leading-none">
+                  {wishlistitems?.length || 0}
+                </span>
+              </div>
+            </div>
+            <div className="h-[1px] bg-gray-100 w-full" />
+          </div>
+
+          {user ? (
+            <div className="flex flex-col gap-3 mb-6">
+              <Link
+                href={accountLink}
+                className="flex items-center gap-4 p-1 rounded-lg hover:bg-gray-50 transition-colors group"
+                onClick={() => setOpen(false)}
+              >
+                {user.user_metadata?.avatar_url ? (
+                  <img
+                    src={supabase.storage.from("avatars").getPublicUrl(user.user_metadata.avatar_url).data.publicUrl}
+                    className="w-12 h-12 rounded-full border object-cover bg-gray-50 shadow-sm"
+                    alt="User"
+                  />
+                ) : (
+                  <div className="w-12 h-12 bg-[#141718] text-white rounded-full flex items-center justify-center text-lg font-bold">
+                    {user.email?.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-bold text-gray-900 truncate">
+                    {user.email?.split('@')[0]}
+                  </span>
+                  <span className="text-[11px] text-gray-400 font-bold uppercase tracking-widest">
+                    My Account
+                  </span>
                 </div>
               </Link>
-            ) : (
-              <Link href={APP_ROUTE.signup}>
-                <RiAccountCircleLine className="cursor-pointer" />
-              </Link>
-            )}
+              <button
+                onClick={async () => {
+                  await supabase.auth.signOut()
+                  setOpen(false)
+                }}
+                className="text-[10px] font-bold text-gray-400 hover:text-red-500 uppercase tracking-[0.2em] w-fit px-1 transition-colors"
+              >
+                Sign Out
+              </button>
+            </div>
+          ) : (
+            <Link href={APP_ROUTE.signin} className="block w-full bg-[#141718] text-white text-center py-[12px] rounded-md font-semibold mb-6 hover:bg-black transition-colors" onClick={() => setOpen(false)}>
+              Sign In
+            </Link>
+          )}
+
+          <div className="flex items-center gap-6 pb-2 px-2">
+            <IoLogoInstagram className="text-xl text-gray-900 cursor-pointer hover:scale-110 transition-transform" />
+            <IoLogoFacebook className="text-xl text-gray-900 cursor-pointer hover:scale-110 transition-transform" />
+            <IoLogoYoutube className="text-xl text-gray-900 cursor-pointer hover:scale-110 transition-transform" />
           </div>
         </div>
       </div>

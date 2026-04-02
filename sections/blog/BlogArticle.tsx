@@ -1,23 +1,23 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { APP_ROUTE } from "@/constants/AppRoutes"
+import { GridType } from "@/constants/Data"
 
 interface ArticleProps {
     data: {
-        id: number
+        id: number | string
         title: string
-        image: string
-        date: string
-        type?: string
+        cover_image?: string
+        created_at: string
+        slug: string
+        category?: string
     }[]
-    gridType?: "two" | "three" | "horizontal" | "vertical"
+    gridType?: GridType
 }
 
 export default function BlogArticle({ data, gridType = "three" }: ArticleProps) {
-    const createSlug = (title: string) =>
-        title.toLowerCase().replace(/ /g, "-").replace(/[^\w-]+/g, "")
-
     const gridClass = () => {
         switch (gridType) {
             case "two": return "grid grid-cols-1 sm:grid-cols-2 gap-6"
@@ -27,37 +27,43 @@ export default function BlogArticle({ data, gridType = "three" }: ArticleProps) 
             default: return "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6"
         }
     }
-    // const gridClass = () => {
-    //     switch (gridType) {
-    //         case "two": return "grid grid-cols-1 sm:grid-cols-2 gap-6"
-    //         case "three": return "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6"
-    //         case "horizontal": return "flex flex-col gap-6"
-    //         case "vertical": return "flex flex-row flex-wrap gap-6 justify-center"
-    //         default: return "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6"
-    //     }
-    // }
 
     return (
         <div className={`${gridClass()} my-10`}>
-            {data.map(article => {
-                const slug = createSlug(article.title)
+            {data.map((article, index) => {
+                const displayImage = article.cover_image || "/placeholder.png"
+                const displayDate = new Date(article.created_at).toLocaleDateString('en-US', {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric'
+                })
+
                 return (
                     <div key={article.id} className={`overflow-hidden ${gridType === "horizontal"
                         ? "flex gap-6 items-center"
                         : ""
                         }`}>
-                        <Link href={`${APP_ROUTE.blog}/${slug}`} className={["horizontal", "vertical"].includes(gridType) ? "flex gap-4" : ""}>
-                            <img src={article.image} alt={article.title} className={`object-cover ${gridType === "horizontal" || gridType ==="vertical"
-                                    ? "w-[250px] h-[200px] flex-shrink-0"
-                                    : "w-full h-[283px]"
-                                }`} />
-                                   <div className={`pt-4 ${gridType === "horizontal" ? "flex-1 pt-0" : ""}`}>
-                                <h2 className="font-medium text-[20px] mb-2">{article.title}</h2>
-                                <p className="text-[#6C7275] text-3">{article.date}</p>
+                        <Link href={`${APP_ROUTE.blog}/${article.slug}`} className={["horizontal", "vertical"].includes(gridType) ? "flex gap-4" : ""}>
+                            <div className={`relative overflow-hidden flex-shrink-0 ${gridType === "horizontal" || gridType === "vertical"
+                                ? "w-[250px] h-[200px]"
+                                : "w-full h-[283px]"
+                                }`}>
+                                <Image
+                                    src={displayImage}
+                                    alt={article.title}
+                                    fill
+                                    className="object-cover hover:scale-105 transition-transform duration-300"
+                                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                    priority={index < 3}
+                                    loading={index < 3 ? "eager" : "lazy"}
+                                />
+                            </div>
+                            <div className={`pt-4 ${gridType === "horizontal" ? "flex-1 pt-0" : ""}`}>
+                                <h2 className="font-medium text-[20px] mb-2 hover:text-gray-600 transition-colors uppercase">{article.title}</h2>
+                                <p className="text-[#6C7275] text-sm">{displayDate}</p>
                             </div>
                         </Link>
                     </div>
-                  
                 )
             })}
         </div>

@@ -26,7 +26,7 @@ export default function Controls({
   }
 
   return (
-    <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 md:gap-0">
+    <div className="flex flex-col md:flex-row justify-between items-center gap-4 md:gap-0">
       <div className="flex items-center gap-6">
         <button onClick={toggleSort} className="flex items-center gap-1 text-sm font-medium hover:text-black">
           Sort By

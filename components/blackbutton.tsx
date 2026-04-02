@@ -44,7 +44,7 @@ interface BlackShopButtonProps {
 
 const BlackShopButton: React.FC<BlackShopButtonProps> = ({ href, content = "Shop Now", className = "", onClick, }) => {
 
-  const baseClasses = "font-inter flex items-center gap-1 text-black border-b-2  w-fit border-black transition-all"
+  const baseClasses = "font-inter flex items-center gap-1 text-black hover:border-b-2  w-fit hover:border-black transition-all"
 
   const textClasses = className || "text-[10px] sm:text-xl"
 

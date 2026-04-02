@@ -1,223 +1,140 @@
-// "use client";
+// import { createClient } from "@/lib/supabase/server";
+// import { cookies } from "next/headers";
+// import OrdersContent from "@/sections/account/OrdersContent";
+// import { redirect } from "next/navigation";
+// import { APP_ROUTE } from "@/constants/AppRoutes";
+// import { getRefundWindowDays, DEFAULT_REFUND_WINDOW_DAYS } from "@/constants/RefundConfig";
 
-// import { useEffect, useState } from "react";
-// import { supabase } from "@/lib/supabase/client";
-// import { formatCurrency } from "@/constants/Data";
+// export default async function OrdersPage() {
+//     const cookieStore = cookies();
+//     const supabase = createClient(cookieStore);
 
-// type Order = {
-//   id: number;
-//   order_date: string;
-//   total_price: number;
-//   status: string;
-// };
+//     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-// export default function Orders() {
-//   const [orders, setOrders] = useState<Order[]>([]);
-//   const [loading, setLoading] = useState(true);
+//     if (authError || !user) {
+//         redirect(APP_ROUTE.signin);
+//     }
 
-//   useEffect(() => {
-//     const fetchOrders = async () => {
-//       const {
-//         data: { session },
-//       } = await supabase.auth.getSession();
-//       const userId = session?.user?.id;
-//       if (!userId) {
-//         setLoading(false);
-//         return;
-//       }
-
-//       const { data, error } = await supabase
+//     // Fetch orders on the server
+//     const { data: orders, error: ordersError } = await supabase
 //         .from("orders")
-//         .select("*")
-//         .eq("user_id", userId)
+//         .select(`
+//             id, order_date, status, total_amount, discount_amount, shipping_cost, payment_method, user_id,
+//             order_items (
+//                 id,
+//                 product_id,
+//                 price,
+//                 quantity,
+//                 color,
+//                 products (id, name, image),
+//                 product_variant (color_images)
+//             )
+//         `)
+//         .eq("user_id", user.id)
 //         .order("order_date", { ascending: false });
 
-//       if (error) {
-//         console.log("Fetch orders error:", error);
-//       } else {
-//         setOrders(data as Order[]);
-//       }
-//       setLoading(false);
-//     };
+//     // Fetch refund window settings directly from Supabase (server-side)
+//     let refundWindowDays = DEFAULT_REFUND_WINDOW_DAYS;
+//     try {
+//         const { data: settingData } = await supabase
+//             .from("admin_settings")
+//             .select("setting_value")
+//             .eq("setting_key", "refund_window_days")
+//             .single();
 
-//     fetchOrders();
-//   }, []);
+//         if (settingData?.setting_value) {
+//             refundWindowDays = parseInt(settingData.setting_value, 10) || DEFAULT_REFUND_WINDOW_DAYS;
+//         }
+//     } catch (error) {
+//         console.error("Failed to fetch refund window on server:", error);
+//     }
 
-//   if (loading) return <p>Loading...</p>;
-
-//   if (orders.length === 0)
 //     return (
-//       <div>
-//         <h2 className="text-xl font-semibold mb-4">Orders</h2>
-//         <p className="text-gray-500">No orders yet.</p>
-//       </div>
+//         <OrdersContent
+//             initialOrders={(orders as any[]) || []}
+//             refundWindowDays={refundWindowDays}
+//         />
 //     );
-
-//   return (
-//     <div>
-//       <h2 className="text-xl font-semibold mb-6">Order History</h2>
-
-//       <div className="space-y-4">
-//         {orders.map((order) => (
-//           <div
-//             key={order.id}
-//             className="border rounded p-4 flex justify-between items-center"
-//           >
-//             <div>
-//               <p>
-//                 <span className="font-semibold">Order Code:</span> #{order.id}
-//               </p>
-//               <p>
-//                 <span className="font-semibold">Date:</span>{" "}
-//                 {new Date(order.order_date).toLocaleDateString()}
-//               </p>
-//               <p>
-//                 <span className="font-semibold">Status:</span> {order.status}
-//               </p>
-//             </div>
-
-//             <div className="text-lg font-semibold">
-//               {formatCurrency(order.total_price)}
-//             </div>
-//           </div>
-//         ))}
-//       </div>
-//     </div>
-//   );
 // }
 
+import { createClient } from "@/lib/supabase/server"
+import { cookies } from "next/headers"
+import OrdersContent from "@/sections/account/OrdersContent"
+import { redirect } from "next/navigation"
+import { APP_ROUTE } from "@/constants/AppRoutes"
+import { getRefundWindowDays, DEFAULT_REFUND_WINDOW_DAYS } from "@/constants/RefundConfig"
 
-"use client";
+export default async function OrdersPage() {
+    const cookieStore = cookies()
+    const supabase = createClient(cookieStore)
 
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase/client";
-import { formatCurrency } from "@/constants/Data";
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
 
-type Order = {
-  id: number;
-  order_date: string;
-  total_price: number;
-  status: string;
-};
+    if (authError || !user) {
+        redirect(APP_ROUTE.signin)
+    }
 
-export default function Orders() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchOrders = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      const userId = session?.user?.id;
-
-      if (!userId) {
-        setLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
+    // Fetch orders with all required fields - CORRECTED for actual schema
+    const { data: orders, error: ordersError } = await supabase
         .from("orders")
-        .select("*")
-        .eq("user_id", userId)
-        .order("order_date", { ascending: false });
+        .select(`
+            id,
+            user_id,
+            total_price,
+            status,
+            order_date,
+            shipping_address,
+            payment_method,
+            billing_address,
+            items_snapshot,
+            invoice_url,
+            invoice_sent_at,
+            refund_status,
+            refund_amount,
+            refund_reason,
+            discount_amount,
+            coupon_code,
+            admin_note,
+            order_items (
+                id,
+                product_id,
+                price,
+                quantity,
+                color,
+                variant_id
+            )
+        `)
+        .eq("user_id", user.id)
+        .order("order_date", { ascending: false })
 
-      if (error) {
-        console.log("Fetch orders error:", error);
-      } else {
-        setOrders(data as Order[]);
-      }
+    if (ordersError) {
+        console.error("❌ Error fetching orders:", ordersError.message)
+    } else {
+        console.log("✅ Orders loaded:", orders?.length || 0)
+    }
 
-      setLoading(false);
-    };
+    // Fetch refund window settings - Use admin client to bypass RLS for global config
+    let refundWindowDays = DEFAULT_REFUND_WINDOW_DAYS
+    try {
+        const { createAdminClient } = await import("@/lib/supabase/admin")
+        const adminSupabase = createAdminClient()
+        const { data: settingData } = await adminSupabase
+            .from("admin_settings")
+            .select("setting_value")
+            .eq("setting_key", "refund_window_days")
+            .single()
 
-    fetchOrders();
-  }, []);
+        if (settingData?.setting_value) {
+            refundWindowDays = parseInt(settingData.setting_value, 10) || DEFAULT_REFUND_WINDOW_DAYS
+        }
+    } catch (error) {
+        console.error("Failed to fetch refund window:", error)
+    }
 
-  if (loading) return <p>Loading...</p>;
-
-  if (orders.length === 0)
     return (
-      <div>
-        <h2 className="text-xl font-semibold mb-4">Orders</h2>
-        <p className="text-gray-500">No orders yet.</p>
-      </div>
-    );
-
-  return (
-    <div className="w-full">
-
-      <h2 className="text-2xl font-semibold mb-6">Order History</h2>
-
-      {/* DESKTOP TABLE HEADER */}
-      <div className="hidden md:grid grid-cols-[3fr_3fr_3fr_3fr] text-gray-500 border-b pb-3">
-        <p>Number ID</p>
-        <p>Dates</p>
-        <p>Status</p>
-        <p>Price</p>
-      </div>
-
-      {/* ORDERS */}
-      <div className="divide-y">
-
-        {orders.map((order) => (
-
-          <div
-            key={order.id}
-            className="py-4 md:py-5"
-          >
-
-            {/* MOBILE VIEW */}
-            <div className="md:hidden space-y-1">
-
-              <p className="font-semibold">#{order.id}</p>
-
-              <p className="text-gray-500 text-sm">
-                {new Date(order.order_date).toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </p>
-
-              <p className="text-sm">
-                Status: <span className="font-medium">{order.status}</span>
-              </p>
-
-              <p className="font-semibold">
-                {formatCurrency(order.total_price)}
-              </p>
-
-            </div>
-
-            {/* DESKTOP VIEW */}
-            <div className="hidden md:grid grid-cols-[3fr_3fr_3fr_3fr] items-center">
-
-              <p className="font-medium">#{order.id}</p>
-
-              <p>
-                {new Date(order.order_date).toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </p>
-
-              <p>{order.status}</p>
-
-              <p className="font-medium">
-                {formatCurrency(order.total_price)}
-              </p>
-
-            </div>
-
-          </div>
-
-        ))}
-
-      </div>
-
-    </div>
-  );
+        <OrdersContent
+            initialOrders={(orders as any[]) || []}
+            refundWindowDays={refundWindowDays}
+        />
+    )
 }

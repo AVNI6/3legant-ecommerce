@@ -1,35 +1,246 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { CiEdit } from "react-icons/ci";
+import { AddressType as AddressTypeEnum } from "@/types/enums";
+import { AddressPageSkeleton } from "@/components/ui/skeleton";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { fetchAddresses, createAddressThunk, updateAddressThunk, removeAddressThunk, setDefaultAddressThunk, selectAddresses, selectIsAddressCacheValid } from "@/store/slices/addressSlice";
+import { toast } from "react-toastify";
+import { FiPlus, FiTrash2 } from "react-icons/fi";
+import { HiOutlineLocationMarker, HiOutlinePhone } from "react-icons/hi";
+import AddressForm, { AddressType } from "./AddressForm";
+
 const Address = () => {
+  const dispatch = useAppDispatch();
+  const { user, loading: authLoading } = useAppSelector(state => state.auth);
+  const addresses = useAppSelector(selectAddresses);
+  const isCacheValid = useAppSelector(selectIsAddressCacheValid);
+  const reduxLoading = useAppSelector((state: any) => state.addresses.loading);
+
+  const [editingAddress, setEditingAddress] = useState<any | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [addressToRemove, setAddressToRemove] = useState<string | null>(null);
+  const [defaultAddressId, setDefaultAddressId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user?.id && !isCacheValid) {
+      dispatch(fetchAddresses(user.id));
+    }
+  }, [user?.id, isCacheValid, dispatch]);
+
+  useEffect(() => {
+    const def = addresses.find((a: any) => a.is_default);
+    setDefaultAddressId(def?.id || null);
+  }, [addresses]);
+
+  const setDefaultAddress = (addressId: string) => {
+    if (!user?.id) return;
+    dispatch(setDefaultAddressThunk({ userId: user.id, addressId }))
+      .unwrap().catch(err => toast.error(err));
+  };
+
+  const createAddress = async (newAddress: AddressType) => {
+    if (!user?.id) return;
+    setIsSaving(true);
+    try {
+      await dispatch(createAddressThunk({ userId: user.id, address: newAddress })).unwrap();
+      toast.success("Address added successfully");
+      setShowAddForm(false);
+    } catch (err: any) {
+      toast.error(err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const updateAddress = async (address: any, updated: AddressType) => {
+    setIsSaving(true);
+    try {
+      await dispatch(updateAddressThunk({ addressId: address.id, updates: updated })).unwrap();
+      toast.success("Address updated successfully");
+      setEditingAddress(null);
+    } catch (err: any) {
+      toast.error(err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const removeAddress = async (addressId: string) => {
+    try {
+      await dispatch(removeAddressThunk(addressId)).unwrap();
+      toast.success("Address removed successfully");
+    } catch (err: any) {
+      toast.error(err);
+    }
+    setAddressToRemove(null);
+  };
+
+  const mapToForm = (addr: any) => ({
+    firstName: addr.first_name || addr.firstName,
+    lastName: addr.last_name || addr.lastName,
+    phone: addr.phone,
+    street: addr.street,
+    city: addr.city,
+    state: addr.state,
+    zip: addr.zip,
+    country: addr.country,
+    addressLabel: addr.address_label || addr.addressLabel || "Home",
+    addressType: addr.address_type || addr.addressType,
+    isDefault: !!addr.is_default,
+  });
+
+  if ((reduxLoading || authLoading) && addresses.length === 0) return <AddressPageSkeleton />;
+
   return (
-    <><h1 className="text-xl font-semibold">Address</h1><div className="flex flex-col md:flex-row gap-6 mt-10">
-
-
-      {/* Billing Address */}
-      <div className="border rounded-md p-4">
-        <div className="flex justify-between items-center mb-2">
-          <h2 className="font-medium">Billing Address</h2>
-          <button className="text-blue-500 hover:underline">
-            Edit
-          </button>
-        </div>
-        <p className="text-gray-500">John Doe</p>
-        <p className="text-gray-500">(+1) 234 567 890</p>
-        <p className="text-gray-500">345 Long Island, New York, United States</p>
+    <div className="w-full">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <h1 className="text-2xl font-bold tracking-tight">Address</h1>
+        <button
+          className="flex items-center justify-center gap-2 bg-black text-white px-5 py-2.5 rounded-xl hover:bg-gray-800 transition-all font-bold text-sm shadow-lg active:scale-95 w-full sm:w-auto"
+          onClick={() => setShowAddForm(true)}
+        >
+          <FiPlus /> Add New Address
+        </button>
       </div>
 
-      {/* Shipping Address */}
-      <div className="border rounded-md p-4">
-        <div className="flex justify-between items-center mb-2">
-          <h2 className="font-medium">Shipping Address</h2>
-          <button className="text-blue-500 hover:underline">
-            Edit
-          </button>
+      {addresses.length === 0 && !reduxLoading && !authLoading && (
+        <div className="text-center py-16 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
+          <p className="text-gray-400 font-medium">No saved addresses yet.</p>
+          <p className="text-xs text-gray-300 mt-1 uppercase tracking-widest">Start by adding your first one</p>
         </div>
-        <p className="text-gray-500">John Doe</p>
-        <p className="text-gray-500">(+1) 234 567 890</p>
-        <p className="text-gray-500">345 Long Island, New York, United States</p>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {addresses.map((addr: any) => (
+          <div
+            key={addr.id}
+            className={`group relative border rounded-2xl p-6 transition-all duration-300 bg-white ${defaultAddressId === addr.id
+                ? "border-black ring-1 ring-black shadow-md"
+                : "border-gray-200 hover:border-black hover:shadow-lg"
+              }`}
+          >
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h4 className="text-[10px] font-black uppercase tracking-[0.1em] text-gray-400 mb-1">
+                  {addr.address_type === AddressTypeEnum.SHIPPING ? "Shipping Address" : "Billing Address"}
+                </h4>
+                <div className="flex items-center gap-2">
+                  <span className="text-[8px] font-black bg-gray-900 text-white px-1.5 py-0.5 rounded tracking-tighter italic">
+                    {addr.address_label || "Home"}
+                  </span>
+                  {defaultAddressId === addr.id && (
+                    <span className="text-[8px] font-black bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded tracking-tighter uppercase">
+                      Default
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  className="p-2 text-gray-400 hover:text-black hover:bg-gray-100 rounded-lg transition-all"
+                  onClick={() => setEditingAddress(addr)}
+                  title="Edit Address"
+                >
+                  <CiEdit className="text-lg" />
+                </button>
+                <button
+                  className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                  onClick={() => setAddressToRemove(addr.id)}
+                  title="Remove Address"
+                >
+                  <FiTrash2 className="text-base" />
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <p className="font-bold text-gray-900 text-sm">
+                {addr.first_name || addr.firstName} {addr.last_name || addr.lastName}
+              </p>
+              <div className="flex items-center gap-1.5 text-gray-500 text-xs">
+                <HiOutlinePhone className="flex-shrink-0" />
+                <span>{addr.phone}</span>
+              </div>
+              <div className="flex items-start gap-1.5 text-gray-500 text-xs pt-1">
+                <HiOutlineLocationMarker className="flex-shrink-0 mt-0.5" />
+                <span>
+                  {addr.street}, {addr.city}, {addr.state} {addr.zip}, {addr.country}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-5 pt-4 border-t border-gray-50 flex items-center justify-between">
+              <label className="flex items-center gap-2 cursor-pointer group/label">
+                <input
+                  type="radio"
+                  name="default-address"
+                  checked={defaultAddressId === addr.id}
+                  onChange={() => setDefaultAddress(addr.id)}
+                  className="accent-black w-4 h-4"
+                />
+                <span className="text-[10px] font-bold text-gray-400 group-hover/label:text-black transition-colors uppercase">Set as Default</span>
+              </label>
+            </div>
+          </div>
+        ))}
       </div>
-    </div></>
+
+      {editingAddress && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center px-4" onClick={() => setEditingAddress(null)}>
+          <div className="w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <AddressForm
+              address={mapToForm(editingAddress)}
+              submitLabel="Save Changes"
+              isSaving={isSaving}
+              onSave={(updated) => updateAddress(editingAddress, updated)}
+              onCancel={() => setEditingAddress(null)}
+            />
+          </div>
+        </div>
+      )}
+
+      {showAddForm && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center px-4" onClick={() => setShowAddForm(false)}>
+          <div className="w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <AddressForm
+              address={{ isDefault: addresses.length === 0 }}
+              submitLabel="Add Address"
+              isSaving={isSaving}
+              onSave={(newAddress) => createAddress(newAddress)}
+              onCancel={() => setShowAddForm(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {addressToRemove && (
+        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center px-4" onClick={() => setAddressToRemove(null)}>
+          <div className="bg-white p-8 rounded-2xl shadow-xl max-w-sm w-full" onClick={e => e.stopPropagation()}>
+            <h3 className="text-xl font-bold mb-2 text-black">Delete Address?</h3>
+            <p className="text-gray-500 text-sm mb-8 font-medium">Are you sure you want to remove this address? This action cannot be undone.</p>
+            <div className="flex gap-3">
+              <button
+                className="flex-1 py-3 border border-gray-200 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all text-gray-600"
+                onClick={() => setAddressToRemove(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold text-sm hover:bg-red-700 transition-all shadow-lg active:scale-95"
+                onClick={() => removeAddress(addressToRemove)}
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
-}
+};
 
 export default Address;

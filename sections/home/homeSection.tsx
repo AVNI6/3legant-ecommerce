@@ -1,12 +1,12 @@
-import Slick from "./slick";
+import Slick from "@/components/slick";
 
-export default function HomeSection() {
+export default function HomeSection({ initialBanners }: { initialBanners?: any[] }) {
   return (
     <>
-      <Slick />
-      <div className="flex flex-col lg:flex-row lg:items-start justify-between mx-6 sm:mx-12 lg:mx-30 my-5 sm:my-20 gap-6 lg:gap-0">
-        <div className="font-medium  text-[32px] sm:text-[48px] lg:text-[62px] ">
-          <h1 className="">
+      <Slick initialBanners={initialBanners} />
+      <div className="flex flex-col lg:flex-row lg:items-start justify-between mx-6 sm:mx-12 lg:mx-30 my-5 sm:my-10 gap-6 lg:gap-0">
+        <div className="font-poppins font-medium text-[32px] sm:text-[48px] md:text-[30px] lg:text-[45px] xl:text-[60px]">
+          <h1 className="w-full">
             <span className="block">
               Simply Unique <span className="text-gray-500">/</span>
             </span>

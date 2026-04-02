@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { supabase } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { APP_ROUTE } from "@/constants/AppRoutes";
+import { toast } from "react-toastify";
 
 type Inputs = {
   password: string;
@@ -19,11 +20,11 @@ export default function ResetPassword() {
     });
 
     if (error) {
-      alert(error.message);
+      toast.error(error.message);
       return;
     }
 
-    alert("Password updated successfully!");
+    toast.success("Password updated successfully!");
     router.push(APP_ROUTE.signin);
   };
 
@@ -36,7 +37,11 @@ export default function ResetPassword() {
       >
         <h1 className="text-2xl font-bold">Reset Password</h1>
 
+        <label htmlFor="reset-password" className="sr-only">New Password</label>
+
         <input
+          id="reset-password"
+          autoComplete="new-password"
           type="password"
           placeholder="New Password"
           {...register("password", { required: true })}

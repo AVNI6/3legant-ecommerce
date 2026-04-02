@@ -3,22 +3,23 @@
 :root {
   --font-inter: 'Inter', sans-serif;
   --font-poppins: 'Poppins', sans-serif;
-  --font-space: 'Space_Grotesk' , sans-serif;
+  --font-space: 'Space_Grotesk', sans-serif;
 }
 
 body {
-  font-family: var(--font-poppins);
+  font-family: var(--font-inter);
 }
 
 @theme {
   --font-poppins-family: var(--font-poppins);
-  --font-inter-family:var(--font-inter);
-  --font-space-family:var(--font-space);
+  --font-inter-family: var(--font-inter);
+  --font-space-family: var(--font-space);
 }
 
 @utility font-poppins {
   font-family: var(--font-poppins), sans-serif;
 }
+
 @utility font-space {
   font-family: var(--font-space), sans-serif;
 }
@@ -33,4 +34,57 @@ body {
 .slick-prev:before,
 .slick-next:before {
   color: black !important;
+}
+
+/* Custom Toast Styles for Mobile Responsiveness */
+@media screen and (max-width: 639px) {
+  .Toastify__toast-container {
+    top: 30px !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    width: 90vw !important;
+    max-width: 400px !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+
+  .Toastify__toast {
+    min-height: 48px !important;
+    width: 100% !important;
+    margin: 0 0 8px 0 !important;
+    padding: 8px 12px !important;
+    font-size: 13px !important;
+    border-radius: 12px !important;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1) !important;
+    border: 1px solid rgba(0, 0, 0, 0.05) !important;
+  }
+
+  .Toastify__toast-body {
+    padding: 0 !important;
+    margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+
+  .Toastify__toast-icon {
+    width: 18px !important;
+    margin-right: 8px !important;
+  }
+
+  .Toastify__close-button {
+    align-self: center !important;
+    padding: 2px !important;
+  }
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
