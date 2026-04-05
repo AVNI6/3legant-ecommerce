@@ -1,14 +1,3 @@
-/**
- * Pagination Utility Hook
- *
- * Provides type-safe pagination with automatic state management
- * Prevents loading entire datasets and enables efficient admin tables
- *
- * Performance benefits:
- * - Load 50 items instead of 1000+
- * - Lazy load additional pages
- * - Reduced memory footprint
- */
 
 import { useState, useCallback, useMemo } from 'react'
 import { PaginatedResponse } from '@/types/utils'

@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { supabase } from "@/lib/supabase/client";
 import Image from "next/image";
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { APP_ROUTE } from "@/constants/AppRoutes";
 import { toast } from "react-toastify";
 
@@ -16,10 +16,23 @@ export default function ForgotPassword() {
   const {
     register,
     handleSubmit,
-    formState: { isSubmitting },
+    formState: { errors, isSubmitting },
   } = useForm<Inputs>();
+  const router = useRouter();
 
   const onSubmit = async (data: Inputs) => {
+    // Check if the user exists in the profiles table first
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("email", data.email)
+      .single();
+
+    if (profileError || !profile) {
+      toast.error("Account does not exist. Please try to sign up.");
+      return;
+    }
+
     const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
       redirectTo: `${window.location.origin}/pages/resetpassword`,
     });
@@ -30,12 +43,12 @@ export default function ForgotPassword() {
     }
 
     toast.success("Password reset email sent! Check your inbox.");
-    redirect(APP_ROUTE.signin)
+    router.push(APP_ROUTE.signin);
   };
 
   return (
     <div className="flex flex-col lg:flex-row min-h-[50vh]">
-      
+
       <div className="relative w-full h-[300px] lg:h-screen lg:w-[55%]">
         <Image
           src="/signup.png"
@@ -65,9 +78,18 @@ export default function ForgotPassword() {
             autoComplete="email"
             type="email"
             placeholder="Enter your email"
-            {...register("email", { required: true })}
+            {...register("email", { 
+              required: "Email is required",
+              pattern: {
+                value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                message: "Invalid email"
+              }
+            })}
             className="border-b py-3 outline-none"
           />
+          {errors.email && (
+            <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>
+          )}
 
           <button
             type="submit"

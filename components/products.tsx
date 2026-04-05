@@ -37,61 +37,11 @@ const Products = ({ products, grid = "4", variant = "grid", isLoading }: Props) 
     const cartItems = useAppSelector((state: any) => state.cart.items) as any[];
     const wishlistItems = useAppSelector((state: any) => state.wishlist.items) as any[];
     const { requireLogin, LoginModal } = useRequireLogin();
-    const [reviewStatsByProduct, setReviewStatsByProduct] = useState<Record<number, ProductReviewStats>>({});
-
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
         setMounted(true);
     }, []);
-
-    const lastFetchedIdsRef = useRef<string>("");
-
-    useEffect(() => {
-        if (!mounted) return;
-        const loadReviewStats = async () => {
-            const productIds = Array.from(new Set((products || []).map((p) => p.id))).filter((id) => Number.isFinite(id));
-            const idsKey = productIds.sort().join(",");
-
-            if (!productIds.length || idsKey === lastFetchedIdsRef.current) {
-                if (!productIds.length) setReviewStatsByProduct({});
-                return;
-            }
-
-            lastFetchedIdsRef.current = idsKey;
-            const { data, error } = await supabase
-                .from("reviews")
-                .select("product_id,rating")
-                .in("product_id", productIds);
-
-            if (error) {
-                console.error("Failed to load product review stats:", error);
-                setReviewStatsByProduct({});
-                return;
-            }
-
-            const grouped: Record<number, { sum: number; count: number }> = {};
-
-            for (const row of data ?? []) {
-                const pid = Number(row.product_id);
-                if (!grouped[pid]) grouped[pid] = { sum: 0, count: 0 };
-                grouped[pid].sum += Number(row.rating ?? 0);
-                grouped[pid].count += 1;
-            }
-
-            const nextStats: Record<number, ProductReviewStats> = {};
-            for (const pid of productIds) {
-                const entry = grouped[pid];
-                nextStats[pid] = entry
-                    ? { rating: entry.sum / entry.count, count: entry.count }
-                    : { rating: 0, count: 0 };
-            }
-
-            setReviewStatsByProduct(nextStats);
-        };
-
-        void loadReviewStats();
-    }, [products]);
 
     const gridClass = useMemo(() => {
         switch (grid) {
@@ -129,7 +79,10 @@ const Products = ({ products, grid = "4", variant = "grid", isLoading }: Props) 
     const handleAddToCart = useCallback(async (e: React.MouseEvent, product: ProductType, effectivePrice: number, productReviewStats: ProductReviewStats) => {
         e.preventDefault();
         e.stopPropagation();
-        if (product.stock === 0) return;
+        if (Number(product.stock) <= 0) {
+            toast.warning("Item out of stock");
+            return;
+        }
 
         const resolvedCartImage = product.color_image?.[0] || product.image;
 
@@ -142,6 +95,7 @@ const Products = ({ products, grid = "4", variant = "grid", isLoading }: Props) 
                 price: effectivePrice,
                 image: resolvedCartImage,
                 color: product.color,
+                description: product.description,
                 rating: productReviewStats.rating,
                 stock: product.stock,
             } as any
@@ -149,10 +103,11 @@ const Products = ({ products, grid = "4", variant = "grid", isLoading }: Props) 
 
         if (addToCart.fulfilled.match(resultAction)) {
             const { limitReached } = resultAction.payload as any;
+            const existing = cartItems.find((i: any) => Number(i.variant_id) === Number(product.variant_id));
             if (limitReached) {
                 toast.warning("Item out of stock");
             } else {
-                toast.success("Item added");
+                toast.success(existing ? "Quantity updated" : "Item added");
             }
         } else if (addToCart.rejected.match(resultAction)) {
             const payload = resultAction.payload as any;
@@ -176,10 +131,16 @@ const Products = ({ products, grid = "4", variant = "grid", isLoading }: Props) 
                         <ProductCardSkeleton />
                     </div>
                 ))
+            ) : products.length === 0 ? (
+                <div className="col-span-full py-20 text-center">
+                    <p className="text-gray-500 text-lg sm:text-xl font-medium">No products found</p>
+                    <p className="text-gray-400 text-sm mt-2">Try adjusting your filters to find what you're looking for.</p>
+                </div>
             ) : (
                 products.map((product) => {
                     const {
                         price: effectivePrice,
+                        oldPrice: effectiveOldPrice,
                         isOfferActive,
                         hasDiscount
                     } = getEffectivePrice({
@@ -187,7 +148,7 @@ const Products = ({ products, grid = "4", variant = "grid", isLoading }: Props) 
                         old_price: Number(product.old_price),
                         validationTill: product.validation_till
                     });
-                    const productReviewStats = reviewStatsByProduct[product.id] ?? { rating: 0, count: 0 };
+                    const productReviewStats = (product as any).reviewStats ?? { rating: 0, count: 0 };
                     const discountPercent = Math.round(
                         ((product.old_price - product.price) / product.old_price) * 100
                     );
@@ -202,7 +163,7 @@ const Products = ({ products, grid = "4", variant = "grid", isLoading }: Props) 
                                 } ${grid === "one" || grid === "two" ? "group" : ""
                                 }`}>
 
-                                <div className={`relative ${grid === "four" ? "w-full sm:w-[260px] md:w-[250px] flex-shrink-0" : grid === "three" ? "w-full md:w-[200px] xl:w-[250px] flex-shrink-0 md:flex md:flex-col" : "w-full"}`}>
+                                <div className={`relative bg-[#F3F5F7] rounded-lg ${grid === "four" ? "w-full sm:w-[260px] md:w-[250px] flex-shrink-0" : grid === "three" ? "w-full md:w-[200px] xl:w-[250px] flex-shrink-0 md:flex md:flex-col" : "w-full"}`}>
                                     <div className="absolute z-10 flex justify-between w-full px-2 sm:px-4 top-2 sm:top-3 pointer-events-none">
                                         <div>
                                             {isNewProduct(product.created_at) && (
@@ -233,21 +194,20 @@ const Products = ({ products, grid = "4", variant = "grid", isLoading }: Props) 
                                     {grid !== "three" && grid !== "four" && (
                                         <button
                                             onClick={(e) => handleAddToCart(e, product, effectivePrice, productReviewStats)}
-                                            disabled={product.stock === 0}
-                                            className={`w-[90%] absolute z-20 bottom-4 left-1/2 -translate-x-1/2 bg-black text-white py-2 rounded-lg opacity-0 group-hover:opacity-100 transition text-xs sm:text-sm md:text-base
-                                            ${product.stock === 0 ? 'bg-gray-400 text-gray-200 cursor-not-allowed hidden' : 'hover:bg-gray-800'} shadow-lg`}
+                                            className={`w-[90%] absolute z-20 bottom-4 left-1/2 -translate-x-1/2 text-white py-2 rounded-lg opacity-0 group-hover:opacity-100 transition text-xs sm:text-sm md:text-base
+                                            ${Number(product.stock) <= 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-black hover:bg-gray-800'} shadow-lg`}
                                         >
-                                            {product.stock === 0 ? "Out of Stock" : "Add to cart"}
+                                            {Number(product.stock) <= 0 ? "Out of Stock" : "Add to cart"}
                                         </button>
                                     )}
 
                                     {(() => {
-                                        const displayImage = product.color_image?.[0] || product.image;
+                                        const displayImage = product.image;
                                         return (
                                             <img
                                                 src={displayImage}
                                                 alt={product.name}
-                                                className={`rounded-lg object-cover ${grid === "four" ? "w-full max-h-[250px]" : grid === "three" ? "w-full h-[180px] min-[350px]:h-[220px] sm:h-[280px] md:h-[250px] xl:h-[280px]" : "w-full aspect-[4/5] max-h-[250px] min-[350px]:max-h-[300px] sm:h-[300px] lg:h-[220px] xl:h-[300px]"
+                                                className={`rounded-lg object-contain p-2 mix-blend-multiply ${grid === "four" ? "w-full max-h-[250px]" : grid === "three" ? "w-full h-[180px] min-[350px]:h-[220px] sm:h-[280px] md:h-[250px] xl:h-[280px]" : "w-full aspect-[4/5] max-h-[250px] min-[350px]:max-h-[300px] sm:h-[300px] lg:h-[220px] xl:h-[300px]"
                                                     }`}
                                             />
                                         );
@@ -264,20 +224,18 @@ const Products = ({ products, grid = "4", variant = "grid", isLoading }: Props) 
                                             <h2 className="text-sm min-[350px]:text-base sm:text-lg font-bold">
                                                 {formatCurrency(effectivePrice)}
                                             </h2>
-                                            {isOfferActive && hasDiscount && (
+                                            {isOfferActive && hasDiscount && effectiveOldPrice && (
                                                 <h3 className="line-through text-gray-400 text-[10px] min-[350px]:text-xs sm:text-sm">
-                                                    {formatCurrency(product.old_price)}
+                                                    {formatCurrency(effectiveOldPrice)}
                                                 </h3>
                                             )}
                                         </div>
 
-                                        {(grid === "three" || grid === "four") && (
-                                            <div className="text-gray-600 w-full text-xs sm:text-sm mt-2">
-                                                {product.description && product.description.trim() !== "" && (
-                                                    <p className={`border-t border-gray-100 pt-2 sm:pt-3 mb-3 sm:mb-4 line-clamp-2 ${grid === "three" ? "text-[11px] sm:text-xs md:text-[11px] lg:text-xs xl:text-sm" : ""}`}>
-                                                        {product.description}
-                                                    </p>
-                                                )}
+                                        {(grid === "three" || grid === "four") && product.description && product.description.trim() !== "" && (
+                                            <div className={`text-gray-600 w-full text-xs sm:text-sm mt-2 ${grid === "three" ? "hidden md:block" : ""}`}>
+                                                <p className={`pt-2 sm:pt-3 mb-3 sm:mb-4 line-clamp-3 ${grid === "three" ? "text-[11px] sm:text-xs md:text-[11px] lg:text-xs xl:text-sm" : ""}`}>
+                                                    {product.description}
+                                                </p>
                                             </div>
                                         )}
                                     </div>
@@ -286,10 +244,9 @@ const Products = ({ products, grid = "4", variant = "grid", isLoading }: Props) 
                                         <div className="my-2 sm:my-3 space-y-2 sm:space-y-3 pointer-events-auto">
                                             <button
                                                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleAddToCart(e, product, effectivePrice, productReviewStats) }}
-                                                disabled={product.stock === 0}
-                                                className="bg-black text-white py-1.5 sm:py-2 rounded-lg w-full md:w-full lg:w-[50%] transition text-xs sm:text-sm md:text-xs lg:text-sm"
+                                                className={`py-1.5 sm:py-2 rounded-lg w-full md:w-full lg:w-[50%] transition text-xs sm:text-sm md:text-xs lg:text-sm text-white ${Number(product.stock) <= 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-black hover:bg-gray-800'}`}
                                             >
-                                                {product.stock === 0 ? "Out of Stock" : "Add to cart"}
+                                                {Number(product.stock) <= 0 ? "Out of Stock" : "Add to cart"}
                                             </button>
                                             <button
                                                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleWishlistToggle(e, product, effectivePrice); }}

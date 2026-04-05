@@ -20,27 +20,18 @@ export default async function BlogPage() {
         console.error("Error fetching blogs on server:", error);
     }
 
-    const { data: blogBanner } = await supabase
-        .from("banners")
-        .select("id, image_url, title, subtitle, link_url, category, key")
-        .eq("key", "blog_banner")
-        .eq("is_active", true)
-        .maybeSingle();
-
-    const bannerImg = blogBanner?.image_url || "/blog/bloghome.png";
-    const bannerTitle = blogBanner?.title || "Our Blog";
-    const bannerSubtitle = blogBanner?.subtitle || "Home ideas and design inspiration";
+    const bannerImg = "/blog/bloghome.png";
+    const bannerTitle = "Our Blog";
+    const bannerSubtitle = "Home ideas and design inspiration";
 
     return (
         <div className="w-full">
             <div className="mb-10">
                 <div className="relative w-full h-[392px] mb-10">
-                    <Image
+                    <img
                         src={bannerImg}
                         alt="Banner"
-                        fill
                         className="object-cover w-full h-full  px-4 sm:px-10 lg:px-30"
-                        priority
                     />
 
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4 gap-3">

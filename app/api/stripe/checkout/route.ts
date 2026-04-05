@@ -324,26 +324,75 @@ export async function POST(request: Request) {
       paymentMethod === "upi" ? ["upi"] : ["card"]
     ) as Stripe.Checkout.SessionCreateParams.PaymentMethodType[];
 
-    // 1. Create a PENDING order first
-    const { data: orderRow, error: orderInsertError } = await authedSupabase.from("orders").insert({
-      user_id: metadata.userId,
-      total_price: typeof totalAmount === "number" ? totalAmount : stripeTotal / 100,
-      status: OrderStatus.PENDING,
-      items_snapshot: resolvedCartSnapshot,
-      shipping_address: shippingAddress || {}, // Use what we have, will be updated by webhook if needed
-      billing_address: billingAddress || null,
-      payment_method: paymentMethod,
-      order_date: new Date().toISOString(),
-      coupon_code: couponCode || null,
-      discount_amount: discountAmount || 0,
-    }).select("id").single();
+    // 1. Check for an existing PENDING order for this user to avoid duplications
+    const { data: existingOrder } = await authedSupabase
+      .from("orders")
+      .select("id")
+      .eq("user_id", metadata.userId)
+      .eq("status", OrderStatus.PENDING)
+      .order("order_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    if (orderInsertError || !orderRow) {
-      console.error("Failed to create pending order:", orderInsertError);
-      return NextResponse.json({ error: "Failed to initialize order tracking" }, { status: 500 });
+    let orderId: number;
+    const finalTotalPrice = typeof totalAmount === "number" ? totalAmount : stripeTotal / 100;
+
+    if (existingOrder) {
+      // Reuse the existing order ID
+      orderId = existingOrder.id;
+      console.log(`[CHECKOUT] Reusing existing PENDING order: ${orderId}`);
+
+      const { error: orderUpdateError } = await authedSupabase
+        .from("orders")
+        .update({
+          total_price: finalTotalPrice,
+          items_snapshot: {
+            items: resolvedCartSnapshot,
+            shipping_method: shippingMethod,
+            shipping_cost: shippingAmount,
+          },
+          shipping_address: shippingAddress || {},
+          billing_address: billingAddress || null,
+          payment_method: paymentMethod,
+          order_date: new Date().toISOString(),
+          coupon_code: couponCode || null,
+          discount_amount: discountAmount || 0,
+        })
+        .eq("id", orderId);
+
+      if (orderUpdateError) {
+        console.error("Failed to update existing order:", orderUpdateError);
+        return NextResponse.json({ error: "Failed to update pending order" }, { status: 500 });
+      }
+    } else {
+      // Create a brand new PENDING order
+      const { data: orderRow, error: orderInsertError } = await authedSupabase
+        .from("orders")
+        .insert({
+          user_id: metadata.userId,
+          total_price: finalTotalPrice,
+          status: OrderStatus.PENDING,
+          items_snapshot: {
+            items: resolvedCartSnapshot,
+            shipping_method: shippingMethod,
+            shipping_cost: shippingAmount,
+          },
+          shipping_address: shippingAddress || {},
+          billing_address: billingAddress || null,
+          payment_method: paymentMethod,
+          order_date: new Date().toISOString(),
+          coupon_code: couponCode || null,
+          discount_amount: discountAmount || 0,
+        })
+        .select("id")
+        .single();
+
+      if (orderInsertError || !orderRow) {
+        console.error("Failed to create pending order:", orderInsertError);
+        return NextResponse.json({ error: "Failed to initialize order tracking" }, { status: 500 });
+      }
+      orderId = orderRow.id;
     }
-
-    const orderId = orderRow.id;
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -352,6 +401,12 @@ export async function POST(request: Request) {
       success_url: successUrl,
       expires_at: Math.floor(Date.now() / 1000) + 60 * 30,
       cancel_url: cancelUrl,
+      payment_intent_data: {
+        metadata: {
+          orderId: String(orderId),
+          userId: metadata.userId,
+        },
+      },
       metadata: {
         ...metadata,
         orderId: String(orderId),
@@ -361,6 +416,7 @@ export async function POST(request: Request) {
     });
 
     // Clean up any old PENDING payments to avoid confusion
+    // (We keep the orderId stable now, so we just expire previous session records)
     await authedSupabase
       .from("payments")
       .update({ status: PaymentStatus.EXPIRED })
@@ -371,7 +427,7 @@ export async function POST(request: Request) {
     const { error: paymentInsertError } = await authedSupabase.from("payments").insert({
       payment_id: session.id,
       order_id: orderId, // Link to the order we just created
-      transaction_id: null,
+      transaction_id: (session.payment_intent as string) || null,
       method: paymentMethod,
       status: PaymentStatus.PENDING,
       user_id: metadata.userId,

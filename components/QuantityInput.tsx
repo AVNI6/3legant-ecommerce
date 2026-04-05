@@ -1,6 +1,6 @@
 "use client"
 import { useAppDispatch } from "@/store/hooks";
-import { updateQuantity, setQuantity, updateCartItemQuantity } from "@/store/slices/cartSlice";
+import { setQuantity, updateCartItemQuantity } from "@/store/slices/cartSlice";
 import { toast } from "react-toastify";
 import { useState, useEffect, useRef } from "react";
 
@@ -35,15 +35,16 @@ const QuantityInput = ({
 
     // Boundary check using prop stock (now reliably fetched)
     if (type === "inc" && quantity >= stock) {
+      toast.warning("Item out of stock");
       return;
     }
 
     if (nextVal >= 1) {
-      // 1. Immediate UI update
+      // 1. Immediate UI update (Optimistic)
       if (variant_id) {
         dispatch(updateCartItemQuantity({ variant_id, quantity: nextVal }));
-        // 2. Trigger async DB update
-        dispatch(updateQuantity({ variant_id, type }));
+        // 2. Trigger async DB update using absolute value to avoid race conditions
+        dispatch(setQuantity({ variant_id, quantity: nextVal }));
       } else if (onQuantityChange) {
         onQuantityChange(nextVal);
       }
@@ -62,6 +63,9 @@ const QuantityInput = ({
 
     const numValue = parseInt(value, 10);
     if (!isNaN(numValue) && numValue > 0) {
+      if (numValue > stock) {
+        toast.warning("Item out of stock");
+      }
       const finalValue = Math.min(numValue, stock);
 
       // 1. Immediate UI update via synchronous Redux action
@@ -113,6 +117,7 @@ const QuantityInput = ({
       className={`flex items-center justify-between border border-gray-300 rounded-lg px-2 sm:px-4 py-2 ${maxWidth} transition-all`}
     >
       <button
+        type="button"
         onClick={() => handleUpdate("dec")}
         className={`text-lg sm:text-xl font-medium focus:outline-none transition-colors ${quantity <= 1 ? "text-gray-300 cursor-not-allowed" : "text-black hover:text-gray-600"
           }`}
@@ -128,6 +133,7 @@ const QuantityInput = ({
         className="text-sm sm:text-base font-semibold w-8 sm:w-12 text-center bg-transparent border-none focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       />
       <button
+        type="button"
         onClick={() => handleUpdate("inc")}
         className={`text-lg sm:text-xl font-medium focus:outline-none transition-colors ${maxReached ? "text-gray-300 cursor-not-allowed" : "text-black hover:text-gray-600"
           }`}

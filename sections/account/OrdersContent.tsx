@@ -6,9 +6,14 @@ import Link from "next/link";
 import { APP_ROUTE } from "@/constants/AppRoutes";
 import { REFUND_REASONS, isWithinRefundWindow, getDaysRemainingForRefund } from "@/constants/RefundConfig";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
-import { FiChevronDown, FiChevronRight, FiDownload, FiInfo } from "react-icons/fi";
-import { setOrders, cancelOrder, submitRefund } from "@/store/slices/orderSlice";
-import { usePagination } from "@/lib/hooks/usePagination";
+import { FiChevronDown, FiChevronRight, FiInfo } from "react-icons/fi";
+import { setOrders, cancelOrder, submitRefund, cancelRefundRequest } from "@/store/slices/orderSlice";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { supabase } from "@/lib/supabase/client";
+import { DEFAULT_REFUND_WINDOW_DAYS } from "@/constants/RefundConfig";
+import Pagination from "@/components/common/Pagination";
+import Modal from "@/components/ui/Modal";
+import { toast } from "react-toastify";
 
 type OrderItem = {
   id: number;
@@ -32,7 +37,7 @@ type Order = {
   refund_reason?: string | null;
   discount_amount?: number | null;
   coupon_code?: string | null;
-  items_snapshot?: any[] | null;
+  items_snapshot?: any[] | { items: any[] | null, shipping_method?: string } | null;
   order_items: OrderItem[];
   shipping_address?: any;
   billing_address?: any;
@@ -41,39 +46,106 @@ type Order = {
 };
 
 interface Props {
-  initialOrders: Order[];
+  userId: string;
+  currentPage: number;
   refundWindowDays: number;
 }
 
-export default function OrdersContent({ initialOrders, refundWindowDays }: Props) {
+export default function OrdersContent({ userId, currentPage, refundWindowDays }: Props) {
   const dispatch = useAppDispatch();
-  const { user } = useAppSelector(state => state.auth);
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
   const { orders: reduxOrders } = useAppSelector(state => state.orders);
 
+  const [totalCount, setTotalCount] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
   const [refundModal, setRefundModal] = useState<{ orderid: number | null; visible: boolean }>({ orderid: null, visible: false });
   const [refundForm, setRefundForm] = useState({ reason: "", details: "", amount: 0 });
   const [submitting, setSubmitting] = useState(false);
+  const [actionModal, setActionModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm?: () => void;
+    type: "info" | "confirm";
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "info"
+  });
 
+  // Fetch Orders on the client side
   useEffect(() => {
-    if (initialOrders) {
-      dispatch(setOrders(initialOrders as any[]));
+    const fetchData = async (signal: AbortSignal) => {
+      setLoading(true);
+      try {
+        // Fetch Paginated Orders
+        const PAGE_SIZE = 10;
+        const from = (currentPage - 1) * PAGE_SIZE;
+        const to = from + PAGE_SIZE - 1;
+
+        const { data: ordersData, error: ordersError, count } = await supabase
+          .from("orders")
+          .select(`
+            id, user_id, total_price, status, order_date, shipping_address, 
+            payment_method, billing_address, items_snapshot, invoice_url, 
+            invoice_sent_at, refund_status, refund_amount, refund_reason, 
+            discount_amount, coupon_code, admin_note,
+            order_items ( id, product_id, price, quantity, color, variant_id )
+          `, { count: 'exact' })
+          .eq("user_id", userId)
+          .order("order_date", { ascending: false })
+          .range(from, to)
+          .abortSignal(signal);
+
+        if (ordersError) {
+          const isAbort =
+            ordersError.message?.includes('Fetch is aborted') ||
+            ordersError.message?.includes('AbortError') ||
+            signal.aborted;
+
+          if (isAbort) return;
+          throw ordersError;
+        }
+
+        dispatch(setOrders(ordersData as any[]));
+        setTotalCount(count || 0);
+
+      } catch (err: any) {
+        // Suppress all forms of abort errors (standard DOMException or Supabase wrapped errors)
+        const isAbort =
+          err.name === 'AbortError' ||
+          err.message?.includes('AbortError') ||
+          err.message?.includes('Fetch is aborted') ||
+          err.code === '20' || // Some environments use code 20 for abort
+          signal.aborted;
+
+        if (isAbort) return;
+
+        console.error("Failed to fetch client-side order data:", err);
+      } finally {
+        if (!signal.aborted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    const controller = new AbortController();
+    if (userId) {
+      fetchData(controller.signal);
     }
-  }, [dispatch, initialOrders]);
 
-  const orders = reduxOrders.length > 0 ? reduxOrders : (initialOrders || []);
+    return () => {
+      controller.abort();
+    };
+  }, [userId, currentPage, dispatch]);
 
-  const {
-    page,
-    totalPages,
-    goToPage,
-    nextPage,
-    previousPage,
-    hasNextPage,
-    hasPreviousPage,
-  } = usePagination(orders.length, { pageSize: 5 });
+  const orders = reduxOrders;
+  const totalPages = Math.ceil(totalCount / 10);
+  const page = currentPage;
 
-  const paginatedOrders = orders.slice((page - 1) * 5, page * 5);
 
   const toggleExpand = (orderId: number) => {
     setExpandedOrderId(expandedOrderId === orderId ? null : orderId);
@@ -93,29 +165,54 @@ export default function OrdersContent({ initialOrders, refundWindowDays }: Props
   };
 
   const handleCancelOrder = async (orderId: number) => {
-    if (!confirm("Cancel this order? If payment was captured, refund will be initiated.")) {
-      return;
-    }
+    setActionModal({
+      isOpen: true,
+      title: "Cancel Order",
+      message: "Cancel this order? If payment was captured, refund will be initiated.",
+      type: "confirm",
+      onConfirm: async () => {
+        setSubmitting(true);
+        try {
+          const order = orders.find((o) => o.id === orderId);
+          const totalAmount = order?.total_price || 0;
+          await dispatch(cancelOrder({ orderId, totalAmount, adminNote: "Customer cancelled the order before shipment" })).unwrap();
+          toast.success("Order cancelled successfully.");
+        } catch (err: any) {
+          console.error("Order cancellation error:", err);
+          toast.error("Error cancelling order: " + (err.message || "Please contact support."));
+        } finally {
+          setSubmitting(false);
+          setActionModal(prev => ({ ...prev, isOpen: false }));
+        }
+      }
+    });
+  };
 
-    setSubmitting(true);
-    try {
-      const order = orders.find((o) => o.id === orderId);
-      const totalAmount = order?.total_price || 0;
-
-      await dispatch(cancelOrder({ orderId, totalAmount, adminNote: "Customer cancelled the order before shipment" })).unwrap();
-
-      alert("Order cancelled successfully.");
-    } catch (err: any) {
-      console.error("Order cancellation error:", err);
-      alert("Error cancelling order: " + (err.message || "Please contact support."));
-    } finally {
-      setSubmitting(false);
-    }
+  const handleCancelRefund = async (orderId: number) => {
+    setActionModal({
+      isOpen: true,
+      title: "Withdraw Refund Request",
+      message: "Are you sure you want to cancel your refund request for this order?",
+      type: "confirm",
+      onConfirm: async () => {
+        setSubmitting(true);
+        try {
+          await dispatch(cancelRefundRequest({ orderId })).unwrap();
+          toast.success("Refund request withdrawn successfully.");
+        } catch (err: any) {
+          console.error("Refund withdrawal error:", err);
+          toast.error("Error withdrawing request: " + (err.message || "Please contact support."));
+        } finally {
+          setSubmitting(false);
+          setActionModal(prev => ({ ...prev, isOpen: false }));
+        }
+      }
+    });
   };
 
   const handleRefundSubmit = async () => {
     if (!refundModal.orderid || !refundForm.reason) {
-      alert("Please fill in all fields");
+      toast.warning("Please fill in all fields");
       return;
     }
 
@@ -123,12 +220,12 @@ export default function OrdersContent({ initialOrders, refundWindowDays }: Props
     try {
       await dispatch(submitRefund({ orderId: refundModal.orderid, reason: refundForm.reason + (refundForm.details ? ": " + refundForm.details : "") })).unwrap();
 
-      alert("Refund request submitted successfully!");
+      toast.success("Refund request submitted successfully!");
       setRefundModal({ orderid: null, visible: false });
       setRefundForm({ reason: "", details: "", amount: 0 });
     } catch (err: any) {
       console.error("Refund submission error:", err);
-      alert("Error submitting refund request: " + err.message);
+      toast.error("Error submitting refund request: " + err.message);
     } finally {
       setSubmitting(false);
     }
@@ -141,8 +238,29 @@ export default function OrdersContent({ initialOrders, refundWindowDays }: Props
       rejected: "bg-red-100 text-red-700 border-red-200",
       processed: "bg-green-100 text-green-700 border-green-200",
     };
-    return colors[status] || "bg-gray-100 text-gray-700 border-gray-200";
+    return colors[status.toLowerCase()] || "bg-gray-100 text-gray-700 border-gray-200";
   };
+
+  const getStatusColor = (status: string): string => {
+    const colors: Record<string, string> = {
+      pending: "bg-amber-100 text-amber-700 ring-amber-600/20",
+      processing: "bg-indigo-100 text-indigo-700 ring-indigo-600/20",
+      confirmed: "bg-blue-100 text-blue-700 ring-blue-600/20",
+      shipped: "bg-cyan-100 text-cyan-700 ring-cyan-600/20",
+      delivered: "bg-green-100 text-green-700 ring-green-600/20",
+      cancelled: "bg-red-100 text-red-700 ring-red-600/20",
+    };
+    return colors[status.toLowerCase()] || "bg-gray-100 text-gray-700 ring-gray-600/20";
+  };
+
+  if (loading) {
+    return (
+      <div className="w-full py-20 flex flex-col items-center justify-center space-y-4">
+        <div className="w-10 h-10 border-4 border-gray-200 border-t-black rounded-full animate-spin"></div>
+        <p className="text-gray-400 font-medium animate-pulse text-sm">Fetching your orders...</p>
+      </div>
+    );
+  }
 
   if (!orders || orders.length === 0)
     return (
@@ -225,9 +343,11 @@ export default function OrdersContent({ initialOrders, refundWindowDays }: Props
 
       {/* ORDERS LIST */}
       <div className="space-y-3">
-        {paginatedOrders.map((order) => {
+        {orders.map((order) => {
           const isExpanded = expandedOrderId === order.id;
-          const itemsCount = (order.items_snapshot?.length || order.order_items?.length || 0);
+          const snapshot = order.items_snapshot as any;
+          const itemsFromSnapshot = Array.isArray(snapshot) ? snapshot : (snapshot?.items || []);
+          const itemsCount = itemsFromSnapshot.length || order.order_items?.length || 0;
 
           return (
             <div
@@ -254,10 +374,7 @@ export default function OrdersContent({ initialOrders, refundWindowDays }: Props
 
                 {/* Status - Responsive Badge */}
                 <div className="flex md:block gap-2 items-center">
-                  <span className={`text-[9px] md:text-[10px] font-bold uppercase py-0.5 md:py-1 px-2 md:px-2.5 rounded-full ring-1 ring-inset ${order.status === 'delivered' ? 'bg-green-50 text-green-700 ring-green-600/20' :
-                    order.status === 'confirmed' ? 'bg-blue-50 text-blue-700 ring-blue-600/20' :
-                      'bg-gray-50 text-gray-700 ring-gray-600/20'
-                    }`}>
+                  <span className={`text-[9px] md:text-[10px] font-bold uppercase py-0.5 md:py-1 px-2 md:px-2.5 rounded-full ring-1 ring-inset ${getStatusColor(order.status)}`}>
                     {order.status}
                   </span>
 
@@ -270,7 +387,7 @@ export default function OrdersContent({ initialOrders, refundWindowDays }: Props
 
                 {/* Items Thumbnails (Desktop Only) */}
                 <div className="hidden md:flex gap-3 overflow-hidden">
-                  {(order.items_snapshot || order.order_items || []).slice(0, 3).map((item: any, idx) => (
+                  {itemsFromSnapshot.slice(0, 3).map((item: any, idx: number) => (
                     <img
                       key={`img-${order.id}-${idx}`}
                       src={item.image || (item.product_variant?.color_images?.[0]) || item.products?.image}
@@ -302,7 +419,7 @@ export default function OrdersContent({ initialOrders, refundWindowDays }: Props
                   <div className="mb-6 pb-6 border-b border-gray-100">
                     <h4 className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-4">Items ({itemsCount})</h4>
                     <div className="space-y-3">
-                      {(order.items_snapshot || order.order_items || []).map((item: any, idx: number) => (
+                      {itemsFromSnapshot.map((item: any, idx: number) => (
                         <div key={`item-${order.id}-${idx}`} className="flex gap-4 items-start bg-gray-50 p-3 rounded-lg">
                           {/* Product Image */}
                           <img
@@ -313,9 +430,11 @@ export default function OrdersContent({ initialOrders, refundWindowDays }: Props
 
                           {/* Product Info */}
                           <div className="flex-1 min-w-0">
-                            <h5 className="font-bold text-sm text-black line-clamp-2 mb-1">
-                              {item.name || `Product #${item.product_id}`}
-                            </h5>
+                            <Link href={`${APP_ROUTE.product}/${item.product_id || item.id}?variantId=${item.variant_id || ''}`} className="hover:underline">
+                              <h5 className="font-bold text-sm text-black line-clamp-2 mb-1">
+                                {item.name || `Product #${item.product_id || item.id}`}
+                              </h5>
+                            </Link>
                             <div className="flex gap-3 text-xs text-gray-600 mb-2">
                               <span>Color: <strong>{item.color || 'N/A'}</strong></span>
                               {item.size && <span>Size: <strong>{item.size}</strong></span>}
@@ -346,10 +465,24 @@ export default function OrdersContent({ initialOrders, refundWindowDays }: Props
                             {order.shipping_address?.street}, {order.shipping_address?.city},<br />
                             {order.shipping_address?.state} {order.shipping_address?.zip}, {order.shipping_address?.country}
                           </p>
-                          {order.shipping_address?.phone && (
-                            <p className="text-black font-bold text-xs pt-1.5">
-                              {order.shipping_address?.phone}
-                            </p>
+                          {(order.shipping_address?.phone || snapshot?.shipping_method) && (
+                            <div className="flex flex-col gap-1.5 pt-2">
+                              {order.shipping_address?.phone && (
+                                <p className="text-black font-bold text-xs">
+                                  Phone: {order.shipping_address?.phone}
+                                </p>
+                              )}
+                              {snapshot?.shipping_method && (
+                                <p className="text-blue-600 font-bold text-xs uppercase tracking-tight">
+                                  Method: {snapshot.shipping_method}
+                                  {snapshot.shipping_cost !== undefined && (
+                                    <span className="ml-1 text-gray-400 normal-case font-medium">
+                                      ({Number(snapshot.shipping_cost) === 0 ? "Free" : formatCurrency(snapshot.shipping_cost)})
+                                    </span>
+                                  )}
+                                </p>
+                              )}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -360,37 +493,10 @@ export default function OrdersContent({ initialOrders, refundWindowDays }: Props
                           {order.payment_method || 'Card'}
                         </span>
                       </div>
-                      {/* 
-                      {order.discount_amount && (
-                        <div className="pt-2">
-                          <p className="text-[9px] font-bold text-green-600">
-                            Discount Applied: {formatCurrency(order.discount_amount)}
-                            {order.coupon_code && <span className="ml-1 text-gray-500">(Code: {order.coupon_code})</span>}
-                          </p>
-                        </div>
-                      )} */}
                     </div>
 
                     <div className="w-full md:w-64 flex flex-col gap-2.5">
                       <div className="flex flex-col gap-2.5">
-                        {/* 
-                        {order.invoice_url ? (
-                          <a
-                            href={order.invoice_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center justify-between bg-black text-white px-5 py-3 md:py-3.5 rounded-xl font-extrabold text-xs hover:opacity-90 active:scale-[0.98] transition-all group"
-                          >
-                            <span>Download Invoice</span>
-                            <FiDownload className="w-4 h-4 group-hover:translate-y-0.5 transition-transform" />
-                          </a>
-                        ) : (
-                          <div className="text-center py-3.5 px-5 bg-gray-50 text-gray-400 rounded-xl text-[10px] font-black border border-gray-100 uppercase tracking-tighter italic">
-                            Invoice processing...
-                          </div>
-                        )}
-                        */}
-
                         {canCancelOrder(order) && (
                           <button
                             onClick={(e) => {
@@ -419,9 +525,33 @@ export default function OrdersContent({ initialOrders, refundWindowDays }: Props
                             </span>
                           </button>
                         ) : order.refund_status ? (
-                          <div className={`flex items-center justify-between px-5 py-3 md:py-3.5 rounded-xl border text-[10px] font-black uppercase tracking-wider ${getRefundStatusColor(order.refund_status)}`}>
-                            <span>Refund {order.refund_status}</span>
-                            <FiInfo className="w-4 h-4" />
+                          <div className="flex flex-col gap-2">
+                            <div className={`flex items-center justify-between px-5 py-3 md:py-3.5 rounded-xl border text-[10px] font-black uppercase tracking-wider ${getRefundStatusColor(order.refund_status)}`}>
+                              <span>
+                                Refund {order.refund_status}
+                                {order.refund_amount ? ` (${formatCurrency(order.refund_amount)})` : ""}
+                              </span>
+                              <FiInfo className="w-4 h-4" />
+                            </div>
+
+                            {order.refund_status === "pending" && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handleCancelRefund(order.id);
+                                }}
+                                disabled={submitting}
+                                className="text-[10px] font-black text-gray-400 hover:text-black transition-colors uppercase tracking-widest text-center py-1"
+                              >
+                                Withdraw Request
+                              </button>
+                            )}
+
+                            {order.admin_note && (
+                              <p className="text-[9px] text-gray-400 italic px-2">
+                                Note: {order.admin_note}
+                              </p>
+                            )}
                           </div>
                         ) : !canCancelOrder(order) ? (
                           <div className="text-center py-3.5 px-5 bg-gray-50 text-gray-300 rounded-xl text-[9px] font-black uppercase border border-gray-50 tracking-wider">
@@ -429,18 +559,6 @@ export default function OrdersContent({ initialOrders, refundWindowDays }: Props
                           </div>
                         ) : null}
                       </div>
-
-                      {/* 
-                      {order.invoice_sent_at && (
-                        <div className="flex items-center gap-2 justify-center pt-1.5">
-                          <div className="h-px flex-1 bg-gray-100"></div>
-                          <p className="text-[8px] text-gray-300 font-black uppercase tracking-widest whitespace-nowrap">
-                            Sent {formatDate(order.invoice_sent_at)}
-                          </p>
-                          <div className="h-px flex-1 bg-gray-100"></div>
-                        </div>
-                      )}
-                      */}
                     </div>
                   </div>
                 </div>
@@ -451,46 +569,36 @@ export default function OrdersContent({ initialOrders, refundWindowDays }: Props
       </div>
 
       {/* PAGINATION CONTROLS */}
-      {totalPages > 1 && (
-        <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-100 pt-8">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-            Showing Page <span className="text-black">{page}</span> of <span className="text-black">{totalPages}</span>
-          </p>
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+      />
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={previousPage}
-              disabled={!hasPreviousPage}
-              className="p-2.5 rounded-xl border border-gray-200 text-black disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 transition-all active:scale-95"
-            >
-              <FiChevronRight className="w-5 h-5 rotate-180" />
-            </button>
-
-            <div className="flex items-center gap-1">
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-                <button
-                  key={pageNum}
-                  onClick={() => goToPage(pageNum)}
-                  className={`min-w-[40px] h-10 rounded-xl text-xs font-black transition-all active:scale-95 ${page === pageNum
-                    ? "bg-black text-white shadow-lg"
-                    : "text-gray-400 hover:text-black hover:bg-gray-50"
-                    }`}
-                >
-                  {pageNum}
-                </button>
-              ))}
+      <Modal
+        isOpen={actionModal.isOpen}
+        onClose={() => setActionModal(prev => ({ ...prev, isOpen: false }))}
+        title={actionModal.title}
+      >
+        <div className="space-y-6">
+          <p className="text-gray-600 font-medium leading-relaxed">{actionModal.message}</p>
+          {actionModal.type === "confirm" && (
+            <div className="flex gap-3 pt-4 justify-end">
+              <button
+                onClick={() => setActionModal(prev => ({ ...prev, isOpen: false }))}
+                className="px-6 py-2.5 border border-gray-200 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all text-gray-500"
+              >
+                No, Keep it
+              </button>
+              <button
+                onClick={actionModal.onConfirm}
+                className="px-6 py-2.5 bg-black text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition-all shadow-lg active:scale-95"
+              >
+                Yes, Proceed
+              </button>
             </div>
-
-            <button
-              onClick={nextPage}
-              disabled={!hasNextPage}
-              className="p-2.5 rounded-xl border border-gray-200 text-black disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 transition-all active:scale-95"
-            >
-              <FiChevronRight className="w-5 h-5" />
-            </button>
-          </div>
+          )}
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

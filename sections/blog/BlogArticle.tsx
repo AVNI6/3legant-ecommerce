@@ -48,13 +48,10 @@ export default function BlogArticle({ data, gridType = "three" }: ArticleProps) 
                                 ? "w-[250px] h-[200px]"
                                 : "w-full h-[283px]"
                                 }`}>
-                                <Image
+                                <img
                                     src={displayImage}
                                     alt={article.title}
-                                    fill
-                                    className="object-cover hover:scale-105 transition-transform duration-300"
-                                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                                    priority={index < 3}
+                                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                                     loading={index < 3 ? "eager" : "lazy"}
                                 />
                             </div>

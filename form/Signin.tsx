@@ -72,7 +72,7 @@ const Signin = () => {
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen overflow-hidden">
-      <div className="relative w-auto md:w-full md:h-64 md:h-auto h-[430px] lg:w-[55vw] lg:h-64 lg:h-[100vh]">
+      <div className="relative w-auto md:w-1/2 md:h-64 md:h-auto h-[430px] lg:w-[55vw] lg:h-64 lg:h-[100vh]">
         <Image src="/signup.png"
           alt="Signup Image"
           fill
@@ -113,10 +113,16 @@ const Signin = () => {
               autoComplete="email"
               type="email"
               placeholder="Email address"
-              {...register("email", { required: "Email is required" })}
+              {...register("email", {
+                required: "Email is required",
+                pattern: {
+                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                  message: "Invalid email address"
+                }
+              })}
               className="w-full border-b border-gray-300 py-3 focus:outline-none focus:border-black" />
             {errors.email && (
-              <p className="text-red-500 text-xs">{errors.email.message}</p>
+              <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>
             )}
 
             <div className="relative">
@@ -125,7 +131,13 @@ const Signin = () => {
                 autoComplete="current-password"
                 type={showPassword ? "text" : "password"}
                 placeholder="Password"
-                {...register("password", { required: "Password is required" })}
+                {...register("password", {
+                  required: "Password is required",
+                  minLength: {
+                    value: 6,
+                    message: "Password must be at least 6 characters"
+                  }
+                })}
                 className="w-full border-b border-gray-300 py-3 pr-10 focus:outline-none focus:border-black"
               />
               <button
@@ -137,7 +149,7 @@ const Signin = () => {
               </button>
             </div>
             {errors.password && (
-              <p className="text-red-500 text-xs">{errors.password.message}</p>
+              <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>
             )}
 
             <div className="flex justify-between">

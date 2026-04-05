@@ -5,11 +5,7 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["react-icons", "lucide-react", "@react-icons/all-files", "react-slick"],
   },
-  logging: {
-    fetches: {
-      fullUrl: true,
-    },
-  },
+
   images: {
     dangerouslyAllowLocalIP: true,
     remotePatterns: [
@@ -18,6 +14,11 @@ const nextConfig: NextConfig = {
         hostname: "**.supabase.co",
         pathname: "/storage/v1/object/public/**",
       },
+      {
+        protocol: "https",
+        hostname: "media.istockphoto.com",
+        pathname: "/**",
+      }
     ],
   },
 };

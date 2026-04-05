@@ -55,7 +55,21 @@ export default function ShoppingCart() {
 
 				if (error) throw error
 				if (mounted && data && data.length > 0) {
-					setShippingMethods(data as ShippingMethod[])
+					const methods = data as ShippingMethod[];
+					setShippingMethods(methods);
+
+					// 🚀 FORCED DEFAULT: Ensure 'Free Shipping' is always the first choice for a fresh user
+					if (!selectedShipping) {
+						const freeMethod = methods.find(m => m.name.toLowerCase().includes("free"));
+						const defaultChoice = freeMethod || methods[0];
+						
+						if (defaultChoice) {
+							dispatch(setShipping({ 
+								name: defaultChoice.name, 
+								cost: computeShipping(defaultChoice) 
+							}));
+						}
+					}
 				}
 			} catch (err) {
 				console.error("[SHIPPING] Failed to load methods:", err)
@@ -147,7 +161,7 @@ export default function ShoppingCart() {
 								<div className="flex flex-col min-[196px]:flex-row lg:grid lg:grid-cols-[2.5fr_1.2fr_1fr_1fr] xl:grid-cols-[3fr_1fr_1fr_1fr] items-center gap-2 min-[375px]:gap-4 py-3 min-[375px]:py-4 md:py-6 lg:py-6 w-full border-b border-gray-100 last:border-b-0">
 									<div className="flex max-[195px]:flex-col flex-row lg:col-span-1 items-center gap-3 min-[375px]:gap-4 w-full lg:w-auto">
 										<Link
-											href={`${APP_ROUTE.product}/${item.id}`}
+											href={`${APP_ROUTE.product}/${item.id}?variantId=${item.variant_id}`}
 											className="shrink-0 max-[195px]:w-full"
 										>
 											<img
@@ -158,7 +172,7 @@ export default function ShoppingCart() {
 										</Link>
 										<div className="flex flex-col flex-1 gap-1 min-w-0 max-[195px]:hidden">
 											<div className="flex justify-between items-start lg:block gap-1 min-[375px]:gap-2">
-												<Link href={`${APP_ROUTE.product}/${item.id}`} className="min-w-0">
+												<Link href={`${APP_ROUTE.product}/${item.id}?variantId=${item.variant_id}`} className="min-w-0">
 													<p className="font-semibold text-[10px] min-[375px]:text-xs sm:text-sm lg:text-base hover:underline line-clamp-2 leading-tight">
 														{item.name}
 													</p>

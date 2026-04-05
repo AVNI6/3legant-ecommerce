@@ -35,7 +35,6 @@ export default function StepIndicator() {
         // We moved from cart to somewhere else, if we were on success step, clear it
         const savedStep = localStorage.getItem("checkoutActiveStep");
         if (savedStep === "3") {
-          console.log("[STEP] User left success page, clearing checkout state");
           localStorage.removeItem("checkoutActiveStep");
           dispatch(setActiveStep(1));
         }

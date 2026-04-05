@@ -72,7 +72,12 @@ export default function CheckoutForm({
           <input
             id="phone"
             autoComplete="tel"
-            {...register("phone", { required: "Phone required" })}
+            {...register("phone", { 
+              required: "Phone required",
+              minLength: { value: 10, message: "Phone must be exactly 10 digits" },
+              maxLength: { value: 10, message: "Phone must be exactly 10 digits" },
+              pattern: { value: /^[0-9]+$/, message: "Only digits allowed" }
+            })}
             className="border rounded p-2 px-3 focus:border-black outline-none transition-colors text-[10px] min-[375px]:text-sm"
           />
           {errors.phone && (
@@ -212,49 +217,76 @@ export default function CheckoutForm({
 
         {differentBilling && (
           <div className="mt-4 space-y-3 sm:space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-            <input
-              placeholder="Street"
-              {...register("billingStreet", {
-                required: differentBilling ? "Required" : false,
-              })}
-              className="w-full border rounded p-2 px-3 focus:border-black outline-none transition-colors text-[10px] min-[375px]:text-sm"
-            />
-            <select
-              {...register("billingCountry", {
-                required: differentBilling ? "Required" : false,
-              })}
-              className="w-full border rounded p-2 px-3 focus:border-black outline-none transition-colors bg-white shadow-none text-sm"
-            >
-              <option value="">Select Country</option>
-              <option value="india">India</option>
-              <option value="usa">USA</option>
-            </select>
-            <div className="grid gap-3 sm:gap-4">
+            <div className="flex flex-col">
               <input
-                placeholder="City"
-                {...register("billingCity", {
-                  required: differentBilling ? "Required" : false,
+                placeholder="Street *"
+                {...register("billingStreet", {
+                  required: differentBilling ? "Billing street required" : false,
                 })}
                 className="w-full border rounded p-2 px-3 focus:border-black outline-none transition-colors text-[10px] min-[375px]:text-sm"
               />
+              {errors.billingStreet && (
+                <p className="text-red-500 text-[10px] sm:text-xs mt-1">{errors.billingStreet.message}</p>
+              )}
+            </div>
+
+            <div className="flex flex-col">
+              <select
+                {...register("billingCountry", {
+                  required: differentBilling ? "Billing country required" : false,
+                })}
+                className="w-full border rounded p-2 px-3 focus:border-black outline-none transition-colors bg-white shadow-none text-sm"
+              >
+                <option value="">Select Country *</option>
+                <option value="india">India</option>
+                <option value="usa">USA</option>
+              </select>
+              {errors.billingCountry && (
+                <p className="text-red-500 text-[10px] sm:text-xs mt-1">{errors.billingCountry.message}</p>
+              )}
+            </div>
+
+            <div className="grid gap-3 sm:gap-4">
+              <div className="flex flex-col">
+                <input
+                  placeholder="City *"
+                  {...register("billingCity", {
+                    required: differentBilling ? "Billing city required" : false,
+                  })}
+                  className="w-full border rounded p-2 px-3 focus:border-black outline-none transition-colors text-[10px] min-[375px]:text-sm"
+                />
+                {errors.billingCity && (
+                  <p className="text-red-500 text-[10px] sm:text-xs mt-1">{errors.billingCity.message}</p>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
-              <input
-                placeholder="State"
-                list="billing-states"
-                {...register("billingState", {
-                  required: differentBilling ? "Required" : false,
-                })}
-                className="w-full border rounded p-2 px-3 focus:border-black outline-none transition-colors text-[10px] min-[375px]:text-sm"
-              />
-              <input
-                placeholder="Zip"
-                {...register("billingZip", {
-                  required: differentBilling ? "Required" : false,
-                })}
-                className="w-full border rounded p-2 px-3 focus:border-black outline-none transition-colors text-[10px] min-[375px]:text-sm"
-              />
+              <div className="flex flex-col">
+                <input
+                  placeholder="State *"
+                  list="billing-states"
+                  {...register("billingState", {
+                    required: differentBilling ? "Billing state required" : false,
+                  })}
+                  className="w-full border rounded p-2 px-3 focus:border-black outline-none transition-colors text-[10px] min-[375px]:text-sm"
+                />
+                {errors.billingState && (
+                  <p className="text-red-500 text-[10px] sm:text-xs mt-1">{errors.billingState.message}</p>
+                )}
+              </div>
+              <div className="flex flex-col">
+                <input
+                  placeholder="Zip *"
+                  {...register("billingZip", {
+                    required: differentBilling ? "Billing zip required" : false,
+                  })}
+                  className="w-full border rounded p-2 px-3 focus:border-black outline-none transition-colors text-[10px] min-[375px]:text-sm"
+                />
+                {errors.billingZip && (
+                  <p className="text-red-500 text-[10px] sm:text-xs mt-1">{errors.billingZip.message}</p>
+                )}
+              </div>
             </div>
             <datalist id="billing-states">
               {billingStateOptions.map((s) => (

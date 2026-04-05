@@ -90,7 +90,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log("✅ Refund window updated to", refund_window_days, "days");
     return NextResponse.json({
       success: true,
       refund_window_days: parseInt(data?.[0]?.setting_value || refund_window_days, 10),

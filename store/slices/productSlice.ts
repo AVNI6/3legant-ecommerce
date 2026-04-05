@@ -23,7 +23,7 @@ const initialState: ProductsState = {
   error: null,
   sort: "default",
   grid: "one",
-  visibleCount: 12,
+  visibleCount: 6,
 }
 
 export const fetchProducts = createAsyncThunk(
@@ -39,7 +39,6 @@ export const fetchProducts = createAsyncThunk(
             )
           `)
         .eq("is_deleted", false)
-        .limit(100)
 
       if (error) throw error
 
@@ -96,6 +95,11 @@ const productSlice = createSlice({
     removeProductFromStore: (state, action: PayloadAction<number>) => {
       // payload is the product id
       state.items = state.items.filter((item) => item.id !== action.payload)
+    },
+    addItems: (state, action: PayloadAction<ProductType[]>) => {
+      // payload is a flat list of items (each item is a variant)
+      state.items = [...state.items, ...action.payload]
+      state.initialized = true
     }
   },
   extraReducers: (builder) => {
@@ -134,5 +138,5 @@ const productSlice = createSlice({
   },
 })
 
-export const { setSort, setGrid, setVisibleCount, incrementVisibleCount, setItems, setInitialized, removeProductFromStore } = productSlice.actions
+export const { setSort, setGrid, setVisibleCount, incrementVisibleCount, setItems, addItems, setInitialized, removeProductFromStore } = productSlice.actions
 export default productSlice.reducer

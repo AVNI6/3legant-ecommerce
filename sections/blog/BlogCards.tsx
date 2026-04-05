@@ -1,80 +1,92 @@
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState, useCallback } from "react"
 import Controls from "./Controls"
 import BlogArticle from "./BlogArticle"
 import { SortOrder, TabType, GridType } from "@/constants/Data"
 import { supabase } from "@/lib/supabase/client"
 import { BlogGridSkeleton } from "@/components/ui/skeleton"
-import { buildPaginatedQuery } from "@/lib/hooks/usePagination"
+import { buildPaginatedQuery, usePagination } from "@/lib/hooks/usePagination"
 import { useAppDispatch, useAppSelector } from "@/store/hooks"
-import { setInitialBlogs, appendBlogs, setPage } from "@/store/slices/blogSlice"
+import { setInitialBlogs, setBlogs, setPage, setLoading } from "@/store/slices/blogSlice"
 
 export default function BlogCards({ initialArticles = [], totalCount = 0 }: { initialArticles?: any[], totalCount?: number }) {
     const dispatch = useAppDispatch()
-    const { items: articles, page, hasMore, initialized } = useAppSelector((state: any) => state.blog)
-    
-    const [loadingMore, setLoadingMore] = useState(false)
-
-    // Initialize Redux state from initialArticles on first load
-    useEffect(() => {
-        if (!initialized && initialArticles.length > 0) {
-            dispatch(setInitialBlogs({ items: initialArticles, totalCount }))
-        }
-    }, [initialized, initialArticles, totalCount, dispatch])
+    const { items: articles, page, totalCount: reduxTotalCount, hasMore, loading, initialized } = useAppSelector((state: any) => state.blog)
 
     const [activeTab, setActiveTab] = useState<TabType>("all")
     const [sortOrder, setSortOrder] = useState<SortOrder>("default")
     const [gridType, setGridType] = useState<GridType>("three")
 
-    const handleLoadMore = async () => {
-        const pageSize = 6
-        setLoadingMore(true)
-        const nextPage = page + 1
-        const { range } = buildPaginatedQuery(nextPage, pageSize)
+    // Use the existing logic hook for pagination helpers (matching the design style)
+    const { totalPages } = usePagination(reduxTotalCount, { pageSize: 6, initialPage: page })
 
-        const { data, error } = await supabase
+    // Initialize Redux state from initialArticles on first load
+    useEffect(() => {
+        if (!initialized) {
+            dispatch(setInitialBlogs({ items: initialArticles, totalCount }))
+        }
+    }, [initialized, initialArticles, totalCount, dispatch])
+
+    const fetchBlogs = useCallback(async (currentPage: number, currentTab: TabType, currentSort: SortOrder, replace: boolean = true) => {
+        dispatch(setLoading(true))
+        const PAGE_SIZE = 6
+        const { range } = buildPaginatedQuery(currentPage, PAGE_SIZE)
+
+        let query = supabase
             .from("blogs")
-            .select("id, title, slug, author_name, author_image, category, status, created_at, cover_image")
+            .select("id, title, slug, author_name, author_image, category, status, created_at, cover_image", { count: "exact" })
             .eq("status", "published")
-            .order("created_at", { ascending: false })
-            .range(range.from, range.to)
+
+        if (currentTab === "features") {
+            query = query.eq("category", "Featured")
+        }
+
+        if (currentSort === "asc") {
+            query = query.order("title", { ascending: true })
+        } else if (currentSort === "desc") {
+            query = query.order("title", { ascending: false })
+        } else {
+            query = query.order("created_at", { ascending: false })
+        }
+
+        const { data, error, count } = await query.range(range.from, range.to)
 
         if (!error && data) {
-            dispatch(appendBlogs(data))
-            dispatch(setPage(nextPage))
-        } 
-        setLoadingMore(false)
+            dispatch(setBlogs({ items: data, totalCount: count || 0, replace }))
+        }
+        dispatch(setLoading(false))
+    }, [dispatch])
+
+    // Trigger fetch on initialization or tab/sort change
+    useEffect(() => {
+        if (initialized) {
+            fetchBlogs(1, activeTab, sortOrder, true)
+            dispatch(setPage(1))
+        }
+    }, [activeTab, sortOrder, fetchBlogs, initialized, dispatch])
+
+    const handleLoadMore = () => {
+        const nextPage = page + 1
+        dispatch(setPage(nextPage))
+        fetchBlogs(nextPage, activeTab, sortOrder, false)
     }
 
-    const filteredArticles = useMemo(() => {
-        return activeTab === "features"
-            ? articles.filter((a: any) => a.category === "Featured")
-            : articles
-    }, [articles, activeTab])
-
-    const sortedArticles = useMemo(() => {
-        if (sortOrder === "default") return filteredArticles
-        
-        return [...filteredArticles].sort((a, b) =>
-            sortOrder === "asc"
-                ? a.title.localeCompare(b.title)
-                : b.title.localeCompare(a.title)
-        )
-    }, [filteredArticles, sortOrder])
+    const handleTabChange = (tab: TabType) => {
+        setActiveTab(tab)
+    }
 
     const tabClass = (tab: TabType) => `pb-2 font-medium transition-colors ${activeTab === tab ? "text-black border-b-2 border-black" : "text-gray-400 hover:text-black"}`
-    const isInitialLoading = !initialized
 
     return (
-        <div className="">
+        <div className="min-h-[600px]">
             <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-6 mb-8 mt-5 md:mt-0">
                 <div className="w-full md:w-auto">
                     <div className="relative md:hidden">
                         <select
                             id="blog-category"
                             value={activeTab}
-                            onChange={(e) => setActiveTab(e.target.value as TabType)}
+                            onChange={(e) => handleTabChange(e.target.value as TabType)}
                             className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 text-sm font-semibold focus:outline-none focus:border-black appearance-none bg-white pr-10"
                         >
                             <option value="all">All Blog</option>
@@ -88,33 +100,40 @@ export default function BlogCards({ initialArticles = [], totalCount = 0 }: { in
                     </div>
 
                     <div className="hidden md:flex gap-10">
-                        <button onClick={() => setActiveTab("all")} className={tabClass("all")}>All Blog</button>
-                        <button onClick={() => setActiveTab("features")} className={tabClass("features")}>Features</button>
+                        <button onClick={() => handleTabChange("all")} className={tabClass("all")}>All Blog</button>
+                        <button onClick={() => handleTabChange("features")} className={tabClass("features")}>Features</button>
                     </div>
                 </div>
 
                 <div className="hidden md:block w-full md:w-auto">
-                    <Controls sortOrder={sortOrder} setSortOrder={setSortOrder} gridType={gridType} setGridType={setGridType} />
+                    <Controls
+                        sortOrder={sortOrder}
+                        setSortOrder={(order) => {
+                            setSortOrder(order);
+                        }}
+                        gridType={gridType}
+                        setGridType={setGridType}
+                    />
                 </div>
             </div>
-            
 
-            {isInitialLoading ? (
+
+            {loading && page === 1 ? (
                 <BlogGridSkeleton count={6} gridType={gridType} />
             ) : articles.length === 0 ? (
                 <div className="text-center py-20 text-gray-400">No published articles found.</div>
             ) : (
                 <>
-                    <BlogArticle data={sortedArticles} gridType={gridType} />
-                    
-                    {hasMore && activeTab === "all" && (
+                    <BlogArticle data={articles} gridType={gridType} />
+
+                    {hasMore && (
                         <div className="flex justify-center mt-12 mb-20">
                             <button
                                 onClick={handleLoadMore}
-                                disabled={loadingMore}
+                                disabled={loading}
                                 className="px-10 py-3 border-2 border-black rounded-full font-semibold hover:bg-black hover:text-white transition-all duration-300 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {loadingMore ? (
+                                {loading ? (
                                     <div className="flex items-center gap-2">
                                         <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
                                         Loading...
@@ -130,3 +149,4 @@ export default function BlogCards({ initialArticles = [], totalCount = 0 }: { in
         </div>
     )
 }
+

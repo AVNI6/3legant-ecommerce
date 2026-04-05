@@ -30,9 +30,7 @@ const ArrowPrev = (props: any) => {
 };
 
 const ImageSlider = ({ initialBanners }: { initialBanners?: any[] }) => {
-  const displaySlides = initialBanners && initialBanners.length > 0
-    ? initialBanners.map(b => ({ id: b.id, image: b.image_url }))
-    : slides;
+  const displaySlides = slides;
   const settings = {
     dots: true,
     infinite: true,
@@ -86,4 +84,4 @@ const ImageSlider = ({ initialBanners }: { initialBanners?: any[] }) => {
   );
 };
 
-export default ImageSlider;
+export default ImageSlider;

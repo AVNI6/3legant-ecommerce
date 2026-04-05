@@ -6,6 +6,7 @@ import { APP_ROUTE } from "@/constants/AppRoutes";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
+import Image from "next/image";
 
 type HomeArticle = {
   id: number;
@@ -25,14 +26,26 @@ const dateStyle = "text-[#6C7275] mt-1 sm:mt-2 text-[11px] max-[353px]:text-[10p
 
 const buttonStyle =
   "font-medium text-[12px] max-[353px]:text-[11px] sm:text-[14px] md:text-[15px] lg:text-[16px]";
-const ArticlePage = ({ title = "Articles", showButton = true }: { title?: string, showButton?: boolean }) => {
-  const [displayArticles, setDisplayArticles] = useState<HomeArticle[]>([]);
-  const [loading, setLoading] = useState(true);
+const ArticlePage = ({
+  title = "Articles",
+  showButton = true,
+  initialArticles = []
+}: {
+  title?: string,
+  showButton?: boolean,
+  initialArticles?: HomeArticle[]
+}) => {
+  const [displayArticles, setDisplayArticles] = useState<HomeArticle[]>(initialArticles);
+  const [loading, setLoading] = useState(initialArticles.length === 0);
 
   useEffect(() => {
     let isMounted = true;
 
     const loadArticles = async () => {
+      if (initialArticles.length > 0) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       const { data } = await supabase
         .from("blogs")
@@ -76,44 +89,6 @@ const ArticlePage = ({ title = "Articles", showButton = true }: { title?: string
           ))}
         </div>
       ) : (
-        // <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-        //   {displayArticles.map((data, i) => {
-        //     const slug = data.slug;
-        //     const displayImage = data.cover_image || "/placeholder.png";
-        //     const displayDate = new Date(data.created_at).toLocaleDateString('en-US', {
-        //       month: 'long',
-        //       day: 'numeric',
-        //       year: 'numeric'
-        //     });
-
-        //     return (
-        //       <div key={data.id || i}>
-        //         <Link href={`${APP_ROUTE.blog}/${slug}`}>
-        //           <div className="relative w-full h-[283px] sm:h-[320px] md:h-[300px] overflow-hidden">
-        //             <img
-        //               src={displayImage}
-        //               alt={data.title}
-        //               className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-        //             />
-        //           </div>
-        //         </Link>
-
-        //         <div className="pt-4">
-        //           <h2 className="font-poppins font-semibold text-[20px] leading-[28px] tracking-normal mb-2 uppercase line-clamp-2 min-h-[56px]">{data.title}</h2>
-        //           <p className="text-[#6C7275] text-sm mb-4">{displayDate}</p>
-        //           {showButton && (
-        //             <BlackShopButton
-        //               className="font-medium text-[16px] leading-[28px] tracking-[-0.4px]"
-        //               content="Read more"
-        //               href={`${APP_ROUTE.blog}/${slug}`}
-        //             />
-        //           )}
-        //         </div>
-        //       </div>
-        //     );
-        //   })}
-        // </div>
-
         <div className="overflow-x-auto scrollbar-hide">
           <div className="flex gap-3 sm:gap-6 justify-between sm:px-0">
             {displayArticles.map((data, i) => {
@@ -129,10 +104,12 @@ const ArticlePage = ({ title = "Articles", showButton = true }: { title?: string
                 <div key={data.id || i} className={cardWrapper}>
                   <Link href={`${APP_ROUTE.blog}/${slug}`}>
                     <div className={imageWrapper}>
-                      <img
-                        src={displayImage}
+                      <Image
+                        src={displayImage || "/placeholder.png"}
                         alt={data.title}
-                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                        fill
+                        className="object-cover hover:scale-105 transition-transform duration-300"
+                        sizes="(max-width: 640px) 85vw, (max-width: 1024px) 45vw, 30vw"
                       />
                     </div>
                   </Link>

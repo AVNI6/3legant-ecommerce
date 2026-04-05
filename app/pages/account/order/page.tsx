@@ -5,7 +5,8 @@ import { redirect } from "next/navigation"
 import { APP_ROUTE } from "@/constants/AppRoutes"
 import { getRefundWindowDays, DEFAULT_REFUND_WINDOW_DAYS } from "@/constants/RefundConfig"
 
-export default async function OrdersPage() {
+export default async function OrdersPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+    const sp = await searchParams
     const cookieStore = cookies()
     const supabase = createClient(cookieStore)
 
@@ -15,44 +16,7 @@ export default async function OrdersPage() {
         redirect(APP_ROUTE.signin)
     }
 
-    // Fetch orders with all required fields - CORRECTED for actual schema
-    const { data: orders, error: ordersError } = await supabase
-        .from("orders")
-        .select(`
-            id,
-            user_id,
-            total_price,
-            status,
-            order_date,
-            shipping_address,
-            payment_method,
-            billing_address,
-            items_snapshot,
-            invoice_url,
-            invoice_sent_at,
-            refund_status,
-            refund_amount,
-            refund_reason,
-            discount_amount,
-            coupon_code,
-            admin_note,
-            order_items (
-                id,
-                product_id,
-                price,
-                quantity,
-                color,
-                variant_id
-            )
-        `)
-        .eq("user_id", user.id)
-        .order("order_date", { ascending: false })
-
-    if (ordersError) {
-        console.error("Error fetching orders:", ordersError.message)
-    } else {
-        console.log("Orders loaded:", orders?.length || 0)
-    }
+    const currentPage = parseInt(sp.page || "1", 10)
 
     let refundWindowDays = DEFAULT_REFUND_WINDOW_DAYS
     try {
@@ -73,7 +37,8 @@ export default async function OrdersPage() {
 
     return (
         <OrdersContent
-            initialOrders={(orders as any[]) || []}
+            userId={user.id}
+            currentPage={currentPage}
             refundWindowDays={refundWindowDays}
         />
     )

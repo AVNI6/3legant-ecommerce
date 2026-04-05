@@ -51,13 +51,13 @@ const toAddress = (address: Record<string, unknown> | null | undefined): Invoice
 const resolveItemImage = (item: OrderItemRow) => {
   // 1. Check if image is already flattened in the row (e.g. from items_snapshot)
   if (item.image) return item.image;
-  
+
   // 2. Check if we have variant-specific color images from the query
   const variantImages = item.product_variant?.color_images;
   if (Array.isArray(variantImages) && variantImages.length > 0) {
     return variantImages[0];
   }
-  
+
   // 3. Fallback to base product image
   return item.products?.image || "";
 };
@@ -162,12 +162,15 @@ export async function generateInvoiceForOrder(orderId: number): Promise<{ invoic
 
   const customerName = customerNameFromShipping || "Valued Customer";
 
+  const snapshot = typedOrder.items_snapshot as any;
+  const itemsFromSnapshot = Array.isArray(snapshot) ? snapshot : (snapshot?.items || []);
+
   const invoiceOrder: InvoiceOrder = {
     id: typedOrder.id,
     customer_name: customerName,
     order_date: typedOrder.order_date,
     shipping_address: toAddress(typedOrder.shipping_address),
-    items: toInvoiceItems((typedOrder.items_snapshot || orderItems || []) as OrderItemRow[]),
+    items: toInvoiceItems((itemsFromSnapshot.length > 0 ? itemsFromSnapshot : orderItems || []) as OrderItemRow[]),
     total_price: Number(typedOrder.total_price || 0),
   };
 

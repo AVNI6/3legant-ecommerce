@@ -7,7 +7,7 @@ import { OrderStatus } from "@/types/enums"
 import { useToast } from "@/components/admin/Toast"
 import { useAdminOrders, useUpdateOrderStatus, useAdminActionRequiredOrders, useAdminRefundedOrders } from "@/hooks/admin/use-admin-queries"
 import { TableSkeleton } from "@/components/ui/skeleton"
-import { HiChevronDown, HiChevronUp, HiSearch, HiFilter, HiArrowSmRight, HiOutlineReceiptRefund, HiOutlineClock, HiOutlineTruck, HiOutlineThumbUp, HiArrowSmDown, HiOutlineInboxIn } from "react-icons/hi"
+import { HiChevronDown, HiChevronUp, HiSearch, HiFilter, HiArrowSmRight, HiOutlineReceiptRefund, HiOutlineClock, HiOutlineTruck, HiOutlineThumbUp, HiArrowSmDown, HiOutlineInboxIn, HiOutlineCreditCard } from "react-icons/hi"
 
 const STATUS_OPTIONS = Object.values(OrderStatus)
 const PAGE_SIZE = 10
@@ -20,13 +20,47 @@ export default function AdminOrders() {
   )
 }
 
+function CommandCenterSkeleton() {
+  return (
+    <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-2xl shadow-gray-200/50 overflow-hidden">
+      <div className="grid grid-cols-1 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-gray-100">
+        <div className="lg:col-span-3 p-8 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <div className="h-5 w-48 bg-gray-100 rounded-lg animate-pulse" />
+              <div className="h-3 w-32 bg-gray-50 rounded-lg animate-pulse" />
+            </div>
+            <div className="w-6 h-6 bg-gray-50 rounded-lg animate-pulse" />
+          </div>
+          <div className="space-y-3">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-20 bg-gray-50/40 rounded-2xl animate-pulse" />
+            ))}
+          </div>
+        </div>
+        <div className="lg:col-span-1 p-8 space-y-6 bg-gray-50/20">
+          <div className="space-y-2">
+            <div className="h-5 w-24 bg-gray-200 rounded-lg animate-pulse" />
+            <div className="h-3 w-32 bg-gray-100 rounded-lg animate-pulse" />
+          </div>
+          <div className="space-y-3">
+            {[1, 2].map(i => (
+              <div key={i} className="h-32 bg-white rounded-2xl border border-gray-100 animate-pulse" />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function CommandCenter() {
   const { data: actionOrders, isLoading: loadingActions } = useAdminActionRequiredOrders()
   const { data: refundedOrders, isLoading: loadingRefunds } = useAdminRefundedOrders()
   const { mutate: updateStatus, isPending: isUpdating } = useUpdateOrderStatus()
   const { toast } = useToast()
 
-  if (loadingActions || loadingRefunds) return <div className="h-[480px] bg-gray-50/50 rounded-[2.5rem] animate-pulse" />
+  if (loadingActions || loadingRefunds) return <CommandCenterSkeleton />
 
   const getNextStatus = (status: string) => {
     switch (status) {
@@ -129,12 +163,16 @@ function CommandCenter() {
                   </div>
 
                   <div className="space-y-1.5">
-                    {order.items_snapshot?.map((item: any, idx: number) => (
-                      <div key={`ret-item-${order.id}-${idx}`} className="flex items-center justify-between gap-2 p-1.5 bg-gray-50 rounded-lg">
-                        <p className="text-[9px] font-bold text-gray-800 truncate flex-1">{item.name}</p>
-                        <span className="text-[8px] font-black text-gray-400">{item.quantity}×</span>
-                      </div>
-                    ))}
+                    {(() => {
+                      const snapshot = order.items_snapshot as any;
+                      const items = Array.isArray(snapshot) ? snapshot : (snapshot?.items || []);
+                      return items.map((item: any, idx: number) => (
+                        <div key={`ret-item-${order.id}-${idx}`} className="flex items-center justify-between gap-2 p-1.5 bg-gray-50 rounded-lg">
+                          <p className="text-[9px] font-bold text-gray-800 truncate flex-1">{item.name}</p>
+                          <span className="text-[8px] font-black text-gray-400">{item.quantity}×</span>
+                        </div>
+                      ));
+                    })()}
                   </div>
                 </div>
               ))
@@ -419,17 +457,33 @@ function OrderExpandedContent({ order, getRefundStatusColor }: { order: any, get
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 border-t border-gray-100 pt-6 mt-6">
             <div>
-              <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Payment</h4>
-              <p className="text-sm font-medium text-gray-900 uppercase">{order.payment_method}</p>
+              <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Shipment</h4>
+              <p className="text-sm font-bold text-gray-900 uppercase flex items-center gap-2">
+                <HiOutlineTruck className="w-4 h-4 text-gray-400" />
+                {order.shipping_method || "Standard"}
+              </p>
+              <p className="text-xs text-gray-400 font-medium">{formatCurrency(order.shipping_amount || 0)} delivery fee</p>
             </div>
+            
+            <div>
+              <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Payment</h4>
+              <p className="text-sm font-bold text-gray-900 uppercase flex items-center gap-2">
+                <HiOutlineCreditCard className="w-4 h-4 text-gray-400" />
+                {order.payment_method}
+              </p>
+              <p className="text-xs text-gray-400 font-medium capitalize">{order.status} payment</p>
+            </div>
+
             {order.refund_status && (
               <div>
-                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Refund</h4>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${getRefundStatusColor(order.refund_status)}`}>
-                  {order.refund_status}
-                </span>
+                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Refund Status</h4>
+                <div className="flex items-center gap-2">
+                  <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-tighter ${getRefundStatusColor(order.refund_status)}`}>
+                    {order.refund_status}
+                  </span>
+                </div>
               </div>
             )}
           </div>

@@ -8,6 +8,7 @@ interface WishlistState {
   loading: boolean
   initialized: boolean
   error: string | null
+  totalCount: number
 }
 
 const initialState: WishlistState = {
@@ -15,15 +16,20 @@ const initialState: WishlistState = {
   loading: false,
   initialized: false,
   error: null,
+  totalCount: 0,
 }
 
 import { resolveVariantColor, resolveVariantImage } from '@/lib/utils/variantUtils'
 
 export const fetchWishlist = createAsyncThunk(
   'wishlist/fetchWishlist',
-  async (userId: string, { rejectWithValue }) => {
+  async (payload: string | { userId: string; page?: number; pageSize?: number }, { rejectWithValue }) => {
+    const userId = typeof payload === 'string' ? payload : payload.userId
+    const page = typeof payload === 'object' ? payload.page : undefined
+    const pageSize = typeof payload === 'object' ? payload.pageSize : undefined
+
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("wishlist")
         .select(`
           variant_id,
@@ -31,8 +37,16 @@ export const fetchWishlist = createAsyncThunk(
             id, color, color_images, price, old_price, thumbnails,
             products (id, name, image, validation_till)
           )
-        `)
+        `, { count: 'exact' })
         .eq("user_id", userId)
+
+      if (page !== undefined && pageSize !== undefined) {
+        const from = (page - 1) * pageSize
+        const to = from + pageSize - 1
+        query = query.range(from, to)
+      }
+
+      const { data, error, count } = await query
 
       if (error) throw error
 
@@ -58,7 +72,7 @@ export const fetchWishlist = createAsyncThunk(
         } as CartItem
       }).filter(Boolean) as CartItem[]
 
-      return items
+      return { items, count: count || 0 }
     } catch (error: any) {
       return rejectWithValue(error.message)
     }
@@ -113,7 +127,8 @@ const wishlistSlice = createSlice({
       .addCase(fetchWishlist.pending, (state) => { state.loading = true })
       .addCase(fetchWishlist.fulfilled, (state, action) => {
         state.loading = false
-        state.items = action.payload
+        state.items = action.payload.items
+        state.totalCount = action.payload.count
         state.initialized = true
       })
       .addCase(fetchWishlist.rejected, (state, action) => {
@@ -124,10 +139,10 @@ const wishlistSlice = createSlice({
       .addCase(toggleWishlist.fulfilled, (state, action: PayloadAction<{ product: any, isRemoving: boolean }>) => {
         const { product, isRemoving } = action.payload;
         if (isRemoving) {
-          state.items = state.items.filter(i => i.variant_id !== product.variant_id);
+          state.items = state.items.filter(i => Number(i.variant_id) !== Number(product.variant_id));
         } else {
           // Check if already in items to prevent duplicates (though toggle logic handles it)
-          const exists = state.items.find(i => i.variant_id === product.variant_id);
+          const exists = state.items.find(i => Number(i.variant_id) === Number(product.variant_id));
           if (!exists) {
             state.items.push(product);
           }

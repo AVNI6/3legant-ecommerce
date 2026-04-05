@@ -17,7 +17,6 @@ export async function POST(request: Request) {
     }
 
     const supabase = getSupabase();
-    console.log("Attempting to create profile:", { userId, name, email });
 
     const { data, error } = await supabase.from("profiles").insert({
       id: userId,
@@ -28,13 +27,12 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error("Profile insert error:", error);
-      
+
       // If profile already exists (duplicate key), treat as success
       if (error.code === "23505") {
-        console.log("Profile already exists, treating as success");
         return NextResponse.json({ ok: true, message: "Profile already exists" });
       }
-      
+
       // Log the full error details for debugging
       console.error("Full error details:", {
         code: error.code,
@@ -42,15 +40,14 @@ export async function POST(request: Request) {
         details: error.details,
         hint: error.hint
       });
-      
-      return NextResponse.json({ 
-        error: error.message, 
+
+      return NextResponse.json({
+        error: error.message,
         code: error.code,
-        details: error.details 
+        details: error.details
       }, { status: 500 });
     }
 
-    console.log("Profile created successfully:", data);
     return NextResponse.json({ ok: true, data });
   } catch (err: any) {
     console.error("Signup API error:", err);

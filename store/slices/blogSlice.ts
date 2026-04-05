@@ -6,6 +6,7 @@ interface BlogState {
   totalCount: number
   hasMore: boolean
   initialized: boolean
+  loading: boolean
 }
 
 const initialState: BlogState = {
@@ -14,6 +15,7 @@ const initialState: BlogState = {
   totalCount: 0,
   hasMore: true,
   initialized: false,
+  loading: false,
 }
 
 const blogSlice = createSlice({
@@ -21,20 +23,27 @@ const blogSlice = createSlice({
   initialState,
   reducers: {
     setInitialBlogs: (state, action: PayloadAction<{ items: any[], totalCount: number }>) => {
-      // Only initialize if not already initialized
-      if (!state.initialized) {
-        state.items = action.payload.items
-        state.totalCount = action.payload.totalCount
-        state.hasMore = action.payload.items.length < action.payload.totalCount
-        state.initialized = true
-      }
+      state.items = action.payload.items
+      state.totalCount = action.payload.totalCount
+      state.hasMore = action.payload.items.length < action.payload.totalCount
+      state.initialized = true
+      state.loading = false
     },
-    appendBlogs: (state, action: PayloadAction<any[]>) => {
-      state.items = [...state.items, ...action.payload]
-      state.hasMore = state.items.length < state.totalCount
+    setBlogs: (state, action: PayloadAction<{ items: any[], totalCount: number, replace?: boolean }>) => {
+      if (action.payload.replace) {
+        state.items = action.payload.items
+      } else {
+        state.items = [...state.items, ...action.payload.items]
+      }
+      state.totalCount = action.payload.totalCount
+      state.hasMore = state.items.length < action.payload.totalCount
+      state.loading = false
     },
     setPage: (state, action: PayloadAction<number>) => {
       state.page = action.payload
+    },
+    setLoading: (state, action: PayloadAction<boolean>) => {
+      state.loading = action.payload
     },
     resetBlogState: (state) => {
       state.items = []
@@ -42,9 +51,10 @@ const blogSlice = createSlice({
       state.totalCount = 0
       state.hasMore = true
       state.initialized = false
+      state.loading = false
     }
   },
 })
 
-export const { setInitialBlogs, appendBlogs, setPage, resetBlogState } = blogSlice.actions
+export const { setInitialBlogs, setBlogs, setPage, setLoading, resetBlogState } = blogSlice.actions
 export default blogSlice.reducer

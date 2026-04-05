@@ -155,16 +155,16 @@ const SortBar = ({
         <div className="flex items-center border border-gray-100 rounded-md overflow-hidden h-[42px] min-[347px]:h-full z-20 w-full min-[347px]:w-auto justify-between min-[347px]:justify-start">
           <button
             type="button"
-            onClick={() => { console.log("GRID ICON 1 CLICKED"); setGrid("one"); }}
-            className={`p-2 flex-1 min-[347px]:flex-none transition-colors hidden md:flex items-center justify-center ${grid === "one" ? "bg-gray-100 text-black" : "text-gray-400 hover:text-black"}`}
+            onClick={() => { setGrid("one"); }}
+            className={`p-2 flex-1 min-[347px]:flex-none transition-colors hidden lg:flex items-center justify-center ${grid === "one" ? "bg-gray-100 text-black" : "text-gray-400 hover:text-black"}`}
             title="3 Columns"
           >
             <BiSolidGrid className="text-xl mx-auto" />
           </button>
           <button
             type="button"
-            onClick={() => { console.log("GRID ICON 2 CLICKED"); setGrid("two"); }}
-            className={`p-2 flex-1 min-[347px]:flex-none transition-colors hidden md:flex items-center justify-center ${grid === "two" ? "bg-gray-100 text-black" : "text-gray-400 hover:text-black"}`}
+            onClick={() => { setGrid("two"); }}
+            className={`p-2 flex-1 min-[347px]:flex-none transition-colors hidden lg:flex items-center justify-center ${grid === "two" ? "bg-gray-100 text-black" : "text-gray-400 hover:text-black"}`}
             title="4 Columns"
           >
             {/* 
@@ -174,7 +174,7 @@ const SortBar = ({
           </button>
           <button
             type="button"
-            onClick={() => { console.log("GRID ICON 3 CLICKED"); setGrid("three"); }}
+            onClick={() => { setGrid("three"); }}
             className={`p-2 flex-1 min-[347px]:flex-none transition-colors border-x md:border-x-0 md:border-l border-gray-100 ${grid === "three" ? "bg-gray-100 text-black" : "text-gray-400 hover:text-black"}`}
             title="2 Columns"
           >
@@ -182,7 +182,7 @@ const SortBar = ({
           </button>
           <button
             type="button"
-            onClick={() => { console.log("GRID ICON 4 CLICKED"); setGrid("four"); }}
+            onClick={() => { setGrid("four"); }}
             className={`p-2 flex-1 min-[347px]:flex-none transition-colors ${grid === "four" ? "bg-gray-100 text-black" : "text-gray-400 hover:text-black"}`}
             title="List View"
           >

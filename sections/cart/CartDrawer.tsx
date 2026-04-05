@@ -62,7 +62,7 @@ export default function CartDrawer({ isOpen, onClose }: Props) {
           ) : (
             cartItems?.map(item => (
               <div key={item.variant_id} className="flex gap-2 min-[375px]:gap-4 mb-4 min-[375px]:mb-6">
-                <Link href={`${APP_ROUTE.product}/${item.id}`} onClick={onClose} className="shrink-0">
+                <Link href={`${APP_ROUTE.product}/${item.id}?variantId=${item.variant_id}`} onClick={onClose} className="shrink-0">
                   <img
                     src={item.image}
                     alt={item.name}
@@ -73,7 +73,7 @@ export default function CartDrawer({ isOpen, onClose }: Props) {
                 <div className="flex-1 min-w-0 flex flex-col justify-between">
                   <div>
                     <div className="flex justify-between items-start gap-1 min-[375px]:gap-2">
-                      <Link href={`${APP_ROUTE.product}/${item.id}`} onClick={onClose} className="font-semibold hover:underline text-[10px] min-[375px]:text-sm sm:text-base leading-tight line-clamp-2 mt-0.5">
+                      <Link href={`${APP_ROUTE.product}/${item.id}?variantId=${item.variant_id}`} onClick={onClose} className="font-semibold hover:underline text-[10px] min-[375px]:text-sm sm:text-base leading-tight line-clamp-2 mt-0.5">
                         {item.name}
                       </Link>
                       <button onClick={() => dispatch(removeFromCart(item.variant_id))} className="text-gray-400 hover:text-black shrink-0 pt-1">
@@ -122,7 +122,7 @@ export default function CartDrawer({ isOpen, onClose }: Props) {
             onClick={() => {
               requireLogin(() => {
                 onClose()
-                router.push(APP_ROUTE.cart)
+                router.push(`${APP_ROUTE.cart}?step=2`)
               }, user, "Please sign in to proceed to checkout.")
             }}
           >

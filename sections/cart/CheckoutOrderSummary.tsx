@@ -8,6 +8,8 @@ import { RiCoupon4Line, RiDiscountPercentLine } from "react-icons/ri";
 import { useAppDispatch } from "@/store/hooks";
 import { removeFromCart } from "@/store/slices/cartSlice";
 import { validateCoupon, removeCoupon } from "@/store/slices/couponSlice";
+import Link from "next/link";
+import { APP_ROUTE } from "@/constants/AppRoutes";
 
 interface CheckoutOrderSummaryProps {
   cartItems: CartItem[];
@@ -51,17 +53,21 @@ export default function CheckoutOrderSummary({
         <div className="space-y-2 min-[375px]:space-y-4 max-h-[60vh] overflow-y-auto pr-1 no-scrollbar">
           {cartItems.map((item: CartItem) => (
             <div key={item.variant_id} className="flex max-[342px]:justify-between items-center gap-2 min-[375px]:gap-4 py-2 min-[375px]:py-3 group">
-              <img
-                src={item.image}
-                className="w-12 h-12 min-[343px]:w-14 min-[343px]:h-14 sm:min-[343px]:w-20 sm:min-[343px]:h-20 object-cover rounded shadow-sm transition-transform group-hover:scale-105 shrink-0"
-                alt={item.name}
-              />
+              <Link href={`${APP_ROUTE.product}/${item.id}?variantId=${item.variant_id}`} className="shrink-0">
+                <img
+                  src={item.image}
+                  className="w-12 h-12 min-[343px]:w-14 min-[343px]:h-14 sm:min-[343px]:w-20 sm:min-[343px]:h-20 object-cover rounded shadow-sm transition-transform group-hover:scale-105"
+                  alt={item.name}
+                />
+              </Link>
 
               <div className="flex flex-col flex-1 min-w-0">
                 <div className="flex justify-between items-start gap-1 min-[375px]:gap-2">
-                  <p className="font-semibold text-[10px] min-[375px]:text-xs sm:text-sm md:text-base truncate min-[343px]:line-clamp-1 group-hover:underline leading-tight mt-0.5">
-                    {item.name}
-                  </p>
+                  <Link href={`${APP_ROUTE.product}/${item.id}?variantId=${item.variant_id}`}>
+                    <p className="font-semibold text-[10px] min-[375px]:text-xs sm:text-sm md:text-base truncate min-[343px]:line-clamp-1 group-hover:underline leading-tight mt-0.5">
+                      {item.name}
+                    </p>
+                  </Link>
                   <p className="font-bold text-[10px] min-[375px]:text-xs sm:text-sm md:text-base shrink-0 mt-0.5">
                     {formatCurrency(item.price)}
                   </p>

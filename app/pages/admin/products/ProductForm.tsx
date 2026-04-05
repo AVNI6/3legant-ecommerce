@@ -68,7 +68,6 @@ export default function ProductForm({
   const initialVariants: VariantRow[] = allVariants.length > 0
     ? allVariants.map((variant, idx) => {
       const variantImages = colorImagesFromVariant(variant)
-      // If first variant has no images, fallback to the main product image (for existing products)
       const finalColorImages = (idx === 0 && variantImages.length === 0 && product?.image)
         ? [toPublicImageUrl(product.image)]
         : variantImages
@@ -87,7 +86,7 @@ export default function ProductForm({
       }
     })
     : [{
-      id: seedVariant?.id ? Number(seedVariant.id) : undefined,
+      id: undefined, // CRITICAL FIX: Brand new variant should not inherit the PRODUCT ID
       key: uid(),
       color: seedVariant?.color ?? "",
       colorImages: colorImagesFromVariant(seedVariant).length > 0
@@ -304,16 +303,34 @@ export default function ProductForm({
         }
       }
 
-      const { error: varErr } = await supabase
-        .from("product_variant")
-        .upsert(variantRows, { onConflict: "id" })
+      const variantsToUpdate = variantRows.filter(v => v.id !== undefined)
+      const variantsToInsert = variantRows.map(({ id, ...rest }) => rest).filter((_, idx) => variantRows[idx].id === undefined)
 
-      if (varErr) {
-        // More human-readable error for unique constraint
-        if (varErr.message.includes("product_variant_sku_key")) {
-          throw new Error("One or more SKUs are already in use by another product. Please use unique SKUs.")
+
+      if (variantsToUpdate.length > 0) {
+        const { error: updErr } = await supabase
+          .from("product_variant")
+          .upsert(variantsToUpdate)
+
+        if (updErr) {
+          if (updErr.message.includes("product_variant_sku_key")) {
+            throw new Error("One or more SKUs are already in use by another product. Please use unique SKUs.")
+          }
+          throw new Error(`Variant update failed: ${updErr.message}`)
         }
-        throw new Error(`Variant insert failed: ${varErr.message}`)
+      }
+
+      if (variantsToInsert.length > 0) {
+        const { error: insErr } = await supabase
+          .from("product_variant")
+          .insert(variantsToInsert)
+
+        if (insErr) {
+          if (insErr.message.includes("product_variant_sku_key")) {
+            throw new Error("One or more SKUs are already in use by another product. Please use unique SKUs.")
+          }
+          throw new Error(`Variant insert failed: ${insErr.message}`)
+        }
       }
 
       toast(product?.id ? "Product updated successfully" : "Product created successfully")

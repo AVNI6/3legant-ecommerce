@@ -122,14 +122,45 @@ export const submitRefund = createAsyncThunk(
 
       if (error) throw error;
 
-       const { data, error: fetchError } = await supabase
-       .from("orders")
-       .select(`
+      const { data, error: fetchError } = await supabase
+        .from("orders")
+        .select(`
            id, user_id, total_price, status, order_date, shipping_address, payment_method, billing_address, items_snapshot, invoice_url, invoice_sent_at, refund_status, refund_amount, refund_reason, discount_amount, coupon_code, admin_note,
            order_items (id, product_id, price, quantity, color, variant_id)
        `)
-       .eq("id", orderId)
-       .single();
+        .eq("id", orderId)
+        .single();
+
+      if (fetchError) throw fetchError;
+      return data as Order;
+    } catch (error: any) {
+      return rejectWithValue(error.message)
+    }
+  }
+)
+
+export const cancelRefundRequest = createAsyncThunk(
+  'orders/cancelRefundRequest',
+  async ({ orderId }: { orderId: number }, { rejectWithValue }) => {
+    try {
+      const { error } = await supabase
+        .from("orders")
+        .update({
+          refund_status: null,
+          refund_reason: null,
+        })
+        .eq("id", orderId);
+
+      if (error) throw error;
+
+      const { data, error: fetchError } = await supabase
+        .from("orders")
+        .select(`
+           id, user_id, total_price, status, order_date, shipping_address, payment_method, billing_address, items_snapshot, invoice_url, invoice_sent_at, refund_status, refund_amount, refund_reason, discount_amount, coupon_code, admin_note,
+           order_items (id, product_id, price, quantity, color, variant_id)
+       `)
+        .eq("id", orderId)
+        .single();
 
       if (fetchError) throw fetchError;
       return data as Order;
@@ -179,6 +210,10 @@ const orderSlice = createSlice({
         if (idx !== -1) state.orders[idx] = action.payload
       })
       .addCase(submitRefund.fulfilled, (state, action) => {
+        const idx = state.orders.findIndex(o => o.id === action.payload.id)
+        if (idx !== -1) state.orders[idx] = action.payload
+      })
+      .addCase(cancelRefundRequest.fulfilled, (state, action) => {
         const idx = state.orders.findIndex(o => o.id === action.payload.id)
         if (idx !== -1) state.orders[idx] = action.payload
       })

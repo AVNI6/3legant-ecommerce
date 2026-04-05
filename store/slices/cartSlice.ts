@@ -180,7 +180,7 @@ export const addToCart = createAsyncThunk(
       const availableStock = variant?.stock ?? 0
       const existing = (state.cart as CartState).items.find((i: CartItem) => i.variant_id === item.variant_id)
       const currentQty = existing?.quantity ?? 0
-      
+
       // 🚫 Check if we are already at or above stock
       if (currentQty >= availableStock) {
         return rejectWithValue({ message: "Item out of stock", limitReached: true, stock: availableStock })
@@ -208,6 +208,21 @@ export const addToCart = createAsyncThunk(
       }
 
       let cartId = (state.cart as CartState).cartId
+      if (!cartId && user) {
+        // Double-check DB if state is missing it
+        const { data: cData, error: cErr } = await supabase.from("cart").select("id").eq("user_id", user.id).maybeSingle()
+        if (cErr) throw cErr
+
+        if (cData) {
+          cartId = cData.id
+        } else {
+          // Create it if truly missing
+          const { data: created, error: createErr } = await supabase.from("cart").insert({ user_id: user.id }).select("id").single()
+          if (createErr) throw createErr
+          cartId = created.id
+        }
+      }
+
       if (!cartId) throw new Error("Cart not initialized")
 
       if (existing) {
@@ -272,7 +287,7 @@ export const updateQuantity = createAsyncThunk(
         .select("stock")
         .eq("id", variant_id)
         .single()
-      
+
       if (stockErr) throw stockErr
       const availableStock = variant?.stock ?? 0
 
@@ -280,7 +295,7 @@ export const updateQuantity = createAsyncThunk(
         return rejectWithValue({ message: "Item out of stock", limitReached: true, stock: availableStock })
       }
 
-      const newQuantity = type === 'inc' 
+      const newQuantity = type === 'inc'
         ? Math.min(availableStock, item.quantity + 1)
         : Math.max(1, item.quantity - 1)
 
@@ -288,7 +303,7 @@ export const updateQuantity = createAsyncThunk(
         const items = readGuestCart()
         const newItems = items.map(i => i.variant_id === variant_id ? { ...i, quantity: newQuantity } : i)
         writeGuestCart(newItems)
-        return { items: newItems, cartId: null }
+        return { variant_id, quantity: newQuantity, updated: true }
       }
 
       const cartId = (state.cart as CartState).cartId
@@ -306,7 +321,7 @@ export const setQuantity = createAsyncThunk(
   async ({ variant_id, quantity }: { variant_id: number; quantity: number }, { getState, rejectWithValue }) => {
     const state = getState() as RootState
     const user = state.auth.user
-    
+
     try {
       // 📦 Fetch current stock
       const { data: variant, error: stockErr } = await supabase
@@ -314,7 +329,7 @@ export const setQuantity = createAsyncThunk(
         .select("stock")
         .eq("id", variant_id)
         .single()
-      
+
       if (stockErr) throw stockErr
       const availableStock = variant?.stock ?? 0
 
@@ -329,7 +344,8 @@ export const setQuantity = createAsyncThunk(
         const items = readGuestCart()
         const newItems = items.map(i => i.variant_id === variant_id ? { ...i, quantity: newQuantity } : i)
         writeGuestCart(newItems)
-        return { items: newItems, cartId: null, limitReached, stock: availableStock }
+        // Surgical update: return ONLY the changed item info to prevent race conditions from overwriting other items
+        return { variant_id, quantity: newQuantity, updated: true, limitReached, stock: availableStock }
       }
 
       const cartId = (state.cart as CartState).cartId
@@ -409,57 +425,70 @@ const cartSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addMatcher(
-        (action) => action.type.startsWith('cart/') && action.type.endsWith('/pending'),
-        (state) => {
-          // Only show loading skeleton if we have no items yet
-          if (state.items.length === 0) {
-            state.loading = true;
-          }
-          state.error = null
+      .addCase(fetchCart.pending, (state) => {
+        if (state.items.length === 0) state.loading = true;
+      })
+      .addCase(fetchCart.fulfilled, (state, action: any) => {
+        state.loading = false;
+        state.items = action.payload.items || [];
+        state.cartId = action.payload.cartId;
+      })
+      .addCase(fetchCart.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      })
+      .addCase(addToCart.fulfilled, (state, action: any) => {
+        state.loading = false;
+        // 1. Handle Guest Cart (full items array)
+        if (action.payload.items && action.payload.items.length > 0) {
+          state.items = action.payload.items;
         }
-      )
-      .addMatcher(
-        (action) => action.type.startsWith('cart/') && action.type.endsWith('/fulfilled'),
-        (state, action: PayloadAction<{ items: CartItem[]; cartId: string | null; addedItem?: CartItem; variant_id?: number; quantity?: number; removed?: boolean; stock?: number }>) => {
-          state.loading = false
-
-          if (action.type === 'cart/fetchCart/fulfilled' || action.payload.items?.length > 0) {
-            state.items = action.payload.items || []
-            state.cartId = action.payload.cartId
-          } else if (action.type === 'cart/addToCart/fulfilled' && action.payload.addedItem) {
-            const item = action.payload.addedItem;
-            const existing = state.items.find(i => i.variant_id === item.variant_id);
-            if (existing) {
-              existing.quantity += item.quantity;
-            } else {
-              state.items.push(item);
-            }
-          } else if ((action.type === 'cart/updateQuantity/fulfilled' || action.type === 'cart/setQuantity/fulfilled') && action.payload.variant_id) {
-            const item = state.items.find(i => i.variant_id === action.payload.variant_id);
-            if (item) {
-              item.quantity = action.payload.quantity!;
-              if (action.payload.stock !== undefined) {
-                item.stock = action.payload.stock;
-              }
-            }
-          } else if (action.type === 'cart/removeFromCart/fulfilled' && action.payload.variant_id) {
-            state.items = state.items.filter(i => i.variant_id !== action.payload.variant_id);
-          } else if (action.type === 'cart/clearCart/fulfilled') {
-            state.items = []
-            state.selectedShipping = null
-            state.shippingCost = 0
-            state.activeStep = 3 // Typically called on success
+        // 2. Handle Logged-in Cart (single addedItem)
+        else if (action.payload.addedItem) {
+          const item = action.payload.addedItem;
+          const existing = state.items.find(i => Number(i.variant_id) === Number(item.variant_id));
+          if (existing) {
+            existing.quantity += item.quantity;
+          } else {
+            state.items.push(item);
           }
         }
-      )
-      .addMatcher(
-        (action) => action.type.startsWith('cart/') && action.type.endsWith('/rejected'),
-        (state, action: PayloadAction<any>) => {
-          state.loading = false
-          state.error = action.payload
+      })
+      .addCase(removeFromCart.fulfilled, (state, action: any) => {
+        state.loading = false;
+        // Handle guest cart update
+        if (action.payload.items) {
+          state.items = action.payload.items;
         }
-      )
+        // Handle logged-in cart update (Filter by ID)
+        else if (action.payload.variant_id !== undefined) {
+          const removedId = String(action.payload.variant_id);
+          state.items = state.items.filter(i => String(i.variant_id) !== removedId);
+        }
+      })
+      .addCase(updateQuantity.fulfilled, (state, action: any) => {
+        state.loading = false;
+        const item = state.items.find(i => Number(i.variant_id) === Number(action.payload.variant_id));
+        if (item) {
+          item.quantity = action.payload.quantity;
+          if (action.payload.stock !== undefined) item.stock = action.payload.stock;
+        }
+      })
+      .addCase(setQuantity.fulfilled, (state, action: any) => {
+        state.loading = false;
+        const item = state.items.find(i => Number(i.variant_id) === Number(action.payload.variant_id));
+        if (item) {
+          item.quantity = action.payload.quantity;
+          if (action.payload.stock !== undefined) item.stock = action.payload.stock;
+        }
+      })
+      .addCase(clearCart.fulfilled, (state) => {
+        state.loading = false;
+        state.items = [];
+        state.selectedShipping = null;
+        state.shippingCost = 0;
+        state.activeStep = 3;
+      });
   },
 })
 

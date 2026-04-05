@@ -47,30 +47,43 @@ export default function ReviewTab({
   const lastFetchedProductIdRef = useRef<number | null>(null);
 
   useEffect(() => {
+    let channel: any;
     if (productId) {
       loadData();
-      setupRealtime();
+      channel = setupRealtime();
     }
     return () => {
-      supabase.channel(`product-reviews-${productId}`).unsubscribe();
+      if (channel) channel.unsubscribe();
     };
   }, [productId]);
 
   const setupRealtime = () => {
-    supabase
-      .channel(`product-reviews-${productId}`)
+    const channel = supabase
+      .channel(`product-reviews-${productId}-${Math.random().toString(36).substring(7)}`)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'reviews',
         filter: `product_id=eq.${productId}`
       }, async (payload) => {
+        // Double check if we already have this review to avoid duplicates
+        setReviews(prev => {
+          if (prev.some(r => r.id === payload.new.id)) return prev;
+          return prev; // We'll fetch the full data next
+        });
+
         const { data } = await supabase
           .from("reviews")
           .select("*, profiles(name, avatar_url), review_likes(count), review_replies(*)")
           .eq("id", payload.new.id)
           .single();
-        if (data) setReviews(prev => [data, ...prev]);
+
+        if (data) {
+          setReviews(prev => {
+            if (prev.some(r => r.id === data.id)) return prev;
+            return [data, ...prev];
+          });
+        }
       })
       .on('postgres_changes', {
         event: 'UPDATE',
@@ -81,7 +94,6 @@ export default function ReviewTab({
         if (payload.new.status === 'spam' || payload.new.status === 'rejected') {
           setReviews(prev => prev.filter(r => r.id !== payload.new.id));
         } else {
-          // Update the review in the list if it's still visible
           setReviews(prev => prev.map(r => r.id === payload.new.id ? { ...r, ...payload.new } : r));
         }
       })
@@ -94,6 +106,8 @@ export default function ReviewTab({
         setReviews(prev => prev.filter(r => r.id !== payload.old.id));
       })
       .subscribe();
+
+    return channel;
   };
 
   const loadData = async () => {
@@ -135,7 +149,6 @@ export default function ReviewTab({
     }
 
     if (!comment.trim()) return;
-
     try {
       const { error } = await supabase.from("reviews").insert({
         comment: comment.trim(),
@@ -156,6 +169,10 @@ export default function ReviewTab({
 
       setComment("");
       setRating(5);
+
+      // Manually refresh data to ensure immediate UI update
+      loadData();
+
     } catch (err: any) {
       setModal({ show: true, msg: "An unexpected error occurred." });
     }
@@ -273,12 +290,6 @@ export default function ReviewTab({
             <p className="mb-6 sm:mb-8 font-medium text-[#141718] text-sm sm:text-base">
               {modal.msg}
             </p>
-            <button
-              onClick={() => setModal({ show: false, msg: "" })}
-              className="w-full py-2.5 sm:py-3 bg-[#141718] text-white rounded-xl font-bold text-sm sm:text-base"
-            >
-              Got it
-            </button>
           </div>
         </div>
       )}

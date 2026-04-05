@@ -1,6 +1,7 @@
 "use client"
 
 import BlackShopButton from "@/components/blackbutton";
+import { useState, useEffect } from "react";
 import Products from "@/components/products";
 import { useAppSelector } from "@/store/hooks";
 import { type ProductType } from '@/types/index'
@@ -12,13 +13,30 @@ type Props = {
 const Additional = ({ product }: Props) => {
 
   const { items: products } = useAppSelector((state: any) => state.products)
+  const [shuffled, setShuffled] = useState<any[]>([])
 
-  let relatedProducts = (products || []).filter(
-    (p: any) => p.category === product.category && p.id !== product.id
-  )
-  if (relatedProducts.length === 0) {
-    relatedProducts = (products || []).filter((p: any) => p.id !== product.id)
-  }
+  useEffect(() => {
+    if (!products || products.length === 0) return
+
+    // 1. Get products in same category
+    let list = products.filter(
+      (p: any) => p.category === product.category && p.id !== product.id
+    )
+
+    // 2. Fallback to other products if category is empty
+    if (list.length === 0) {
+      list = products.filter((p: any) => p.id !== product.id)
+    }
+
+    // 3. Shuffle logic (Fisher-Yates)
+    const items = [...list]
+    for (let i = items.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [items[i], items[j]] = [items[j], items[i]]
+    }
+
+    setShuffled(items.slice(0, 10)) // Limit to top 10 random matches
+  }, [products, product.id, product.category])
 
 
   return (
@@ -58,7 +76,7 @@ const Additional = ({ product }: Props) => {
           />
         </div>
 
-        <Products products={relatedProducts} variant="scroll" />
+        <Products products={shuffled} variant="scroll" />
       </div>
     </div>
   )

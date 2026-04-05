@@ -11,19 +11,24 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { addToCart } from "@/store/slices/cartSlice";
 import { toggleWishlist, fetchWishlist } from "@/store/slices/wishlistSlice";
 import { WishlistPageSkeleton } from "@/components/ui/skeleton";
+import Pagination from "@/components/common/Pagination";
+import { useSearchParams } from "next/navigation";
 
 export default function Wishlist() {
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state: any) => state.auth);
   const cartItems = useAppSelector((state: any) => state.cart.items) as CartItem[];
-  const { items: wishlistItems, loading, initialized } = useAppSelector((state: any) => state.wishlist) as { items: CartItem[], loading: boolean, initialized: boolean };
+  const { items: wishlistItems, loading, initialized, totalCount } = useAppSelector((state: any) => state.wishlist) as { items: CartItem[], loading: boolean, initialized: boolean, totalCount: number };
   const { requireLogin, LoginModal } = useRequireLogin();
+  const searchParams = useSearchParams();
+  const currentPage = parseInt(searchParams.get("page") || "1", 10);
+  const pageSize = 10;
 
   useEffect(() => {
-    if (user?.id && !initialized && !loading) {
-      dispatch(fetchWishlist(user.id));
+    if (user?.id) {
+      dispatch(fetchWishlist({ userId: user.id, page: currentPage, pageSize }));
     }
-  }, [user?.id, dispatch, initialized, loading]);
+  }, [user?.id, dispatch, currentPage]);
 
   if (loading && !initialized) return <WishlistPageSkeleton />;
 
@@ -33,18 +38,18 @@ export default function Wishlist() {
       {wishlistItems.length === 0 && <p className="text-gray-500 mb-4">Your wishlist is empty.</p>}
 
       {wishlistItems.map((item: CartItem) => (
-        <div 
-          key={`${item.variant_id}`} 
+        <div
+          key={`${item.variant_id}`}
           className="flex flex-col min-[581px]:grid min-[581px]:grid-cols-[3fr_4fr_2fr] items-center border-b border-gray-300 py-5 gap-4 min-[581px]:gap-2 text-center min-[581px]:text-left"
         >
           <div className="flex items-center gap-4 w-full min-[581px]:w-auto">
-            <button 
-              onClick={() => dispatch(toggleWishlist({ product: item, userId: user?.id as string }))} 
+            <button
+              onClick={() => dispatch(toggleWishlist({ product: item, userId: user?.id as string }))}
               className="text-gray-400 hover:text-red-500"
             >
               <RxCross2 size={20} />
             </button>
-            <Link href={`${APP_ROUTE.product}/${item.id}`} className="flex items-center gap-4 text-left">
+            <Link href={`${APP_ROUTE.product}/${item.id}?variantId=${item.variant_id}`} className="flex items-center gap-4 text-left">
               <img src={item.image} alt={item.name} className="w-16 h-16 object-cover rounded hover:scale-105" />
               <div>
                 <p className="font-semibold hover:underline line-clamp-1">{item.name}</p>
@@ -52,20 +57,20 @@ export default function Wishlist() {
               </div>
             </Link>
           </div>
-          
+
           <div className="font-semibold min-[581px]:text-center w-full min-[581px]:w-auto">
             <span className="min-[581px]:hidden text-gray-400 font-medium mr-2">Price:</span>
             {formatCurrency(item.price)}
           </div>
-          
+
           <div className="w-full min-[581px]:w-auto">
             <button
               onClick={() => {
                 requireLogin(() => {
-                  const existing = cartItems?.find(i => i.variant_id === item.variant_id);
+                  const existing = cartItems?.find(i => Number(i.variant_id) === Number(item.variant_id));
                   dispatch(addToCart({ userId: user?.id, item }));
                   if (existing) {
-                    toast.success(`Added another ${item.name}`);
+                    toast.success("Quantity updated");
                   } else {
                     toast.success("Item added");
                   }
@@ -78,6 +83,11 @@ export default function Wishlist() {
           </div>
         </div>
       ))}
+
+      <Pagination
+        currentPage={currentPage}
+        totalPages={Math.ceil(totalCount / pageSize)}
+      />
 
       <LoginModal />
     </div>

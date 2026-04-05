@@ -131,11 +131,14 @@ const Signup = () => {
               id="signup-name"
               autoComplete="name"
               placeholder="Your name"
-              {...register("name", { required: "Name is required" })}
+              {...register("name", {
+                required: "Name is required",
+                minLength: { value: 2, message: "Min 2 characters" }
+              })}
               className="w-full border-b border-gray-300 py-3 focus:outline-none focus:border-black"
             />
             {errors.name && (
-              <p className="text-red-500 text-xs">{errors.name.message}</p>
+              <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>
             )}
 
             <label htmlFor="signup-username" className="sr-only">Username</label>
@@ -143,9 +146,15 @@ const Signup = () => {
               id="signup-username"
               autoComplete="username"
               placeholder="Username"
-              {...register("username", { required: "Username required" })}
+              {...register("username", {
+                required: "Username required",
+                minLength: { value: 3, message: "Min 3 characters" }
+              })}
               className="w-full border-b border-gray-300 py-3 focus:outline-none focus:border-black"
             />
+            {errors.username && (
+              <p className="text-red-500 text-xs mt-1">{errors.username.message}</p>
+            )}
 
             <label htmlFor="signup-email" className="sr-only">Email address</label>
             <input
@@ -153,9 +162,18 @@ const Signup = () => {
               autoComplete="email"
               type="email"
               placeholder="Email address"
-              {...register("email", { required: "Email required" })}
+              {...register("email", {
+                required: "Email required",
+                pattern: {
+                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                  message: "Invalid email"
+                }
+              })}
               className="w-full border-b border-gray-300 py-3 focus:outline-none focus:border-black"
             />
+            {errors.email && (
+              <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>
+            )}
 
             <div className="relative">
               <input
@@ -165,7 +183,13 @@ const Signup = () => {
                 placeholder="Password"
                 {...register("password", {
                   required: "Password required",
-                  minLength: { value: 6, message: "Min 6 characters" },
+                  minLength: { value: 8, message: "Password must be at least 8 characters" },
+                  validate: {
+                    hasUpper: (val) => /[A-Z]/.test(val) || "Must include an uppercase letter",
+                    hasLower: (val) => /[a-z]/.test(val) || "Must include a lowercase letter",
+                    hasNumber: (val) => /\d/.test(val) || "Must include a number",
+                    hasSpecial: (val) => /[@$!%*?&]/.test(val) || "Must include a special character (@$!%*?&)",
+                  }
                 })}
                 className="w-full border-b border-gray-300 py-3 pr-10 focus:outline-none focus:border-black"
               />
@@ -177,6 +201,9 @@ const Signup = () => {
                 {showPassword ? <HiOutlineEyeOff size={20} /> : <HiOutlineEye size={20} />}
               </button>
             </div>
+            {errors.password && (
+              <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>
+            )}
 
             <label className="flex items-center space-x-2 text-sm text-gray-500">
               <input

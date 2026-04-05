@@ -124,14 +124,15 @@ serve(async (req) => {
       case "checkout.session.completed":
       case "checkout.session.async_payment_succeeded":
       case "payment_intent.succeeded": {
-        console.log(`[STRIPE-WEBHOOK] Payment Success Event. Attempting fulfillment...`);
-        if (!paymentRow) {
-          console.warn(`[STRIPE-WEBHOOK] No payment record found for fulfillment of ${effectiveSessionId || paymentIntentId}.`);
-          // Note: If no payment records, we might want to create one? 
-          // But usually, checkout initiates things.
-          return new Response(JSON.stringify({ received: true, warning: "Payment record not found for success" }), { status: 200 });
+        console.log(`[STRIPE-WEBHOOK] Payment Success Event (${event.type}). Attempting fulfillment for Order: ${effectiveOrderId}...`);
+
+        if (!effectiveOrderId) {
+          console.warn(`[STRIPE-WEBHOOK] Abandoning fulfillment: No orderId resolved for ${effectiveSessionId || paymentIntentId}.`);
+          return new Response(JSON.stringify({ received: true, warning: "OrderId not found" }), { status: 200 });
         }
-        await processSuccessfulSession(dataObject, paymentRow);
+
+        // Proceed with fulfillment using metadata as the primary source of truth
+        await processSuccessfulSession(dataObject, paymentRow, effectiveOrderId);
         break;
       }
 
@@ -208,21 +209,21 @@ serve(async (req) => {
 });
 
 // --- FULFILLMENT Logic (Ported 1:1 from Next.js route.ts) ---
-async function processSuccessfulSession(session: any, paymentRow: any) {
-  const sessionId = session.id || paymentRow.payment_id;
-  const orderIdFromMetadata = session.metadata?.orderId;
-  const orderId = orderIdFromMetadata || paymentRow.order_id;
+async function processSuccessfulSession(session: any, paymentRow: any, orderId: any) {
+  const sessionId = session.id || paymentRow?.payment_id;
 
   if (!orderId) {
-    console.error(`[STRIPE-WEBHOOK] No order ID found for session ${sessionId}. Cannot fulfill.`);
+    console.error(`[STRIPE-WEBHOOK] Fatal Error: No order ID provided for session ${sessionId}.`);
     throw new Error("Missing order ID for fulfillment");
   }
 
   // 1. Fetch current order status to ensure idempotency
+  // Cast orderId to Number to ensure DB match for integer column
+  const targetOrderId = Number(orderId);
   const { data: order, error: orderFetchError } = await supabase
     .from("orders")
     .select("status, items_snapshot, coupon_code")
-    .eq("id", orderId)
+    .eq("id", targetOrderId)
     .single();
 
   if (orderFetchError || !order) {
@@ -237,119 +238,136 @@ async function processSuccessfulSession(session: any, paymentRow: any) {
 
   console.log(`[STRIPE-WEBHOOK] Starting fulfillment task for order: ${orderId}...`);
 
-  const details = paymentRow.details || {};
-  const cartSnapshot = order.items_snapshot || details.cartSnapshot || [];
-  const shippingAddress = details.shippingAddress || details.billingAddress || {};
-  const billingAddress = details.billingAddress || details.shippingAddress || null;
+  const details = paymentRow?.details || {};
+
+  // SUPPORT STRUCTURED SNAPSHOT (Fixing the mapping error)
+  const snapshot = order.items_snapshot as any;
+  const cartSnapshot = Array.isArray(snapshot) ? snapshot : (snapshot?.items || details.cartSnapshot || []);
+
+  // 🆔 RESTORE ADRESS PERSISTENCE (Extraction from Metadata + Fallbacks)
+  const metadata = session.metadata || {};
+  let shippingAddress = details.shippingAddress || {};
+  let billingAddress = details.billingAddress || details.shippingAddress || {};
+
+  try {
+    if (metadata.shippingAddress) shippingAddress = JSON.parse(metadata.shippingAddress);
+    if (metadata.billingAddress) billingAddress = JSON.parse(metadata.billingAddress);
+  } catch (e) {
+    console.warn("[STRIPE-WEBHOOK] Address parse failed, using fallback details");
+  }
+
   const shippingAddressRow = normalizeAddress(shippingAddress);
   const billingAddressRow = normalizeAddress(billingAddress);
 
   // 2. Update Order Status to CONFIRMED
-  const pi = session.payment_intent || session.id; // Use session.id if it's a PI event object? No.
-  await supabase.from("orders").update({
+  const pi = (session.payment_intent as string) || session.id;
+  console.log(`[STRIPE-WEBHOOK] Updating Order #${targetOrderId} to CONFIRMED...`);
+  const { error: orderUpdateError } = await supabase.from("orders").update({
     status: OrderStatus.CONFIRMED,
     payment_intent_id: pi || null
-  }).eq("id", orderId);
+  }).eq("id", targetOrderId);
+
+  if (orderUpdateError) {
+    console.error(`[STRIPE-WEBHOOK] Order status update FAILED for ${targetOrderId}:`, orderUpdateError.message);
+  } else {
+    console.log(`[STRIPE-WEBHOOK] Order #${targetOrderId} confirmed successfully.`);
+  }
 
   // 3. Address Persistence Logic
   const saveAddress = async (addressData: any, addressType: AddressType) => {
-    if (!addressData.street) return;
-    try {
-      const { data: existingAddresses } = await supabase
-        .from("addresses")
-        .select("id, is_default")
-        .eq("user_id", paymentRow.user_id)
-        .eq("address_type", addressType)
-        .ilike("street", addressData.street.trim())
-        .ilike("city", addressData.city.trim())
-        .ilike("state", addressData.state.trim())
-        .ilike("zip", addressData.zip.trim())
-        .ilike("country", addressData.country.trim());
+    if (!addressData.street || !paymentRow?.user_id) return;
 
-      if (existingAddresses && existingAddresses.length > 0) return;
+    // 🔍 SMART CHECK: Don't insert if address already exists for this user
+    const { data: existingAddr } = await supabase
+      .from("addresses")
+      .select("id")
+      .eq("user_id", paymentRow.user_id)
+      .eq("street", addressData.street)
+      .eq("zip", addressData.zip)
+      .maybeSingle();
 
-      const { data: defaultAddresses } = await supabase
-        .from("addresses")
-        .select("id")
-        .eq("user_id", paymentRow.user_id)
-        .eq("address_type", addressType)
-        .eq("is_default", true)
-        .limit(1);
-
-      const shouldBeDefault = !defaultAddresses || defaultAddresses.length === 0;
-
-      await supabase
-        .from("addresses")
-        .insert({
-          user_id: paymentRow.user_id,
-          address_type: addressType,
-          first_name: addressData.first_name,
-          last_name: addressData.last_name,
-          phone: addressData.phone,
-          street: addressData.street,
-          city: addressData.city,
-          state: addressData.state,
-          zip: addressData.zip,
-          country: addressData.country,
-          is_default: shouldBeDefault,
-          address_label: addressType === AddressType.SHIPPING ? "Home" : "Billing",
-        });
-    } catch (err: any) {
-      console.error(`[STRIPE-WEBHOOK] Address save failed:`, err.message);
+    if (existingAddr) {
+      console.log(`[STRIPE-WEBHOOK] Address already exists (ID: ${existingAddr.id}). Skipping insert.`);
+      return;
     }
+
+    const { error: addrErr } = await supabase
+      .from("addresses")
+      .insert({
+        user_id: paymentRow.user_id,
+        address_type: addressType,
+        first_name: addressData.first_name,
+        last_name: addressData.last_name,
+        phone: addressData.phone,
+        street: addressData.street,
+        city: addressData.city,
+        state: addressData.state,
+        zip: addressData.zip,
+        country: addressData.country,
+        is_default: true,
+        address_label: addressType === AddressType.SHIPPING ? "Home" : "Billing",
+      });
+    if (addrErr) console.warn(`[STRIPE-WEBHOOK] Address save warn: ${addrErr.message}`);
+    else console.log(`[STRIPE-WEBHOOK] New address saved successfully for user: ${paymentRow.user_id}`);
   };
 
   await saveAddress(shippingAddressRow, AddressType.SHIPPING);
-  if (billingAddressRow.street && !isSameAddress(shippingAddressRow, billingAddressRow)) {
-    await saveAddress(billingAddressRow, AddressType.BILLING);
-  }
+  await saveAddress(billingAddressRow, AddressType.BILLING);
 
   // 4. Create Order Items
-  console.log(`[STRIPE-WEBHOOK] Creating order items...`);
+  console.log(`[STRIPE-WEBHOOK] Creating order items for Order #${targetOrderId}...`);
   const orderItemsData = cartSnapshot.map((item: any) => ({
-    order_id: orderId,
+    order_id: targetOrderId,
     product_id: item.id,
     variant_id: item.variant_id ?? null,
     price: item.price,
     quantity: item.quantity,
     color: item.color,
   }));
-  await supabase.from("order_items").insert(orderItemsData);
+  const { error: itemsError } = await supabase.from("order_items").insert(orderItemsData);
+  if (itemsError) {
+    console.error(`[STRIPE-WEBHOOK] Order Items insert FAILED:`, itemsError.message);
+  }
 
-  // 5. Update Stock and Coupon
+  // 5. Atomic Stock Update
   for (const item of cartSnapshot) {
     if (item.variant_id) {
-      const { data: v } = await supabase.from("product_variant").select("stock").eq("id", item.variant_id).single();
-      if (v) {
-        await supabase.from("product_variant").update({ stock: Math.max(0, (v.stock || 0) - item.quantity) }).eq("id", item.variant_id);
+      const { error: stockError } = await supabase.rpc('decrement_stock', {
+        v_id: item.variant_id,
+        quantity: item.quantity
+      });
+      if (stockError) console.error(`[STRIPE-WEBHOOK] Stock RPC FAILED:`, stockError.message);
+    }
+  }
+
+  // 6. Update Payment status
+  const sessionCurrency = (session.currency || paymentRow?.currency || "usd").toLowerCase();
+  const targetSessionId = session.id || paymentRow?.payment_id;
+
+  if (targetSessionId) {
+    console.log(`[STRIPE-WEBHOOK] Resolving success for Payment: ${targetSessionId}...`);
+    const { error: payErr } = await supabase.from("payments").update({
+      status: PaymentStatus.SUCCESS,
+      order_id: targetOrderId,
+      transaction_id: pi || null,
+      currency: sessionCurrency,
+      details: {
+        ...(details || {}),
+        webhook_event: "success_resolved",
+        completed_at: new Date().toISOString()
       }
-    }
-  }
+    }).eq("payment_id", targetSessionId);
 
-  if (details.couponCode) {
-    const { data: coupon } = await supabase.from("coupons").select("usage_count").eq("code", details.couponCode.toUpperCase()).maybeSingle();
-    if (coupon) {
-      await supabase.from("coupons").update({ usage_count: (coupon.usage_count || 0) + 1 }).eq("code", details.couponCode.toUpperCase());
-    }
+    if (payErr) console.error(`[STRIPE-WEBHOOK] Payment update FAILED:`, payErr.message);
   }
-
-  // 6. Update Payment status and currency
-  const sessionCurrency = (session.currency || paymentRow.currency || "usd").toLowerCase();
-  await supabase.from("payments").update({
-    status: PaymentStatus.SUCCESS,
-    order_id: orderId,
-    transaction_id: pi || null,
-    currency: sessionCurrency,
-    details: {
-      ...details,
-      webhook_event: "success_resolved",
-      completed_at: new Date().toISOString()
-    }
-  }).eq("payment_id", paymentRow.payment_id);
 
   // 7. Clear Cart
-  console.log(`[STRIPE-WEBHOOK] Clear Cart for user: ${paymentRow.user_id}`);
-  await supabase.from("cart").delete().eq("user_id", paymentRow.user_id);
+  const targetUserId = paymentRow?.user_id || session.metadata?.userId;
+  if (targetUserId) {
+    console.log(`[STRIPE-WEBHOOK] Clearing Cart for user: ${targetUserId}`);
+    const { error: cartError } = await supabase.from("cart").delete().eq("user_id", targetUserId);
+    if (cartError) console.error(`[STRIPE-WEBHOOK] Cart clear FAILED:`, cartError.message);
+  }
 
   console.log(`[STRIPE-WEBHOOK] Fulfillment processing complete.`);
 }

@@ -98,7 +98,7 @@ const Newsletter = () => {
 						<div className="flex items-center gap-2 text-gray-500 w-full">
 							<MdOutlineMail />
 
-							<label htmlFor="newsletter-email" className="sr-only text-[12px] md:text-[16px] leading-[28px] tracking-[-0.4px]">
+							<label htmlFor="newsletter-email" className="sr-only text-sm md:text-base leading-relaxed tracking-tight">
 								Email address
 							</label>
 
@@ -111,6 +111,7 @@ const Newsletter = () => {
 								value={email}
 								onChange={(e) => setEmail(e.target.value)}
 								onKeyDown={(e) => e.key === "Enter" && handleSignup()}
+								suppressHydrationWarning
 							/>
 						</div>
 
@@ -118,6 +119,7 @@ const Newsletter = () => {
 							className="text-gray-500 font-medium text-[16px] leading-[28px] tracking-[-0.4px]"
 							onClick={handleSignup}
 							disabled={loading}
+							suppressHydrationWarning
 						>
 							{loading ? "Signing up..." : "Signup"}
 						</button>
@@ -125,11 +127,10 @@ const Newsletter = () => {
 
 					{message && (
 						<p
-							className={`mt-4 text-sm ${
-								message.toLowerCase().includes("failed") || message.toLowerCase().includes("could not")
+							className={`mt-4 text-sm ${message.toLowerCase().includes("failed") || message.toLowerCase().includes("could not")
 									? "text-red-600"
 									: "text-green-600"
-							}`}
+								}`}
 						>
 							{message}
 						</p>

@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase/client";
 import { formatCurrency } from "@/constants/Data";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { setActiveStep } from "@/store/slices/cartSlice";
+import { setActiveStep, clearCartItems } from "@/store/slices/cartSlice";
 import { CompleteOrderSkeleton } from "@/components/ui/skeleton";
 
 interface OrderItem {
@@ -65,6 +65,7 @@ export default function CompleteOrder() {
     // Only dispatch if we aren't already on step 3 to avoid re-render loops
     if (currentStep !== 3) {
       dispatch(setActiveStep(3));
+      dispatch(clearCartItems()); // 🧺 Clear cart state + guest storage
     }
 
     if (lastFetchedOrderRef.current) return;
@@ -162,7 +163,6 @@ export default function CompleteOrder() {
         // Webhook hasn't processed yet or is in-progress — poll Supabase directly as a fallback
         if (!paymentError && payment && !payment.order_id) {
           try {
-            console.log(`[COMPLETE-ORDER] Webhook not finished yet. Starting polling for order linkage...`);
 
             // Poll for up to 10 seconds (5 attempts, every 2 seconds)
             for (let i = 0; i < 5; i++) {
@@ -175,7 +175,6 @@ export default function CompleteOrder() {
                 .maybeSingle();
 
               if (retryPayment?.order_id) {
-                console.log(`[COMPLETE-ORDER] Polling success: Order ${retryPayment.order_id} found.`);
                 setPaymentInfo({
                   order_id: retryPayment.order_id,
                   status: retryPayment.status || "success",
@@ -322,14 +321,17 @@ export default function CompleteOrder() {
     );
   }
 
-  // Safely parse items_snapshot if it's a string
+  // Safely parse items_snapshot (Support both legacy array and new structured object)
   let itemsToDisplay = [];
   try {
-    const rawSnapshot = order.items_snapshot;
+    const rawSnapshot = order.items_snapshot as any;
     if (Array.isArray(rawSnapshot)) {
       itemsToDisplay = rawSnapshot;
+    } else if (rawSnapshot && typeof rawSnapshot === "object" && Array.isArray(rawSnapshot.items)) {
+      itemsToDisplay = rawSnapshot.items;
     } else if (typeof rawSnapshot === "string") {
-      itemsToDisplay = JSON.parse(rawSnapshot);
+      const parsed = JSON.parse(rawSnapshot);
+      itemsToDisplay = Array.isArray(parsed) ? parsed : (parsed.items || []);
     } else {
       itemsToDisplay = order.order_items || [];
     }

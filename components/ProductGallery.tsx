@@ -49,7 +49,7 @@ export default function ProductGallery({
             alt={product.name}
             fill
             unoptimized
-            className="object-cover"
+            className="object-contain mix-blend-multiply"
             loading="eager"
           />
         ) : (

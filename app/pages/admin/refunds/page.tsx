@@ -15,7 +15,7 @@ export default function RefundsPage() {
   const { toast } = useToast()
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [page, setPage] = useState(0)
-  
+
   const [approvingOrder, setApprovingOrder] = useState<any | null>(null)
   const [rejectingOrder, setRejectingOrder] = useState<any | null>(null)
   const [adminNote, setAdminNote] = useState("")
@@ -71,15 +71,14 @@ export default function RefundsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Refund Requests</h1>
           <p className="text-sm text-gray-500 mt-1">Manage and process customer refund claims</p>
         </div>
-        
+
         <div className="flex bg-white p-1 rounded-xl border border-gray-100 shadow-sm self-start overflow-x-auto whitespace-nowrap max-w-full">
           {["all", "pending", "processed", "rejected"].map(s => (
             <button
               key={s}
               onClick={() => { setStatusFilter(s); setPage(0) }}
-              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all uppercase tracking-wider ${
-                statusFilter === s ? "bg-gray-900 text-white shadow-md" : "text-gray-400 hover:text-gray-900"
-              }`}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all uppercase tracking-wider ${statusFilter === s ? "bg-gray-900 text-white shadow-md" : "text-gray-400 hover:text-gray-900"
+                }`}
             >
               {s}
             </button>
@@ -135,12 +134,12 @@ export default function RefundsPage() {
                           <RefundStatusBadge status={order.refund_status || ""} />
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <RefundActions 
-                            order={order} 
-                            setApprovingOrder={setApprovingOrder} 
-                            setRejectingOrder={setRejectingOrder} 
-                            setRefundAmount={setRefundAmount} 
-                            setAdminNote={setAdminNote} 
+                          <RefundActions
+                            order={order}
+                            setApprovingOrder={setApprovingOrder}
+                            setRejectingOrder={setRejectingOrder}
+                            setRefundAmount={setRefundAmount}
+                            setAdminNote={setAdminNote}
                           />
                         </td>
                       </tr>
@@ -166,7 +165,7 @@ export default function RefundsPage() {
                           {new Date(order.order_date).toLocaleDateString()}
                         </span>
                       </div>
-                      <button 
+                      <button
                         onClick={() => setExpandedId(expandedId === order.id ? null : order.id)}
                         className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-700"
                       >
@@ -187,23 +186,23 @@ export default function RefundsPage() {
                     {expandedId === order.id && (
                       <div className="mt-4 pt-4 border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-300">
                         <div className="space-y-4">
-                           <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 italic">
-                             <div className="flex items-center gap-2 text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5 leading-none">
-                               <HiOutlineInformationCircle className="w-4 h-4" /> Refund Reason
-                             </div>
-                             <p className="text-sm text-gray-600 leading-relaxed">"{order.refund_reason || "No reason provided"}"</p>
-                           </div>
+                          <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 italic">
+                            <div className="flex items-center gap-2 text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5 leading-none">
+                              <HiOutlineInformationCircle className="w-4 h-4" /> Refund Reason
+                            </div>
+                            <p className="text-sm text-gray-600 leading-relaxed">"{order.refund_reason || "No reason provided"}"</p>
+                          </div>
 
-                           <div className="flex justify-end gap-2 bg-white/50 p-2 rounded-xl">
-                              <RefundActions 
-                                order={order} 
-                                setApprovingOrder={setApprovingOrder} 
-                                setRejectingOrder={setRejectingOrder} 
-                                setRefundAmount={setRefundAmount} 
-                                setAdminNote={setAdminNote} 
-                                showLabel
-                              />
-                           </div>
+                          <div className="flex justify-end gap-2 bg-white/50 p-2 rounded-xl">
+                            <RefundActions
+                              order={order}
+                              setApprovingOrder={setApprovingOrder}
+                              setRejectingOrder={setRejectingOrder}
+                              setRefundAmount={setRefundAmount}
+                              setAdminNote={setAdminNote}
+                              showLabel
+                            />
+                          </div>
                         </div>
                       </div>
                     )}
@@ -218,10 +217,10 @@ export default function RefundsPage() {
           <div className="px-6 py-4 bg-gray-50/30 border-t border-gray-50 flex flex-col sm:flex-row justify-between items-center gap-4">
             <p className="text-xs text-gray-400 font-bold uppercase tracking-widest leading-none">
               Showing <span className="text-gray-900">{page * PAGE_SIZE + 1}</span>-
-              <span className="text-gray-900">{Math.min((page + 1) * PAGE_SIZE, totalCount)}</span> of 
+              <span className="text-gray-900">{Math.min((page + 1) * PAGE_SIZE, totalCount)}</span> of
               <span className="text-gray-900 ml-1">{totalCount}</span> claims
             </p>
-            
+
             <div className="flex items-center gap-2">
               <button
                 onClick={() => { setPage(p => Math.max(0, p - 1)); setExpandedId(null) }}
@@ -254,14 +253,14 @@ export default function RefundsPage() {
                 <HiOutlineRefresh className="w-6 h-6 text-blue-600 flex-shrink-0" />
                 <p className="text-xs text-blue-700 leading-relaxed font-medium">This will issue a partial or full refund via <span className="font-bold">Stripe</span>. This action is irreversible.</p>
               </div>
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5 block ml-1 leading-none">Refund Amount ($)</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-gray-400 text-sm">$</span>
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       step="0.01"
                       value={refundAmount}
                       onChange={(e) => setRefundAmount(Number(e.target.value))}
@@ -274,7 +273,7 @@ export default function RefundsPage() {
 
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5 block ml-1 leading-none">Internal Note</label>
-                  <textarea 
+                  <textarea
                     value={adminNote}
                     onChange={(e) => setAdminNote(e.target.value)}
                     className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 text-sm font-medium h-24 focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none placeholder:text-gray-300"
@@ -300,10 +299,10 @@ export default function RefundsPage() {
                 <HiXCircle className="w-6 h-6 text-red-600 flex-shrink-0" />
                 <p className="text-xs text-red-700 leading-relaxed font-medium">The customer will be notified that their refund request has been declined. Please provide a clear reason.</p>
               </div>
-              
+
               <div>
                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5 block ml-1 leading-none">Rejection Reason</label>
-                <textarea 
+                <textarea
                   value={adminNote}
                   onChange={(e) => setAdminNote(e.target.value)}
                   className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 text-sm font-medium h-32 focus:ring-2 focus:ring-red-500 outline-none transition-all resize-none placeholder:text-gray-300"
@@ -332,7 +331,7 @@ function RefundStatusBadge({ status }: { status: string }) {
   const color = colors[status] || "bg-gray-100 text-gray-700"
   return (
     <span className={`inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-full tracking-widest ${color}`}>
-        {status}
+      {status}
     </span>
   )
 }
@@ -340,30 +339,30 @@ function RefundStatusBadge({ status }: { status: string }) {
 function RefundActions({ order, setApprovingOrder, setRejectingOrder, setRefundAmount, setAdminNote, showLabel = false }: any) {
   if (order.refund_status !== "pending") {
     return (
-        <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest leading-none bg-gray-100 px-3 py-2 rounded-lg">
-            COMPLETED
-        </span>
+      <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest leading-none bg-gray-100 px-3 py-2 rounded-lg">
+        COMPLETED
+      </span>
     )
   }
 
   return (
     <div className="flex items-center gap-2">
-        <button 
-            onClick={() => {
-                setApprovingOrder(order); 
-                setRefundAmount(order.refund_amount || order.total_price);
-                setAdminNote("");
-            }}
-            className={`px-3 py-1.5 bg-gray-900 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-sm ${showLabel ? 'flex-1' : ''}`}
-        >
-            {showLabel ? "Process Refund" : "PROCESS"}
-        </button>
-        <button 
-            onClick={() => { setRejectingOrder(order); setAdminNote("") }}
-            className={`px-3 py-1.5 bg-white border border-gray-200 text-gray-500 rounded-lg text-[10px] font-black uppercase tracking-widest hover:border-red-200 hover:text-red-600 transition-all ${showLabel ? 'flex-1' : ''}`}
-        >
-            {showLabel ? "Reject Claim" : "REJECT"}
-        </button>
+      <button
+        onClick={() => {
+          setApprovingOrder(order);
+          setRefundAmount(order.refund_amount || order.total_price);
+          setAdminNote("");
+        }}
+        className={`px-3 py-1.5 bg-gray-900 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-sm ${showLabel ? 'flex-1' : ''}`}
+      >
+        {showLabel ? "Process Refund" : "PROCESS"}
+      </button>
+      <button
+        onClick={() => { setRejectingOrder(order); setAdminNote("") }}
+        className={`px-3 py-1.5 bg-white border border-gray-200 text-gray-500 rounded-lg text-[10px] font-black uppercase tracking-widest hover:border-red-200 hover:text-red-600 transition-all ${showLabel ? 'flex-1' : ''}`}
+      >
+        {showLabel ? "Reject Claim" : "REJECT"}
+      </button>
     </div>
   )
 }

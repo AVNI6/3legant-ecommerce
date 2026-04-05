@@ -35,9 +35,9 @@ export const validateCoupon = createAsyncThunk(
           .select("id")
           .eq("user_id", userId)
           .eq("coupon_code", code.toUpperCase())
-          .neq("status", "cancelled")
+          .in("status", ["confirmed", "processing", "shipped", "delivered"])
           .limit(1)
-        
+
         if (used && used.length > 0) {
           return rejectWithValue("You have already used this coupon")
         }
@@ -87,8 +87,9 @@ export const fetchAvailableCoupons = createAsyncThunk(
         .from("coupons")
         .select("*")
         .eq("active", true)
+        .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
         .order("created_at", { ascending: false })
-      
+
       if (error) throw error
       return data ?? []
     } catch (error: any) {

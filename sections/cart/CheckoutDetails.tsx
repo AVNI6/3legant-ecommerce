@@ -6,7 +6,7 @@ import { APP_ROUTE } from "@/constants/AppRoutes"
 import { formatCurrency } from "@/constants/Data"
 import { RxCross2 } from "react-icons/rx"
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { removeFromCart, setActiveStep } from "@/store/slices/cartSlice";
+import { removeFromCart, setActiveStep, setShipping } from "@/store/slices/cartSlice";
 import { fetchAddresses, selectAddresses } from "@/store/slices/addressSlice";
 import { CheckoutDetailSkeleton } from "@/components/ui/skeleton";
 import { Address, CartItem } from "@/types";
@@ -71,7 +71,6 @@ const getCityOptions = (country?: string, state?: string) => {
 };
 
 function CheckoutDetail() {
-  console.log("[DEBUG] Rendering CheckoutDetail")
   const dispatch = useAppDispatch();
   const { user, loading: authLoading } = useAppSelector((state: any) => state.auth);
   const cartItems = useAppSelector((state: any) => state.cart.items);
@@ -83,11 +82,10 @@ function CheckoutDetail() {
     setIsMounted(true);
   }, []);
 
-  // Strict validation: Prevent entering Tab 2 without selected shipping
+  // Auto-set Free Shipping if none selected (for direct checkout access)
   useEffect(() => {
     if (isMounted && cartItems.length > 0 && !selectedShipping) {
-      toast.error("Please select a shipping method before checking out.");
-      dispatch(setActiveStep(1));
+      dispatch(setShipping({ name: "Free Shipping", cost: 0 }));
     }
   }, [isMounted, selectedShipping, cartItems.length, dispatch]);
   const coupon = useAppSelector((state: any) => state.coupon.coupon);
@@ -173,23 +171,17 @@ function CheckoutDetail() {
     const defaultHasChanged = currentDefaultId && draftSourceId && currentDefaultId !== draftSourceId;
 
     if (defaultHasChanged) {
-      console.log(`[CHECKOUT-INIT] Default address ID changed from ${draftSourceId} to ${currentDefaultId}. Forcing re-fill.`);
     }
 
-    // CASE 1: Session draft already contains data. 
-    // We only prioritize it if the Default Address hasn't changed globally.
     if (draftHasData && !defaultHasChanged) {
       if (!draftHydrated) {
-        console.log("[CHECKOUT-INIT] Manual draft detected. Preserving user typing.");
         reset(checkoutDraft as CheckoutFormData, { keepDefaultValues: true });
         setDraftHydrated(true);
       }
       return;
     }
 
-    // CASE 2: No manual typing OR default address ID changed. Apply/Re-apply current default.
     if (defaultAddr) {
-      console.log(`[CHECKOUT-INIT] ${defaultHasChanged ? 'ID Change Detected.' : 'No manual data.'} Applying account default address.`);
       const finalData: Partial<CheckoutFormData> = {
         firstName: defaultAddr.first_name || defaultAddr.firstName || "",
         lastName: defaultAddr.last_name || defaultAddr.lastName || "",
@@ -201,7 +193,7 @@ function CheckoutDetail() {
         country: (defaultAddr.country || "").toLowerCase(),
         payment: checkoutDraft.payment || "card",
         email: user?.email || checkoutDraft.email || "",
-        sourceAddressId: currentDefaultId, // Record that we auto-filled from this ID
+        sourceAddressId: currentDefaultId,
       };
 
       reset(finalData as CheckoutFormData, { keepDefaultValues: true });
@@ -211,7 +203,6 @@ function CheckoutDetail() {
       setDraftHydrated(true);
     } else {
       if (!draftHydrated) {
-        console.log("[CHECKOUT-INIT] No initialization data found.");
         setDraftHydrated(true);
       }
     }
@@ -349,6 +340,8 @@ function CheckoutDetail() {
             userId: user.id,
             paymentMethod: payment,
             couponCode: coupon?.code || "",
+            shippingAddress: JSON.stringify(shippingAddress), // 📍 RESTORED: Metadata for fulfillment
+            billingAddress: JSON.stringify(billingAddress),   // 📍 RESTORED: Metadata for fulfillment
           },
         }),
       });

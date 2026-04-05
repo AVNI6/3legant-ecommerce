@@ -109,9 +109,9 @@ export default function AdminShipping() {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         {isLoading ? (
           <div className="p-6 space-y-4">
-             {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-20 bg-gray-50 rounded-2xl animate-pulse" />
-             ))}
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="h-20 bg-gray-50 rounded-2xl animate-pulse" />
+            ))}
           </div>
         ) : methods.length === 0 ? (
           <div className="p-12 text-center text-poppins">
@@ -157,12 +157,12 @@ export default function AdminShipping() {
                   <div className="flex items-center gap-2">
                     {/* Desktop Actions */}
                     <div className="hidden lg:flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => openEdit(method)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors"><HiOutlinePencilAlt className="w-5 h-5"/></button>
-                      <button onClick={() => setDeleteTarget(method)} className="p-2 hover:bg-red-50 rounded-lg text-red-600 transition-colors"><HiOutlineTrash className="w-5 h-5"/></button>
+                      <button onClick={() => openEdit(method)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors"><HiOutlinePencilAlt className="w-5 h-5" /></button>
+                      <button onClick={() => setDeleteTarget(method)} className="p-2 hover:bg-red-50 rounded-lg text-red-600 transition-colors"><HiOutlineTrash className="w-5 h-5" /></button>
                     </div>
-                    
+
                     {/* Mobile Toggle */}
-                    <button 
+                    <button
                       onClick={() => setExpandedId(expandedId === method.id ? null : method.id)}
                       className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-700"
                     >
@@ -173,18 +173,18 @@ export default function AdminShipping() {
 
                 {expandedId === method.id && (
                   <div className="lg:hidden mt-4 pt-4 border-t border-gray-100 flex justify-end gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                     <button 
-                        onClick={() => openEdit(method)} 
-                        className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-xl text-[10px] font-black uppercase text-gray-600"
-                      >
-                        <HiOutlinePencilAlt className="w-4 h-4" /> Edit
-                      </button>
-                      <button 
-                        onClick={() => setDeleteTarget(method)} 
-                        className="flex items-center gap-2 px-4 py-2 bg-red-50 rounded-xl text-[10px] font-black uppercase text-red-600"
-                      >
-                        <HiOutlineTrash className="w-4 h-4" /> Delete
-                      </button>
+                    <button
+                      onClick={() => openEdit(method)}
+                      className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-xl text-[10px] font-black uppercase text-gray-600"
+                    >
+                      <HiOutlinePencilAlt className="w-4 h-4" /> Edit
+                    </button>
+                    <button
+                      onClick={() => setDeleteTarget(method)}
+                      className="flex items-center gap-2 px-4 py-2 bg-red-50 rounded-xl text-[10px] font-black uppercase text-red-600"
+                    >
+                      <HiOutlineTrash className="w-4 h-4" /> Delete
+                    </button>
                   </div>
                 )}
               </div>

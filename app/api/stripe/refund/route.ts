@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     // Get order details
     const { data: order, error: orderErr } = await supabase
       .from("orders")
-      .select("id, total_price, user_id, refund_status, refund_reason, shipping_address, status")
+      .select("id, total_price, user_id, refund_status, refund_reason, shipping_address, status, payment_intent_id")
       .eq("id", order_id)
       .single()
 
@@ -26,37 +26,53 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 })
     }
 
-    // Look up the payment record from payments table
-    console.log("🔍 Looking up payment record for order:", order_id)
+    // Resolve Stripe Payment ID (Robust Discovery)
+    let stripePaymentId: string | null = null;
 
-    // First, try flexible query to find ANY payment for this order
-    const { data: allPayments, error: allPaymentsErr } = await supabase
-      .from("payments")
-      .select("payment_id, transaction_id, details, method, status")
-      .eq("order_id", order_id)
-      .order("created_at", { ascending: false })
-
-    console.log("📊 All payments for order:", { allPayments, allPaymentsErr })
-
-    if (allPaymentsErr || !allPayments || allPayments.length === 0) {
-      console.error("❌ No payment records found for this order:", allPaymentsErr)
-      return NextResponse.json({
-        error: "No payment record found for this order. Cannot process refund without Stripe payment ID."
-      }, { status: 400 })
+    // 1. Check if the order record already has the PI linked (Best fallback)
+    if ((order as any).payment_intent_id) {
+      stripePaymentId = (order as any).payment_intent_id;
+      console.log("🎯 Found Payment Intent ID directly on Order record:", stripePaymentId);
     }
 
-    // Use the most recent successful payment
-    const payment = allPayments.find(p =>
-      p.status === "success" || p.status === "paid" || p.transaction_id
-    ) || allPayments[0]
-
-    console.log("💳 Selected payment record:", { payment })
-
-    // Get the Stripe payment intent ID from transaction_id or details
-    const stripePaymentId = payment.transaction_id || payment.details?.payment_intent_id || payment.payment_id
+    // 2. Fallback: Search payments table if PI is missing from Order record
     if (!stripePaymentId) {
-      console.error("❌ No payment intent ID found in payment record:", payment)
-      return NextResponse.json({ error: "No payment intent found in payment record" }, { status: 400 })
+      console.log("🔍 Secondary lookup: searching payments table for order:", order_id);
+      const { data: allPayments } = await supabase
+        .from("payments")
+        .select("payment_id, transaction_id, details, status")
+        .eq("order_id", order_id)
+        .order("created_at", { ascending: false });
+
+      if (allPayments && allPayments.length > 0) {
+        const payment = allPayments.find(p => p.status === "success" || p.transaction_id) || allPayments[0];
+        stripePaymentId = payment.transaction_id || payment.details?.payment_intent_id || payment.payment_id;
+        console.log("💳 Found Payment ID in payments table:", stripePaymentId);
+      }
+    }
+
+    if (!stripePaymentId) {
+      console.error("❌ No payment intent ID discovered for order:", order_id);
+      return NextResponse.json({
+        error: "No payment record found for this order. It might not be fully synchronized yet. Please try again in 1-2 minutes or contact support."
+      }, { status: 400 });
+    }
+
+    // EXTRA RESOLUTION: Convert Session IDs (cs_...) to Refundable PIs (pi_...)
+    if (stripePaymentId.startsWith("cs_")) {
+      console.warn("⚠️ Warning: stripePaymentId is a Session ID (cs_), resolving PI from Stripe...");
+      try {
+        const session = await stripe.checkout.sessions.retrieve(stripePaymentId);
+        if (session.payment_intent) {
+          stripePaymentId = session.payment_intent as string;
+          console.log("🔄 Resolved Payment Intent from Session:", stripePaymentId);
+        } else {
+          throw new Error("checkout_session_not_found_or_no_pi");
+        }
+      } catch (err) {
+        console.error("❌ Failed to resolve PI from Session ID:", err);
+        return NextResponse.json({ error: "Only captured payments can be refunded directly. If this was recent, please wait a minute for sync." }, { status: 400 });
+      }
     }
 
     // Validate refund amount (admin decides amount)

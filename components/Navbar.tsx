@@ -94,8 +94,8 @@ const Navbar = () => {
           <div className="flex gap-0.5 min-[428px]:gap-1 items-center cursor-pointer" onClick={() => setIsCartOpen(true)}  >
             <TbShoppingBag />
             {cartItems?.length > 0 && (
-              <span className="flex items-center bg-black text-white text-[11px] sm:text-[13px] px-1.5 sm:px-2.5 py-[3px] sm:py-[6px] rounded-full">
-                {cartItems.length}
+              <span className="flex items-center justify-center bg-black text-white text-[10px] sm:text-[12px] font-bold w-5 h-5 sm:w-6 sm:h-6 p-3 rounded-full shadow-sm">
+                {cartItems.reduce((acc: number, item: any) => acc + item.quantity, 0)}
               </span>
             )}
           </div>
@@ -193,7 +193,7 @@ const Navbar = () => {
               <div className="flex items-center gap-2">
                 <TbShoppingBag className="text-xl" />
                 <span className="bg-black text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full leading-none">
-                  {cartItems?.length || 0}
+                  {cartItems.reduce((acc: number, item: any) => acc + item.quantity, 0)}
                 </span>
               </div>
             </div>

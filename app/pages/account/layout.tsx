@@ -38,7 +38,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
 	const currentLinkName = links.find(l => l.path === pathname)?.name || "Menu";
 
 	return (
-		<div className="px-4 lg:px-30 py-8 sm:py-16">
+		<div className="px-4 lg:px-30 py-4 sm:py-16">
 			<div className="lg:hidden mb-6">
 				<Link href="/" className="flex items-center gap-1 text-[#6C7275] hover:text-black transition-colors text-sm font-medium">
 					<span className="text-base">‹</span> back

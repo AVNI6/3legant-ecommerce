@@ -28,8 +28,6 @@ export default function SearchContent() {
 
     const searchProducts = () => {
       setLoading(true)
-      console.log("Search page - Searching for:", query, "Sort by:", sortBy)
-      console.log("Available products:", allProducts.length)
 
       let filtered = allProducts.filter((product: ProductType) =>
         product.name.toLowerCase().includes(query.toLowerCase()) ||
@@ -51,7 +49,6 @@ export default function SearchContent() {
           break
       }
 
-      console.log("Search page result:", filtered.length, "products")
       setProducts(filtered)
       setLoading(false)
     }

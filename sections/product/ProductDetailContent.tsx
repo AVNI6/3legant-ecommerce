@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { formatCurrency, getEffectivePrice } from "@/constants/Data";
+import { formatCurrency, getEffectivePrice, isNewProduct } from "@/constants/Data";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { toggleWishlist } from "@/store/slices/wishlistSlice";
 import AddToCartButton from "@/components/AddToCartButton";
@@ -45,14 +45,15 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
 
     useEffect(() => {
         setMounted(true);
-    }, []);
+        window.scrollTo(0, 0);
+    }, [id]);
 
     const productVariants = useMemo(() => {
         if (!mounted) return initialVariants;
 
         return initialVariants.map((variant: any) => {
             let updatedVariant = { ...variant };
-            const liveMatch = reduxProducts.find((item: any) => item.variant_id === variant.variant_id);
+            const liveMatch = reduxProducts.find((item: any) => Number(item.variant_id) === Number(variant.variant_id));
             if (liveMatch) {
                 updatedVariant = { ...updatedVariant, ...liveMatch };
             }
@@ -102,10 +103,61 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
         });
     }, []);
 
+    const selectedVariantForSync =
+        uniqueProductVariants.find((variant: any) => variant.variant_id === selectedVariantId) ??
+        uniqueProductVariants[0] ??
+        product;
+
+    const galleryImagesForSync = useMemo(() => Array.from(
+        new Set(
+            [
+                product?.image,
+                ...(selectedVariantForSync?.thumbnails ? (Array.isArray(selectedVariantForSync.thumbnails) ? selectedVariantForSync.thumbnails : Object.values(selectedVariantForSync.thumbnails)) : []),
+                ...(selectedVariantForSync?.color_images ?? (selectedVariantForSync as any)?.color_image ?? []),
+                ...uniqueProductVariants.flatMap((v: any) => v.color_images ?? (v as any)?.color_image ?? []),
+            ].filter((img): img is string => typeof img === "string" && img.trim().length > 0)
+        )
+    ), [selectedVariantForSync, product?.image, uniqueProductVariants]);
+
+    const selectedVariant = selectedVariantForSync;
+    const allGalleryImages = galleryImagesForSync;
+
+    const colorImages = uniqueProductVariants.map((variant: any) => ({
+        id: variant.variant_id,
+        image: variant.color_image?.[0] || variant.image || product.image,
+        variantId: variant.variant_id,
+        color: variant.color || "Default",
+    }));
+
+    const selectedColorIndex = colorImages.find((c: any) => c.variantId === selectedVariant.variant_id)?.id ?? null;
+    const actionColor = selectedVariant.color || "Default";
+    const activeVariantId = selectedVariant.variant_id;
+
+    const {
+        price: effectivePrice,
+        oldPrice: effectiveOldPrice,
+        isOfferActive,
+        hasDiscount
+    } = getEffectivePrice({
+        price: Number(selectedVariant.price),
+        old_price: Number(selectedVariant.old_price),
+        validationTill: product.validation_till
+    });
+
+    const mainImage = allGalleryImages[currentIndex] ?? product.image ?? "/placeholder.png";
+    const cartItem = cartItems.find((item: any) => Number(item.variant_id) === Number(activeVariantId));
+    const isInWishlist = wishlistItems.some((item: any) => Number(item.variant_id) === Number(activeVariantId));
+
     useEffect(() => {
         if (!product) return;
-        setQuantity(1);
-    }, [selectedVariantId, product?.variant_id]);
+        // If item is already in cart, sync our local quantity state with it
+        // This ensures drawer updates reflect here instantly
+        if (cartItem) {
+            setQuantity(cartItem.quantity);
+        } else {
+            setQuantity(1);
+        }
+    }, [selectedVariantId, product?.variant_id, cartItem?.quantity]);
 
     useEffect(() => {
         if (!product) return;
@@ -126,22 +178,6 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
         }
     }, [product?.id, queryVariantId]);
 
-    const selectedVariantForSync =
-        uniqueProductVariants.find((variant: any) => variant.variant_id === selectedVariantId) ??
-        uniqueProductVariants[0] ??
-        product;
-
-    const galleryImagesForSync = useMemo(() => Array.from(
-        new Set(
-            [
-                product?.image,
-                ...(selectedVariantForSync?.thumbnails ? (Array.isArray(selectedVariantForSync.thumbnails) ? selectedVariantForSync.thumbnails : Object.values(selectedVariantForSync.thumbnails)) : []),
-                ...(selectedVariantForSync?.color_images ?? (selectedVariantForSync as any)?.color_image ?? []),
-                ...uniqueProductVariants.flatMap((v: any) => v.color_images ?? (v as any)?.color_image ?? []),
-            ].filter((img): img is string => typeof img === "string" && img.trim().length > 0)
-        )
-    ), [selectedVariantForSync, product?.image, uniqueProductVariants]);
-
     useEffect(() => {
         if (selectedVariantId !== null && product) {
             const variantImg = (selectedVariantForSync as any)?.color_images?.[0] || (selectedVariantForSync as any)?.color_image?.[0] || product.image;
@@ -156,30 +192,6 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
 
     if (!product) return <div className="p-10 text-center text-gray-400">Product not found</div>;
 
-    const selectedVariant = selectedVariantForSync;
-    const allGalleryImages = galleryImagesForSync;
-
-    const colorImages = uniqueProductVariants.map((variant: any) => ({
-        id: variant.variant_id,
-        image: variant.color_image?.[0] || variant.image || product.image,
-        variantId: variant.variant_id,
-        color: variant.color || "Default",
-    }));
-
-    const selectedColorIndex = colorImages.find((c: any) => c.variantId === selectedVariant.variant_id)?.id ?? null;
-    const actionColor = selectedVariant.color || "Default";
-    const activeVariantId = selectedVariant.variant_id;
-
-    const {
-        price: effectivePrice,
-        isOfferActive,
-        hasDiscount
-    } = getEffectivePrice({
-        price: Number(selectedVariant.price),
-        old_price: Number(selectedVariant.old_price),
-        validationTill: product.validation_till
-    });
-
     const thumbnailPool = Array.from(
         new Set(
             [
@@ -189,10 +201,6 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
             ].filter((img): img is string => typeof img === "string" && img.trim().length > 0)
         )
     );
-
-    const mainImage = allGalleryImages[currentIndex] ?? product.image ?? "/placeholder.png";
-    const cartItem = cartItems.find((item: any) => item.id === product.id && item.color === actionColor);
-    const isInWishlist = wishlistItems.some((item: any) => item.variant_id === activeVariantId);
 
     const handleWishlist = () => {
         if (!user) {
@@ -229,14 +237,29 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 lg:gap-10 lg:items-start">
                     <div className="lg:sticky lg:top-32 lg:z-10 w-full">
-                        <ProductGallery
-                            images={allGalleryImages}
-                            thumbnailPool={thumbnailPool}
-                            product={product}
-                            currentIndex={currentIndex}
-                            setCurrentIndex={setCurrentIndex}
-                            mainImage={mainImage}
-                        />
+                        <div className="relative">
+                            <ProductGallery
+                                images={allGalleryImages}
+                                thumbnailPool={thumbnailPool}
+                                product={product}
+                                currentIndex={currentIndex}
+                                setCurrentIndex={setCurrentIndex}
+                                mainImage={mainImage}
+                            />
+                            {/* Badges Overlay */}
+                            <div className="absolute top-4 left-4 z-20 flex flex-col gap-2 pointer-events-none">
+                                {isNewProduct(product.created_at) && (
+                                    <span className="bg-white text-black px-3 py-1 rounded text-xs font-bold uppercase shadow-sm">
+                                        New
+                                    </span>
+                                )}
+                                {isOfferActive && hasDiscount && (
+                                    <span className="bg-[#38CB89] text-white px-3 py-1 rounded text-xs font-bold uppercase shadow-sm">
+                                        -{Math.round(((Number(selectedVariant.old_price) - Number(selectedVariant.price)) / Number(selectedVariant.old_price)) * 100)}%
+                                    </span>
+                                )}
+                            </div>
+                        </div>
                     </div>
 
                     <div className="space-y-2 sm:space-y-4 lg:space-y-2 xl:space-y-4">
@@ -248,10 +271,10 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
                         <p className="text-gray-600 text-sm sm:text-[16px] lg:text-[14px] xl:text-[16px] leading-[26px] tracking-normal">{product.description}</p>
 
                         <div className="flex flex-col gap-1 ">
-                            <div className="flex gap-3 sm:gap-4 text-lg sm:text-xl">
+                            <div className="flex items-center gap-3 sm:gap-4 text-lg sm:text-xl">
                                 <span className="font-poppins font-medium text-[28px] lg:text-[24px] xl:text-[28px] leading-[34px] tracking-[-0.6px]">{formatCurrency(effectivePrice)}</span>
-                                {isOfferActive && hasDiscount && (
-                                    <span className="font-poppins font-medium text-[20px] lg:text-[18px] xl:text-[20px] leading-[28px] tracking-normal line-through text-gray-400">{formatCurrency(selectedVariant.old_price)}</span>
+                                {isOfferActive && hasDiscount && effectiveOldPrice && (
+                                    <span className="font-poppins font-medium text-[20px] lg:text-[18px] xl:text-[20px] leading-[28px] tracking-normal line-through text-gray-400">{formatCurrency(effectiveOldPrice)}</span>
                                 )}
                             </div>
                             {selectedVariant.stock === 0 && (

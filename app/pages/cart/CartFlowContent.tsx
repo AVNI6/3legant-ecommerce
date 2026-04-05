@@ -9,6 +9,7 @@ import StepIndicator from "@/sections/cart/StepIndicator"
 import { useSearchParams } from "next/navigation"
 import { useEffect, useRef } from "react"
 import { setActiveStep, clearCartItems, setShipping, clearCart } from "@/store/slices/cartSlice"
+import { toast } from "react-toastify"
 
 export default function CartFlowContent() {
 	const dispatch = useAppDispatch()
@@ -20,10 +21,9 @@ export default function CartFlowContent() {
 	useEffect(() => {
 		const checkoutState = searchParams.get("checkout")
 		const sessionId = searchParams.get("session_id")
+		const step = searchParams.get("step")
 
 		if (checkoutState === "success") {
-			console.log(`[CART-PAGE] Payment success detected for session ${sessionId}`)
-
 			if (cartId) {
 				dispatch(clearCart(cartId))
 			} else {
@@ -39,11 +39,18 @@ export default function CartFlowContent() {
 		}
 
 		if (checkoutState === "cancel") {
-			console.log(`[CART-PAGE] Payment cancelled for session ${sessionId}`)
 			dispatch(setActiveStep(2))
-
+			toast.info("Payment was cancelled. You can try again or use a different method.")
 			handledCancelSessionRef.current = sessionId
 			return
+		}
+
+		if (step) {
+			const s = parseInt(step)
+			if (s === 1 || s === 2 || s === 3) {
+				dispatch(setActiveStep(s as 1 | 2 | 3))
+				return
+			}
 		}
 
 		if (!checkoutState) {

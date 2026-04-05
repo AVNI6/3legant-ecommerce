@@ -1,31 +1,210 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { setSort, setGrid, incrementVisibleCount, setItems } from "@/store/slices/productSlice";
+import { setSort, setGrid } from "@/store/slices/productSlice";
 import Products from "@/components/products";
 import SortBar from "@/app/pages/product/SortBar";
 import FilterSidebar from "@/components/FilterSidebar";
 import { useSearchParams, useRouter } from "next/navigation";
 import { APP_ROUTE } from "@/constants/AppRoutes";
+import { supabase } from "@/lib/supabase/client";
+import { mapProducts } from "@/lib/supabase/productMapping";
+
+const INITIAL_LIMIT = 12;
+const INCREMENT_LIMIT = 12;
 
 export default function ProductPageContent({ initialProducts = [] }: { initialProducts?: any[] }) {
-  const { items: reduxProducts, loading: reduxLoading, sort, grid, visibleCount, initialized } = useAppSelector((state: any) => state.products);
+  const mappedInitial = useMemo(() => mapProducts(initialProducts), [initialProducts]);
+  const { sort, grid } = useAppSelector((state: any) => state.products);
   const dispatch = useAppDispatch();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const gridFromURL = searchParams.get("grid");
-  const categoryFromURL = searchParams.get("category");
 
-  // Sync grid state from URL on mount
-  useEffect(() => {
-    if (gridFromURL && gridFromURL !== grid) {
-      dispatch(setGrid(gridFromURL));
+  const urlCategory = searchParams.get("category") || "All Rooms";
+
+  // State
+  const [items, setItems] = useState<any[]>(mappedInitial);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_LIMIT);
+  const [isLoading, setIsLoading] = useState(mappedInitial.length === 0);
+  const [itemsOffset, setItemsOffset] = useState(mappedInitial.length);
+  const [hasMoreInDB, setHasMoreInDB] = useState(mappedInitial.length < INITIAL_LIMIT ? false : true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+
+  const [selectedCategory, setSelectedCategory] = useState(urlCategory);
+  const [selectedPrice, setSelectedPrice] = useState<string[]>(["all", "0-99", "100-199", "200-299", "300-399", "400+"]);
+
+  // Fetch logic
+  const fetchProductsBatch = useCallback(async (limit: number, currentOffset: number, category: string, priceFilters: string[]) => {
+    try {
+      // 1. Fetch from product_variant to ensure CARD-BASED pagination (12 cards per row/batch)
+      let query = supabase
+        .from("product_variant")
+        .select(`
+          id, color, price, old_price, stock, thumbnails, color_images,
+          products!inner (
+            id, name, category, image, measurements, is_new, created_at, description, is_deleted, validation_till
+          )
+        `)
+        .eq("products.is_deleted", false);
+
+      // Apply Category Filter on the joined product
+      if (category !== "All Rooms") {
+        query = query.eq("products.category", category);
+      }
+
+      // Apply Price Filters
+      if (priceFilters.length > 0 && !priceFilters.includes("all")) {
+        const filters = priceFilters.map(range => {
+          if (range === "0-99") return { min: 0, max: 99 };
+          if (range === "100-199") return { min: 100, max: 199 };
+          if (range === "200-299") return { min: 200, max: 299 };
+          if (range === "300-399") return { min: 300, max: 399 };
+          if (range === "400+") return { min: 400, max: 1000000 };
+          return null;
+        }).filter(Boolean);
+
+        if (filters.length > 0) {
+          // Use OR logic for multiple ranges: (price >= min1 AND price <= max1) OR (price >= min2 AND price <= max2)
+          const orFilter = filters.map(f => `and(price.gte.${f!.min},price.lte.${f!.max})`).join(",");
+          query = query.or(orFilter);
+        }
+      }
+
+      // Order by product creation then variant ID for consistency
+      const { data: variantsData, error: variantError } = await query
+        .order("id", { ascending: false })
+        .range(currentOffset, currentOffset + limit - 1);
+
+      if (variantError) throw variantError;
+
+      const productIds = Array.from(new Set((variantsData || []).map((v: any) => v.products.id)));
+
+      // Parallel fetch for collective review stats
+      const { data: reviewsData, error: reviewsError } = await supabase
+        .from("reviews")
+        .select("product_id, rating")
+        .in("product_id", productIds);
+
+      if (reviewsError) {
+        console.error("Failed to load review stats:", reviewsError);
+      }
+
+      // Group reviews by product_id
+      const groupedReviews: Record<number, { sum: number; count: number }> = {};
+      (reviewsData ?? []).forEach(row => {
+        const pid = Number(row.product_id);
+        if (!groupedReviews[pid]) groupedReviews[pid] = { sum: 0, count: 0 };
+        groupedReviews[pid].sum += Number(row.rating ?? 0);
+        groupedReviews[pid].count += 1;
+      });
+
+      // Transform variant data into the standard product object format the UI expects
+      const mappedItems = (variantsData || []).map((v: any) => {
+        const p = v.products;
+        const pid = p.id;
+        const reviewEntry = groupedReviews[pid];
+
+        return {
+          id: pid,
+          variant_id: v.id,
+          name: p.name,
+          category: p.category,
+          price: v.price || 0,
+          old_price: v.old_price || 0,
+          image: (v.color_images && Array.isArray(v.color_images) && v.color_images[0]) || p.image,
+          is_new: p.is_new,
+          created_at: p.created_at,
+          description: p.description,
+          measurements: p.measurements,
+          color: v.color,
+          validation_till: p.validation_till,
+          stock: Number(v.stock ?? 0),
+          reviewStats: reviewEntry
+            ? { rating: reviewEntry.sum / reviewEntry.count, count: reviewEntry.count }
+            : { rating: 0, count: 0 }
+        };
+      });
+
+      // Shuffle the results within this batch for dynamic feel
+      const shuffled = [...mappedItems];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+
+      return {
+        items: shuffled,
+        rawCount: variantsData?.length || 0
+      };
+    } catch (err) {
+      console.error("Fetch error:", err);
+      return { items: [], rawCount: 0 };
     }
-  }, [gridFromURL, dispatch, grid]);
+  }, []);
 
+  const fetchAttemptedRef = useRef(false);
+
+  // Sync initial load and filter changes (Deduplicated)
+  useEffect(() => {
+    // 1. Initial Hydration Guard: 
+    // If we have products from the server AND we're on the default category, skip the first fetch.
+    if (mappedInitial.length > 0 && selectedCategory === "All Rooms") {
+      setIsLoading(false);
+      return;
+    }
+
+    // 2. Fetch Logic
+    const initFetch = async () => {
+      if (fetchAttemptedRef.current && selectedCategory === "All Rooms" && selectedPrice.length === 6) {
+        // If we already attempted the default view, don't redo it unless filters changed
+        return;
+      }
+      fetchAttemptedRef.current = true;
+
+      setIsLoading(true);
+      // Reset items before fetching new filter results
+      setItems([]);
+      const { items: batchItems, rawCount } = await fetchProductsBatch(INITIAL_LIMIT, 0, selectedCategory, selectedPrice);
+
+      setItems(batchItems);
+      setItemsOffset(rawCount);
+      setHasMoreInDB(rawCount === INITIAL_LIMIT);
+      setVisibleCount(batchItems.length);
+      setIsLoading(false);
+    };
+    initFetch();
+  }, [fetchProductsBatch, selectedCategory, selectedPrice, mappedInitial.length]);
+
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        dispatch(setGrid("three"));
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    handleResize();
+    return () => window.removeEventListener("resize", handleResize);
+  }, [dispatch]);
+
+  // Pagination
+  const handleLoadMore = async () => {
+    if (isFetchingMore) return;
+    setIsFetchingMore(true);
+
+    const { items: batchItems, rawCount } = await fetchProductsBatch(INCREMENT_LIMIT, itemsOffset, selectedCategory, selectedPrice);
+
+    setItems((prev) => [...prev, ...batchItems]);
+    setItemsOffset((prev) => prev + rawCount);
+    setHasMoreInDB(rawCount === INCREMENT_LIMIT);
+    setVisibleCount((prev) => prev + batchItems.length);
+    setIsFetchingMore(false);
+  };
+
+  // Handlers
   const handleGridChange = useCallback((gridVal: string) => {
     dispatch(setGrid(gridVal));
     const params = new URLSearchParams(window.location.search);
@@ -33,69 +212,57 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
     router.push(`${window.location.pathname}?${params.toString()}`, { scroll: false });
   }, [dispatch, router]);
 
-  // Robust hydration: If server provides more products than currently in Redux, update the store.
-  useEffect(() => {
-    if (initialProducts.length > 0) {
-      if (!initialized || reduxProducts.length < initialProducts.length) {
-        console.log(`Hydrating shop: initial(${initialProducts.length}) vs redux(${reduxProducts.length})`);
-        dispatch(setItems(initialProducts));
-      }
-    }
-  }, [initialProducts, initialized, dispatch, reduxProducts.length]);
-
-  // Use the combined set of products
-  const products = useMemo(() => {
-    if (initialProducts.length > reduxProducts.length) return initialProducts;
-    return reduxProducts.length > 0 ? reduxProducts : initialProducts;
-  }, [reduxProducts, initialProducts]);
-  const isLoading = !initialized || reduxLoading;
-
-  const [selectedCategory, setSelectedCategory] = useState(categoryFromURL || "All Rooms");
-  const [selectedPrice, setSelectedPrice] = useState<string[]>([]);
-  const PRODUCTS_INCREMENT = 6;
-
-  useEffect(() => {
-    if (categoryFromURL) {
-      setSelectedCategory(categoryFromURL);
-    }
-  }, [categoryFromURL]);
-
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
+  const handleCategoryChange = useCallback((category: string) => {
+    setSelectedCategory(category);
   }, []);
 
-  const lastWidth = useRef<number | null>(null);
+  const handlePriceChange = useCallback((price: string | string[]) => {
+    if (Array.isArray(price)) {
+      setSelectedPrice(price);
+      return;
+    }
+    if (price === "all") {
+      setSelectedPrice((prev) => {
+        const specificPrices = ["0-99", "100-199", "200-299", "300-399", "400+"];
+        const isCurrentlyAll = prev.includes("all") && specificPrices.every(p => prev.includes(p));
+        return isCurrentlyAll ? [] : ["all", ...specificPrices];
+      });
+    } else {
+      setSelectedPrice((prev) => {
+        const brands = prev.filter((p) => p !== "all");
+        const alreadySelected = brands.includes(price);
+        let next: string[];
+        if (alreadySelected) {
+          next = brands.filter((p) => p !== price);
+        } else {
+          next = [...brands, price];
+        }
+        const specificPrices = ["0-99", "100-199", "200-299", "300-399", "400+"];
+        if (specificPrices.every(p => next.includes(p))) {
+          return ["all", ...next];
+        }
+        return next;
+      });
+    }
+  }, []);
 
-  useEffect(() => {
-    if (!mounted) return;
+  const handleSortChange = useCallback((sortVal: string) => {
+    dispatch(setSort(sortVal));
+  }, [dispatch]);
 
-    const handleResize = () => {
-      const width = window.innerWidth;
-      const wasDesktop = lastWidth.current === null ? null : lastWidth.current >= 1024;
-      const isDesktop = width >= 1024;
-
-      if (!gridFromURL || (lastWidth.current !== null && wasDesktop !== isDesktop)) {
-        dispatch(setGrid(isDesktop ? "one" : "three"));
-      }
-      lastWidth.current = width;
-    };
-
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [dispatch, mounted, gridFromURL]);
-
+  // Derived state
   const filteredProducts = useMemo(() => {
-    // Show all products on the main shop page
-    let items = [...products];
+    // If no price is selected, return an empty list immediately
+    if (selectedPrice.length === 0) return [];
 
+    let list = [...items];
     if (selectedCategory !== "All Rooms") {
-      items = items.filter((p: any) => p.category === selectedCategory);
+      list = list.filter((p: any) => p.category === selectedCategory);
     }
 
-    if (!selectedPrice.includes("all") && selectedPrice.length > 0) {
-      items = items.filter((p: any) => {
+    // If not "all", filter by specific ranges
+    if (!selectedPrice.includes("all")) {
+      list = list.filter((p: any) => {
         const price = p.price;
         return selectedPrice.some(range => {
           if (range === "0-99") return price <= 99;
@@ -108,29 +275,11 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
       });
     }
 
-    if (sort === "low") items.sort((a: any, b: any) => a.price - b.price);
-    if (sort === "high") items.sort((a: any, b: any) => b.price - a.price);
+    if (sort === "low") list.sort((a: any, b: any) => a.price - b.price);
+    if (sort === "high") list.sort((a: any, b: any) => b.price - a.price);
 
-    if (sort === "newest") {
-      items.sort((a: any, b: any) => {
-        try {
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        } catch {
-          return 0;
-        }
-      });
-    }
-
-    if (sort === "default") {
-      items.sort((a: any, b: any) => {
-        const pseudoRandomA = (a.variant_id * 89) % 100;
-        const pseudoRandomB = (b.variant_id * 89) % 100;
-        return pseudoRandomA - pseudoRandomB;
-      });
-    }
-
-    return items;
-  }, [products, selectedCategory, selectedPrice, sort]);
+    return list;
+  }, [items, selectedCategory, selectedPrice, sort]);
 
   const uniqueProducts = useMemo(() => {
     const seen = new Set();
@@ -142,59 +291,11 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
     });
   }, [filteredProducts]);
 
-  const visibleProducts = uniqueProducts.slice(0, visibleCount);
+  const displayedProducts = useMemo(() => {
+    return uniqueProducts.slice(0, visibleCount);
+  }, [uniqueProducts, visibleCount]);
 
-  const handleLoadMore = () => {
-    dispatch(incrementVisibleCount(PRODUCTS_INCREMENT));
-  };
-
-  const handleCategoryChange = useCallback((category: string) => {
-    setSelectedCategory(category);
-  }, []);
-
-  const handlePriceChange = useCallback((price: string | string[]) => {
-    if (Array.isArray(price)) {
-      setSelectedPrice(price);
-      return;
-    }
-
-    if (price === "all") {
-      const specificPrices = ["0-99", "100-199", "200-299", "300-399", "400+"];
-      const isCurrentlyAll = selectedPrice.includes("all") && specificPrices.every(p => selectedPrice.includes(p));
-
-      if (isCurrentlyAll) {
-        setSelectedPrice([]);
-      } else {
-        setSelectedPrice(["all", ...specificPrices]);
-      }
-    } else {
-      setSelectedPrice((prev) => {
-        const brands = prev.filter((p) => p !== "all");
-        const alreadySelected = brands.includes(price);
-        let next: string[];
-
-        if (alreadySelected) {
-          next = brands.filter((p) => p !== price);
-        } else {
-          next = [...brands, price];
-        }
-
-        const specificPrices = ["0-99", "100-199", "200-299", "300-399", "400+"];
-        const allSpecificSelected = specificPrices.every(p => next.includes(p));
-
-        if (allSpecificSelected) {
-          return ["all", ...next];
-        }
-
-        return next;
-      });
-    }
-  }, []);
-
-
-  const handleSortChange = useCallback((sortVal: string) => {
-    dispatch(setSort(sortVal));
-  }, [dispatch]);
+  const hasMoreToShow = uniqueProducts.length > visibleCount || hasMoreInDB;
 
   return (
     <div className="px-4 sm:px-10 lg:px-30">
@@ -246,26 +347,18 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
             setSelectedPrice={handlePriceChange}
           />
 
-          {/* Products component handles its own mounting and loading internally */}
-          <Products products={visibleProducts} grid={grid} isLoading={isLoading} />
+          <Products products={displayedProducts} grid={grid} isLoading={isLoading} />
 
-          {!isLoading && uniqueProducts.length > 0 && (
+          {!isLoading && uniqueProducts.length > 0 && hasMoreToShow && (
             <div className="flex justify-center my-0 md:my-10">
-              {visibleCount < uniqueProducts.length ? (
-                <button
-                  onClick={handleLoadMore}
-                  className="border rounded-full px-6 min-[375px]:px-10 py-2 min-[375px]:py-3 hover:bg-gray-100 active:scale-[0.98] transition text-sm min-[375px]:text-base font-medium"
-                >
-                  Show More
-                </button>
-              ) : (
-                <button
-                  disabled
-                  className="border border-gray-200 text-gray-400 rounded-full px-6 min-[375px]:px-10 py-2 min-[375px]:py-3 bg-gray-50 text-sm min-[375px]:text-base font-medium cursor-not-allowed"
-                >
-                  All Products Loaded
-                </button>
-              )}
+              <button
+                onClick={handleLoadMore}
+                disabled={isFetchingMore}
+                className={`border rounded-full px-6 min-[375px]:px-10 py-2 min-[375px]:py-3 transition text-sm min-[375px]:text-base font-medium ${isFetchingMore ? "bg-gray-100 cursor-not-allowed text-gray-400" : "hover:bg-gray-100 active:scale-[0.98]"
+                  }`}
+              >
+                {isFetchingMore ? "Loading..." : "Show More"}
+              </button>
             </div>
           )}
         </div>

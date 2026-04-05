@@ -20,7 +20,6 @@ export default function AdminLogin() {
     setErrorMsg("")
 
     try {
-      console.log("🔐 Attempting admin login:", data.email)
 
       // Step 1: Sign in
       const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
@@ -35,7 +34,6 @@ export default function AdminLogin() {
       }
 
       const user = loginData.user
-      console.log("✅ Authentication successful:", user.email)
 
       // Step 2: Verify user has admin role
       const { data: profile, error: profileError } = await supabase
@@ -43,8 +41,6 @@ export default function AdminLogin() {
         .select("role")
         .eq("id", user.id)
         .single()
-
-      console.log("📋 Profile check:", { profile, profileError })
 
       if (profileError || !profile) {
         setErrorMsg("Profile not found. Contact support.")
@@ -55,13 +51,10 @@ export default function AdminLogin() {
       const isAdmin = (profile.role || "").trim().toLowerCase() === "admin"
 
       if (!isAdmin) {
-        console.log("❌ Access denied. User role:", profile.role)
         setErrorMsg(`Access denied. You need admin role to access this area. Your role: ${profile.role || "user"}`)
         await supabase.auth.signOut()
         return
       }
-
-      console.log("✅ Admin verified, redirecting to dashboard...")
 
       // Show redirecting state immediately
       setIsRedirecting(true)
@@ -69,11 +62,9 @@ export default function AdminLogin() {
       // Force full page reload so middleware receives session cookies
       // This ensures the Supabase session is in the request headers
       setTimeout(() => {
-        console.log("🚀 Performing full page redirect now...")
         window.location.href = "/pages/admin/dashboard"
       }, 300)
     } catch (error) {
-      console.error("❌ Login error:", error)
       setErrorMsg("Login failed. Please try again.")
       await supabase.auth.signOut()
     }

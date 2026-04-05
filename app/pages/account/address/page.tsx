@@ -10,6 +10,8 @@ import { toast } from "react-toastify";
 import { FiPlus, FiTrash2 } from "react-icons/fi";
 import { HiOutlineLocationMarker, HiOutlinePhone } from "react-icons/hi";
 import AddressForm, { AddressType } from "./AddressForm";
+import Pagination from "@/components/common/Pagination";
+import { useSearchParams } from "next/navigation";
 
 const Address = () => {
   const dispatch = useAppDispatch();
@@ -17,6 +19,11 @@ const Address = () => {
   const addresses = useAppSelector(selectAddresses);
   const isCacheValid = useAppSelector(selectIsAddressCacheValid);
   const reduxLoading = useAppSelector((state: any) => state.addresses.loading);
+  const totalCount = useAppSelector((state: any) => state.addresses.totalCount);
+
+  const searchParams = useSearchParams();
+  const currentPage = parseInt(searchParams.get("page") || "1", 10);
+  const pageSize = 4;
 
   const [editingAddress, setEditingAddress] = useState<any | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -25,10 +32,10 @@ const Address = () => {
   const [defaultAddressId, setDefaultAddressId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user?.id && !isCacheValid) {
-      dispatch(fetchAddresses(user.id));
+    if (user?.id) {
+      dispatch(fetchAddresses({ userId: user.id, page: currentPage, pageSize }));
     }
-  }, [user?.id, isCacheValid, dispatch]);
+  }, [user?.id, currentPage, dispatch]);
 
   useEffect(() => {
     const def = addresses.find((a: any) => a.is_default);
@@ -37,8 +44,15 @@ const Address = () => {
 
   const setDefaultAddress = (addressId: string) => {
     if (!user?.id) return;
+    // ⚡ Optimistic update for instant UI response
+    setDefaultAddressId(addressId);
     dispatch(setDefaultAddressThunk({ userId: user.id, addressId }))
-      .unwrap().catch(err => toast.error(err));
+      .unwrap().catch(err => {
+        toast.error(err);
+        // Sync back on error
+        const def = addresses.find((a: any) => a.is_default);
+        setDefaultAddressId(def?.id || null);
+      });
   };
 
   const createAddress = async (newAddress: AddressType) => {
@@ -56,9 +70,10 @@ const Address = () => {
   };
 
   const updateAddress = async (address: any, updated: AddressType) => {
+    if (!user?.id) return;
     setIsSaving(true);
     try {
-      await dispatch(updateAddressThunk({ addressId: address.id, updates: updated })).unwrap();
+      await dispatch(updateAddressThunk({ addressId: address.id, updates: updated, userId: user.id })).unwrap();
       toast.success("Address updated successfully");
       setEditingAddress(null);
     } catch (err: any) {
@@ -188,6 +203,11 @@ const Address = () => {
           </div>
         ))}
       </div>
+
+      <Pagination
+        currentPage={currentPage}
+        totalPages={Math.ceil(totalCount / pageSize)}
+      />
 
       {editingAddress && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center px-4" onClick={() => setEditingAddress(null)}>

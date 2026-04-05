@@ -85,15 +85,20 @@ export function useAdminStats() {
   return useQuery({
     queryKey: ADMIN_KEYS.stats,
     queryFn: async (): Promise<AdminStats> => {
-      // 1. Fetch products count
-      const { count: productsCount } = await supabase
+      // 1. Fetch current products for reference (to ensure we use real names/images)
+      const { data: currentProducts } = await supabase
         .from("products")
-        .select("id", { count: "exact", head: true })
+        .select("id, name, image")
 
-      // 2. Fetch all orders (excluding cancelled for revenue)
+      const currentProductsMap = (currentProducts || []).reduce((acc, p) => {
+        acc[p.id] = p
+        return acc
+      }, {} as Record<number, any>)
+
+      // 2. Fetch all orders (excluding cancelled for revenue) WITH their order_items
       const { data: ordersData } = await supabase
         .from("orders")
-        .select("total_price, status, order_date, items_snapshot")
+        .select("id, total_price, status, order_date, order_items(product_id, quantity, price)")
         .neq("status", "cancelled")
 
       // 3. Fetch users count
@@ -129,19 +134,35 @@ export function useAdminStats() {
         value: dailyRevenueMap[date]
       }))
 
-      // Aggregate Top Products
-      const productMap: Record<string, { name: string; image: string; totalSold: number; revenue: number }> = {}
+      // Aggregate Top Products from order_items (the source of truth)
+      const productMap: Record<string, { id: number; name: string; image: string; totalSold: number; revenue: number }> = {}
+
       orders.forEach(o => {
-        if (Array.isArray(o.items_snapshot)) {
-          o.items_snapshot.forEach((item: any) => {
-            const key = item.name || item.product_id || "Unknown"
-            if (!productMap[key]) {
-              productMap[key] = { name: key, image: item.image || "", totalSold: 0, revenue: 0 }
+        const items = Array.isArray(o.order_items) ? o.order_items : []
+        items.forEach((item: any) => {
+          const productId = item.product_id
+          if (!productId) return
+
+          // ONLY include if the product still exists in inventory
+          const currentItem = currentProductsMap[productId]
+          if (!currentItem) return
+
+          const key = productId.toString()
+          if (!productMap[key]) {
+            productMap[key] = {
+              id: productId,
+              name: currentItem.name,
+              image: currentItem.image || "",
+              totalSold: 0,
+              revenue: 0
             }
-            productMap[key].totalSold += (item.quantity || 1)
-            productMap[key].revenue += ((item.price || 0) * (item.quantity || 1))
-          })
-        }
+          }
+          // Aggregate real quantities and revenue
+          const qty = Number(item.quantity) || 0
+          const price = Number(item.price) || 0
+          productMap[key].totalSold += qty
+          productMap[key].revenue += (price * qty)
+        })
       })
 
       const topProducts = Object.values(productMap)
@@ -165,7 +186,7 @@ export function useAdminStats() {
       const ordersTrend = prev7Orders > 0 ? (((last7Orders - prev7Orders) / prev7Orders) * 100) : 0
 
       return {
-        totalProducts: productsCount || 0,
+        totalProducts: (currentProducts || []).length,
         totalOrders: orders.length,
         pendingOrders,
         totalRevenue,
@@ -373,7 +394,19 @@ export function useAdminRefunds(page: number, pageSize: number, statusFilter: st
       let query = supabase
         .from("orders")
         .select("*", { count: "exact" })
-        .or("refund_status.not.is.null,status.eq.refunded,payment_status.eq.refunded")
+
+      if (statusFilter === "all") {
+        // Show all orders that have any refund activity (either refund_status set or status IS 'refunded')
+        query = query.or("refund_status.not.is.null,status.eq.refunded")
+      } else if (statusFilter === "processed") {
+        // 'Processed' includes both the new 'processed' refund_status and the legacy 'refunded' status
+        query = query.or("refund_status.eq.processed,status.eq.refunded")
+      } else {
+        // Show orders with specific refund status (pending, rejected)
+        query = query.eq("refund_status", statusFilter)
+      }
+
+      query = query
         .order("order_date", { ascending: false })
         .range(page * pageSize, (page + 1) * pageSize - 1)
 
@@ -408,7 +441,7 @@ export function useAdminRefundedOrders() {
       const { data, error } = await supabase
         .from("orders")
         .select("id, status, order_date, total_price, shipping_address, items_snapshot, refund_amount, refund_reason")
-        .or("status.eq.refunded,payment_status.eq.refunded")
+        .or("status.eq.refunded")
         .order("order_date", { ascending: false })
         .limit(30)
 
@@ -648,19 +681,7 @@ export function useDeleteQuestion() {
   })
 }
 
-export function useSaveBanner() {
-  return useAdminMutation({
-    table: "banners",
-    queryKeyToInvalidate: ADMIN_KEYS.banners
-  })
-}
 
-export function useDeleteBanner() {
-  return useAdminDeleteMutation({
-    table: "banners",
-    queryKeyToInvalidate: ADMIN_KEYS.banners
-  })
-}
 
 export function useSaveBlog() {
   return useAdminMutation({

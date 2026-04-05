@@ -6,6 +6,7 @@ import { formatCurrency } from "@/constants/Data"
 import { FaStar, FaEdit, FaTrash } from "react-icons/fa"
 import { toast } from "react-toastify"
 import { ListSkeleton, Skeleton } from "@/components/ui/skeleton"
+import Modal from "@/components/ui/Modal"
 
 type Review = {
   id: string
@@ -46,6 +47,7 @@ export default function ReviewsPage() {
   const [editRating, setEditRating] = useState(5)
   const [searchTerm, setSearchTerm] = useState("")
   const [sortBy, setSortBy] = useState("default")
+  const [reviewToDelete, setReviewToDelete] = useState<string | null>(null)
 
   useEffect(() => {
     fetchUserAndReviews()
@@ -84,8 +86,8 @@ export default function ReviewsPage() {
     if (error) {
       toast.error("Error updating review: " + error.message)
     } else {
-      setReviews(reviews.map(r => 
-        r.id === reviewId 
+      setReviews(reviews.map(r =>
+        r.id === reviewId
           ? { ...r, comment: editComment, rating: editRating }
           : r
       ))
@@ -95,21 +97,22 @@ export default function ReviewsPage() {
     }
   }
 
-  const handleDelete = async (reviewId: string) => {
-    if (!confirm("Delete this review?")) return
-    if (!user) return
+  const handleDelete = async () => {
+    if (!reviewToDelete || !user) return
 
     const { error } = await supabase
       .from("reviews")
       .delete()
-      .eq("id", reviewId)
+      .eq("id", reviewToDelete)
       .eq("user_id", user.id)
 
     if (error) {
       toast.error("Error deleting review: " + error.message)
     } else {
-      setReviews(reviews.filter(r => r.id !== reviewId))
+      setReviews(reviews.filter(r => r.id !== reviewToDelete))
+      toast.success("Review deleted successfully")
     }
+    setReviewToDelete(null)
   }
 
   const startEdit = (review: ReviewWithProduct) => {
@@ -124,7 +127,7 @@ export default function ReviewsPage() {
     setEditRating(5)
   }
 
-  const filteredReviews = reviews.filter(review => 
+  const filteredReviews = reviews.filter(review =>
     review.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     review.comment?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     review.products?.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -160,7 +163,7 @@ export default function ReviewsPage() {
       <div className="flex flex-col sm:flex-row gap-4 mb-8">
         <input type="text" placeholder="Search reviews..." value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-black"/>
+          className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-black" />
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value)}
@@ -185,20 +188,20 @@ export default function ReviewsPage() {
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-start gap-4">
                   {review.products?.image && (
-                    <img 
-                      src={review.products.image} 
+                    <img
+                      src={review.products.image}
                       alt={review.products.name}
                       className="w-16 h-16 object-cover rounded-lg border"
                     />
                   )}
-                  
+
                   <div>
                     <div className="flex items-center gap-3 mb-2">
                       {review.profiles?.avatar_url ? (
-                        <img 
-                          src={supabase.storage.from("avatars").getPublicUrl(review.profiles.avatar_url).data.publicUrl} 
-                          className="w-10 h-10 rounded-full border object-cover bg-gray-50 shadow-sm" 
-                          alt={review.name} 
+                        <img
+                          src={supabase.storage.from("avatars").getPublicUrl(review.profiles.avatar_url).data.publicUrl}
+                          className="w-10 h-10 rounded-full border object-cover bg-gray-50 shadow-sm"
+                          alt={review.name}
                         />
                       ) : (
                         <div className="w-10 h-10 rounded-full border flex items-center justify-center bg-[#141718] text-white font-bold text-sm shadow-sm">
@@ -212,16 +215,16 @@ export default function ReviewsPage() {
                         </span>
                       </div>
                     </div>
-                    
+
                     <div className="flex gap-1 mb-2">
                       {[...Array(5)].map((_, i) => (
-                        <FaStar 
-                          key={i} 
+                        <FaStar
+                          key={i}
                           className={i < review.rating ? "text-black" : "text-gray-300"}
                         />
                       ))}
                     </div>
-                    
+
                     <p className="text-sm text-gray-500">
                       {new Date(review.created_at).toLocaleDateString("en-US", {
                         year: "numeric",
@@ -245,7 +248,7 @@ export default function ReviewsPage() {
                         <FaEdit />
                       </button>
                       <button
-                        onClick={() => handleDelete(review.id)}
+                        onClick={() => setReviewToDelete(review.id)}
                         className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         title="Delete review"
                       >
@@ -328,6 +331,30 @@ export default function ReviewsPage() {
           </div>
         </div>
       </div>
+
+      <Modal
+        isOpen={!!reviewToDelete}
+        onClose={() => setReviewToDelete(null)}
+        title="Delete Review"
+      >
+        <div className="space-y-6">
+          <p className="text-gray-600 font-medium leading-relaxed">Are you sure you want to delete this review? This action cannot be undone.</p>
+          <div className="flex gap-3 pt-4 justify-end">
+            <button
+              onClick={() => setReviewToDelete(null)}
+              className="px-6 py-2.5 border border-gray-200 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all text-gray-500"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDelete}
+              className="px-6 py-2.5 bg-red-600 text-white rounded-xl font-bold text-sm hover:bg-red-700 transition-all shadow-lg active:scale-95"
+            >
+              Delete Review
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

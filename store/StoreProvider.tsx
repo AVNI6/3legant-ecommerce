@@ -33,12 +33,19 @@ function StoreInitializer({ children }: { children: React.ReactNode }) {
   const user = useAppSelector(state => state.auth.user)
   const productsInitialized = useAppSelector(state => state.products.initialized)
   const productsLoading = useAppSelector(state => state.products.loading)
-  const authInitializedRef = useRef(false)
+
+  // Guard Refs to prevent double-dispatch in Strict Mode or fast re-renders
+  const productsFetchAttempted = useRef(false)
+  const authSetupAttempted = useRef(false)
   const lastFetchedUserIdRef = useRef<string | null>(null)
 
   // 1. Initial Data Fetch & Auth Setup
   useEffect(() => {
-    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+    // Only subscribe to auth changes once
+    if (authSetupAttempted.current) return;
+    authSetupAttempted.current = true;
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       const changedUser = session?.user ?? null
 
       // Update store with new session info
@@ -46,6 +53,7 @@ function StoreInitializer({ children }: { children: React.ReactNode }) {
 
       if ((event === "SIGNED_IN" || event === "INITIAL_SESSION")) {
         if (changedUser) {
+          // Additional check to prevent redundant fetch for same user
           if (lastFetchedUserIdRef.current !== changedUser.id) {
             lastFetchedUserIdRef.current = changedUser.id
             dispatch(fetchCart(changedUser.id))
@@ -65,13 +73,17 @@ function StoreInitializer({ children }: { children: React.ReactNode }) {
       }
     })
 
-    // Global Product Initialization
-    if (!productsInitialized && !productsLoading) {
-      dispatch(fetchProducts())
-    }
-
     return () => {
-      listener.subscription.unsubscribe()
+      authSetupAttempted.current = false;
+      authListener.subscription.unsubscribe()
+    }
+  }, [dispatch])
+
+  // 2. Fetch Global Products for Search/Catalog (Deduplicated)
+  useEffect(() => {
+    if (!productsInitialized && !productsLoading && !productsFetchAttempted.current) {
+      productsFetchAttempted.current = true;
+      dispatch(fetchProducts())
     }
   }, [dispatch, productsInitialized, productsLoading])
 

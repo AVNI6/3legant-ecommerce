@@ -43,23 +43,23 @@ export async function POST(req: NextRequest) {
     // Note: We normally get the email from the user profile, but sometimes it's in the shipping address or already known
     // Let's try to get it from the profiles table using user_id
     const { data: profile } = await supabase
-        .from("profiles")
-        .select("email, full_name")
-        .eq("id", order.user_id)
-        .single();
-    
+      .from("profiles")
+      .select("email, full_name")
+      .eq("id", order.user_id)
+      .single();
+
     const customerEmail = profile?.email || order.shipping_address?.email;
     const customerName = profile?.full_name || `${order.shipping_address?.firstName} ${order.shipping_address?.lastName}`;
 
     if (customerEmail) {
-        await sendRefundEmail({
-            toEmail: customerEmail,
-            customerName: customerName,
-            orderId: order_id,
-            amount: order.total_price,
-            status: "rejected",
-            adminNote: admin_note
-        });
+      await sendRefundEmail({
+        toEmail: customerEmail,
+        customerName: customerName,
+        orderId: order_id,
+        amount: order.total_price,
+        status: "rejected",
+        adminNote: admin_note
+      });
     }
 
     return NextResponse.json({ success: true, message: "Refund request rejected and customer notified." });

@@ -9,8 +9,8 @@ export type { SortOrder, TabType, GridType, CartItem } from "@/types"
 
 export const slides = [
   { id: 1, image: "/home.png" },
-  { id: 2, image: "/home.png" },
-  { id: 3, image: "/home.png" },
+  { id: 2, image: "/homeimage.png" },
+  { id: 3, image: "/homeimage2.png" },
 ];
 
 export const CURRENCY = {
@@ -59,47 +59,53 @@ export const formatDate = (dateString: string | null | undefined, includeTime = 
 };
 
 export const getEffectivePrice = (product: { price: number; old_price: number; validationTill: string }) => {
-  const { price, old_price, validationTill } = product;
-  const numPrice = Number(price);
-  const numOldPrice = Number(old_price);
+  const numPrice = Number(product.price);
+  const numOldPrice = Number(product.old_price);
 
-  // If no validation date is set, assume it's a permanent discount or base price
-  if (!validationTill || validationTill === "" || validationTill === "null") {
+  // 1. Determine if a discount even exists in the data
+  const hasPotentialDiscount = numOldPrice > numPrice && numPrice > 0;
+
+  // 2. Parse validation date with extra flexibility
+  let isExpired = false;
+  const rawDate = product.validationTill;
+
+  if (rawDate && rawDate !== "" && rawDate !== "null") {
+    let dateToParse = rawDate;
+
+    // Handle DD-MM-YYYY or DD/MM/YYYY formats by converting to YYYY-MM-DD
+    const dmyMatch = rawDate.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+    if (dmyMatch) {
+      const [_, day, month, year] = dmyMatch;
+      dateToParse = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+
+    const offerEnd = new Date(dateToParse);
+
+    // If it's a valid date, check if it has passed
+    if (!isNaN(offerEnd.getTime())) {
+      // We check if "now" is past the expiration. 
+      // Note: new Date("YYYY-MM-DD") is midnight UTC.
+      isExpired = offerEnd.getTime() <= Date.now();
+    }
+  }
+
+  // 3. Force Reversion if Expired
+  // If the offer is expired, we hide the discount price and treat old_price as the only price.
+  if (isExpired && hasPotentialDiscount) {
     return {
-      price: numPrice,
-      isOfferActive: true,
-      hasDiscount: numOldPrice > numPrice && numPrice > 0
+      price: numOldPrice,
+      oldPrice: null,
+      hasDiscount: false,
+      isOfferActive: false
     };
   }
 
-  let cleanDate = validationTill;
-  // If it's DD-MM-YYYY (like 21-04-2026), flip it to YYYY-MM-DD for JS Date
-  if (typeof cleanDate === "string" && /^\d{2}-\d{2}-\d{4}$/.test(cleanDate)) {
-    const [d, m, y] = cleanDate.split("-");
-    cleanDate = `${y}-${m}-${d}`;
-  }
-
-  const offerEndTs = new Date(cleanDate).getTime();
-
-  // Check if date is valid
-  if (isNaN(offerEndTs)) {
-    return {
-      price: numPrice,
-      isOfferActive: true,
-      hasDiscount: numOldPrice > numPrice && numPrice > 0
-    };
-  }
-
-  const isOfferActive = offerEndTs > Date.now();
-  const hasDiscount = numOldPrice > numPrice;
-
-  // Final effective price: Revert to oldPrice only if offer is explicitly EXPIRED and a discount exists
-  const effectivePrice = (!isOfferActive && hasDiscount) ? numOldPrice : numPrice;
-
+  // 4. Regular Logic for Active Offers
   return {
-    price: effectivePrice,
-    isOfferActive,
-    hasDiscount
+    price: hasPotentialDiscount ? numPrice : (numOldPrice || numPrice),
+    oldPrice: hasPotentialDiscount ? numOldPrice : null,
+    hasDiscount: hasPotentialDiscount,
+    isOfferActive: !isExpired
   };
 };
 

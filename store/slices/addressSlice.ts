@@ -7,8 +7,9 @@ interface AddressState {
   loading: boolean
   error: string | null
   lastFetchedAt: number | null
-  cacheExpiry: number // milliseconds (30 minutes default)
-  cachedUserId: string | null // Track which user's addresses are cached
+  cacheExpiry: number
+  cachedUserId: string | null
+  totalCount: number
 }
 
 const initialState: AddressState = {
@@ -16,32 +17,43 @@ const initialState: AddressState = {
   loading: false,
   error: null,
   lastFetchedAt: null,
-  cacheExpiry: 30 * 60 * 1000, // 30 minutes
+  cacheExpiry: 30 * 60 * 1000,
   cachedUserId: null,
+  totalCount: 0,
 }
 
 export const fetchAddresses = createAsyncThunk(
   'addresses/fetchAddresses',
   async (
-    payload: string | { userId: string; force?: boolean },
+    payload: string | { userId: string; force?: boolean; page?: number; pageSize?: number },
     { rejectWithValue }
   ) => {
     const userId = typeof payload === 'string' ? payload : payload.userId
+    const page = typeof payload === 'object' ? payload.page : undefined
+    const pageSize = typeof payload === 'object' ? payload.pageSize : undefined
+
     try {
-      console.log(`[ADDRESS] Fetching addresses for user: ${userId}`)
-      const { data, error } = await supabase
+
+      let query = supabase
         .from('addresses')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
+
+      if (page !== undefined && pageSize !== undefined) {
+        const from = (page - 1) * pageSize
+        const to = from + pageSize - 1
+        query = query.range(from, to)
+      }
+
+      const { data, error, count } = await query
 
       if (error) {
         console.error(`[ADDRESS] Error fetching addresses for user ${userId}:`, error.message)
         return rejectWithValue(error.message)
       }
 
-      console.log(`[ADDRESS] Successfully fetched ${data?.length || 0} addresses for user ${userId}`)
-      return data || []
+      return { data: data || [], count: count || 0 }
     } catch (error: any) {
       console.error(`[ADDRESS] Exception fetching addresses for user ${userId}:`, error.message)
       return rejectWithValue(error.message)
@@ -54,23 +66,21 @@ export const fetchAddresses = createAsyncThunk(
       if (!slice) return true
 
       const userId = typeof payload === 'string' ? payload : payload.userId
-      const force = typeof payload === 'string' ? false : !!payload.force
-      
-      // Always fetch if explicitly forced
-      if (force) {
-        console.log(`[ADDRESS] Force fetch requested for user ${userId}`)
+      const force = typeof payload === 'object' ? !!payload.force : false
+      const isPaginated = typeof payload === 'object' && payload.page !== undefined
+
+      // Always fetch if explicitly forced or if requesting a specific page for server-side pagination
+      if (force || isPaginated) {
         return true
       }
-      
+
       // Always fetch if different user (cache for different user is invalid)
       if (slice.cachedUserId !== userId) {
-        console.log(`[ADDRESS] Cache invalidated: was for user ${slice.cachedUserId}, now requesting ${userId}`)
         return true
       }
-      
+
       // Don't fetch if already loading
       if (slice.loading) {
-        console.log(`[ADDRESS] Already loading addresses, skipping fetch`)
         return false
       }
 
@@ -78,12 +88,10 @@ export const fetchAddresses = createAsyncThunk(
       if (slice.lastFetchedAt && Array.isArray(slice.addresses) && slice.addresses.length > 0) {
         const age = Date.now() - slice.lastFetchedAt
         if (age < slice.cacheExpiry) {
-          console.log(`[ADDRESS] Using cached addresses for user ${userId} (age: ${age}ms)`)
           return false
         }
       }
 
-      console.log(`[ADDRESS] Cache expired or empty for user ${userId}, fetching fresh`)
       return true
     },
   }
@@ -143,11 +151,21 @@ export const createAddressThunk = createAsyncThunk(
 export const updateAddressThunk = createAsyncThunk(
   'addresses/updateAddress',
   async (
-    { addressId, updates }: { addressId: string; updates: AddressPayload },
+    { addressId, updates, userId }: { addressId: string; updates: AddressPayload; userId: string },
     { rejectWithValue }
   ) => {
     try {
       const payload = toDbAddress(updates)
+
+      // 🔄 If this update is making the address default, clear others first
+      if (payload.is_default) {
+        const { error: clearErr } = await supabase
+          .from('addresses')
+          .update({ is_default: false })
+          .eq('user_id', userId)
+
+        if (clearErr) console.warn("[ADDRESS] Failed to clear previous defaults during update:", clearErr.message)
+      }
 
       const { data, error } = await supabase
         .from('addresses')
@@ -223,7 +241,6 @@ const addressSlice = createSlice({
       state.lastFetchedAt = null
       state.addresses = []
       state.cachedUserId = null
-      console.log('[ADDRESS REDUCER] Cache invalidated')
     },
   },
   extraReducers(builder) {
@@ -234,12 +251,13 @@ const addressSlice = createSlice({
       })
       .addCase(fetchAddresses.fulfilled, (state, action) => {
         state.loading = false
-        state.addresses = action.payload
+        state.addresses = action.payload.data
+        state.totalCount = action.payload.count
         state.lastFetchedAt = Date.now()
-        // Track which user's addresses are cached
-        const userId = typeof action.meta.arg === 'string' ? action.meta.arg : action.meta.arg.userId
+
+        const arg = action.meta.arg
+        const userId = typeof arg === 'string' ? arg : arg.userId
         state.cachedUserId = userId
-        console.log(`[ADDRESS REDUCER] Cached addresses for user: ${userId}`)
       })
       .addCase(fetchAddresses.rejected, (state, action) => {
         state.loading = false

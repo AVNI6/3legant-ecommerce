@@ -23,30 +23,30 @@ export default function UserManagement() {
 
   const toggleRole = async (userId: string, currentRole: string) => {
     const newRole = currentRole === "admin" ? "customer" : "admin"
-    const { data, error } = await supabase.rpc("handle_toggle_user_role", { 
-      target_user_id: userId, 
-      new_role: newRole 
+    const { data, error } = await supabase.rpc("handle_toggle_user_role", {
+      target_user_id: userId,
+      new_role: newRole
     })
-    
+
     if (error || (data && data.error)) {
-        toast(error?.message || data?.error || "Error updating role", "error")
-    } else { 
-        toast(`Role changed to ${newRole}`); 
-        refetch() 
+      toast(error?.message || data?.error || "Error updating role", "error")
+    } else {
+      toast(`Role changed to ${newRole}`);
+      refetch()
     }
   }
 
   const toggleBlock = async (userId: string, isBlocked: boolean) => {
-    const { data, error } = await supabase.rpc("handle_toggle_user_block", { 
-      target_user_id: userId, 
-      block_status: !isBlocked 
+    const { data, error } = await supabase.rpc("handle_toggle_user_block", {
+      target_user_id: userId,
+      block_status: !isBlocked
     })
 
     if (error || (data && data.error)) {
-        toast(error?.message || data?.error || "Error updating block status", "error")
-    } else { 
-        toast(isBlocked ? "User unblocked" : "User blocked"); 
-        refetch() 
+      toast(error?.message || data?.error || "Error updating block status", "error")
+    } else {
+      toast(isBlocked ? "User unblocked" : "User blocked");
+      refetch()
     }
   }
 
@@ -63,8 +63,8 @@ export default function UserManagement() {
 
   const filtered = useMemo(() => {
     if (!search) return users
-    return users.filter(u => 
-      u.name?.toLowerCase().includes(search.toLowerCase()) || 
+    return users.filter(u =>
+      u.name?.toLowerCase().includes(search.toLowerCase()) ||
       u.id.toLowerCase().includes(search.toLowerCase()) ||
       u.email?.toLowerCase().includes(search.toLowerCase())
     )
@@ -79,7 +79,7 @@ export default function UserManagement() {
           <h1 className="text-2xl font-bold text-gray-900">Customer Management</h1>
           <p className="text-sm text-gray-500 mt-1">{totalCount} total users registered</p>
         </div>
-        
+
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative">
             <HiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -93,9 +93,9 @@ export default function UserManagement() {
           </div>
           <div className="relative">
             <HiFilter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <select 
-              value={roleFilter} 
-              onChange={e => { setRoleFilter(e.target.value as any); setPage(0) }} 
+            <select
+              value={roleFilter}
+              onChange={e => { setRoleFilter(e.target.value as any); setPage(0) }}
               className="pl-10 pr-8 py-2 bg-white border border-gray-200 rounded-xl text-sm appearance-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer"
             >
               <option value="all">All Roles</option>
@@ -181,7 +181,7 @@ export default function UserManagement() {
                         <p className="text-xs text-gray-500 truncate">{user.email || "No email"}</p>
                       </div>
                     </div>
-                    <button 
+                    <button
                       onClick={() => setExpandedId(expandedId === user.id ? null : user.id)}
                       className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-700"
                     >
@@ -218,17 +218,17 @@ export default function UserManagement() {
         )}
 
         <div className="px-6 py-4 bg-gray-50/50 border-t border-gray-50 flex justify-between items-center">
-          <button 
-            onClick={() => setPage(p => Math.max(0, p - 1))} 
-            disabled={page === 0} 
+          <button
+            onClick={() => setPage(p => Math.max(0, p - 1))}
+            disabled={page === 0}
             className="px-4 py-1.5 border border-gray-200 rounded-xl text-xs font-bold disabled:opacity-50 hover:bg-white transition-colors"
           >
             PREV
           </button>
           <span className="text-xs font-bold text-gray-400">PAGE {page + 1}</span>
-          <button 
-            onClick={() => setPage(p => p + 1)} 
-            disabled={filtered.length < PAGE_SIZE} 
+          <button
+            onClick={() => setPage(p => p + 1)}
+            disabled={filtered.length < PAGE_SIZE}
             className="px-4 py-1.5 border border-gray-200 rounded-xl text-xs font-bold disabled:opacity-50 hover:bg-white transition-colors"
           >
             NEXT
@@ -246,14 +246,14 @@ export default function UserManagement() {
                 <h3 className="text-lg font-bold text-gray-900">{selectedUser.name}'s Order History</h3>
                 <p className="text-xs text-gray-500 mt-1">Showing last 10 transactions</p>
               </div>
-              <button 
-                onClick={() => setSelectedUser(null)} 
+              <button
+                onClick={() => setSelectedUser(null)}
                 className="p-2 hover:bg-gray-100 rounded-full text-gray-400 transition-colors"
               >
                 <HiX className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="p-6 max-h-[60vh] overflow-y-auto bg-gray-50/30">
               {userOrders.length ? (
                 <div className="space-y-3">
@@ -265,9 +265,8 @@ export default function UserManagement() {
                       </div>
                       <div className="text-right">
                         <p className="font-bold text-sm text-gray-900">{formatCurrency(o.total_price)}</p>
-                        <span className={`inline-block mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                          o.status === "delivered" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
-                        }`}>
+                        <span className={`inline-block mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${o.status === "delivered" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
+                          }`}>
                           {o.status}
                         </span>
                       </div>
@@ -283,9 +282,9 @@ export default function UserManagement() {
                 </div>
               )}
             </div>
-            
+
             <div className="p-6 bg-white border-t">
-              <button 
+              <button
                 onClick={() => setSelectedUser(null)}
                 className="w-full py-3 bg-gray-900 text-white rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors"
               >
@@ -302,27 +301,25 @@ export default function UserManagement() {
 function UserActions({ user, viewUserOrders, toggleRole, toggleBlock }: { user: any, viewUserOrders: (u: any) => void, toggleRole: (id: string, role: string) => void, toggleBlock: (id: string, blocked: boolean) => void }) {
   return (
     <div className="flex items-center justify-end gap-2">
-      <button 
-        onClick={() => viewUserOrders(user)} 
+      <button
+        onClick={() => viewUserOrders(user)}
         className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition-colors"
         title="View Orders"
       >
         <HiOutlineClipboardList className="w-5 h-5" />
       </button>
       <div className="h-4 w-px bg-gray-200 mx-1 hidden sm:block" />
-      <button 
-        onClick={() => toggleRole(user.id, user.role || "customer")} 
-        className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border transition-all ${
-          user.role === "admin" ? "border-gray-200 text-gray-600 hover:bg-gray-50" : "border-blue-200 text-blue-600 hover:bg-blue-50"
-        }`}
+      <button
+        onClick={() => toggleRole(user.id, user.role || "customer")}
+        className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border transition-all ${user.role === "admin" ? "border-gray-200 text-gray-600 hover:bg-gray-50" : "border-blue-200 text-blue-600 hover:bg-blue-50"
+          }`}
       >
         {user.role === "admin" ? "DEMOTE" : "PROMOTE"}
       </button>
       <button
         onClick={() => toggleBlock(user.id, !!user.is_blocked)}
-        className={`text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all ${
-          user.is_blocked ? "bg-green-600 text-white hover:bg-green-700" : "bg-red-600 text-white hover:bg-red-700"
-        }`}
+        className={`text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all ${user.is_blocked ? "bg-green-600 text-white hover:bg-green-700" : "bg-red-600 text-white hover:bg-red-700"
+          }`}
       >
         {user.is_blocked ? "UNBLOCK" : "BLOCK"}
       </button>

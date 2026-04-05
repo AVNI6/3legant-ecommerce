@@ -67,6 +67,9 @@ const authSlice = createSlice({
     builder.addCase(checkIsAdmin.fulfilled, (state, action) => {
       state.isAdmin = action.payload
       state.adminChecked = true
+      if (action.payload && typeof window !== 'undefined') {
+        localStorage.setItem('sb-admin-verified', 'true')
+      }
     })
     builder.addCase(checkIsAdmin.rejected, (state) => {
       state.isAdmin = false

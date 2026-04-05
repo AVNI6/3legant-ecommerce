@@ -6,6 +6,8 @@ import { supabase } from "@/lib/supabase/client"
 import { AccountDetailsSkeleton } from "@/components/ui/skeleton"
 import { useAppSelector } from "@/store/hooks"
 
+import { toast } from "react-toastify"
+
 type FormData = {
   displayName: string
   firstName: string
@@ -20,7 +22,6 @@ export default function AccountDetails() {
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormData>()
   const { user, loading: authLoading } = useAppSelector((state: any) => state.auth)
   const [updateError, setUpdateError] = useState("")
-  const [updateSuccess, setUpdateSuccess] = useState("")
 
   // Populate form one-time when user data is available
   useEffect(() => {
@@ -44,7 +45,6 @@ export default function AccountDetails() {
 
   const onSubmit = async (formData: FormData) => {
     setUpdateError("")
-    setUpdateSuccess("")
 
     try {
 
@@ -102,7 +102,7 @@ export default function AccountDetails() {
         throw new Error(`Profile sync failed: ${profileError.message}`)
       }
 
-      setUpdateSuccess("Account details saved successfully!")
+      toast.success("Account details saved successfully!")
 
       reset({
         ...formData,
@@ -129,11 +129,6 @@ export default function AccountDetails() {
         {updateError && (
           <div className="p-4 bg-red-50 text-red-700 rounded-lg text-sm border border-red-100 animate-in fade-in slide-in-from-top-1">
             {updateError}
-          </div>
-        )}
-        {updateSuccess && (
-          <div className="p-4 bg-green-50 text-green-700 rounded-lg text-sm border border-green-100 animate-in fade-in slide-in-from-top-1">
-            {updateSuccess}
           </div>
         )}
 
@@ -164,17 +159,26 @@ export default function AccountDetails() {
             <label htmlFor="account-display-name" className="uppercase font-bold text-xs text-gray-400 mb-2">Display Name</label>
             <input
               id="account-display-name"
-              {...register("displayName")}
+              {...register("displayName", {
+                minLength: { value: 3, message: "Min 3 characters" }
+              })}
               placeholder="Full Name (Visible to others)"
               className="border border-gray-200 py-3 px-4 text-black focus:outline-none focus:ring-2 focus:ring-black/5 rounded-xl transition-all"
             />
+            {errors.displayName && <p className="text-red-500 text-xs mt-1">{errors.displayName.message}</p>}
           </div>
           <div className="flex flex-col">
             <label htmlFor="account-email" className="uppercase font-bold text-xs text-gray-400 mb-2">Email Address</label>
             <input
               id="account-email"
               autoComplete="email"
-              {...register("email", { required: "Email required" })}
+              {...register("email", { 
+                required: "Email required",
+                pattern: {
+                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                  message: "Invalid email"
+                }
+              })}
               className="border border-gray-200 py-3 px-4 text-black focus:outline-none focus:ring-2 focus:ring-black/5 rounded-xl transition-all"
             />
             {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
@@ -190,10 +194,16 @@ export default function AccountDetails() {
               id="account-old-password"
               type="password"
               autoComplete="current-password"
-              {...register("oldPassword")}
+              {...register("oldPassword", {
+                validate: (value, formValues) => {
+                  if (formValues.newPassword && !value) return "Required to change password"
+                  return true
+                }
+              })}
               placeholder="Enter current password"
               className="border border-gray-200 py-3 px-4 text-black focus:outline-none focus:ring-2 focus:ring-black/5 rounded-xl transition-all"
             />
+            {errors.oldPassword && <p className="text-red-500 text-xs mt-1">{errors.oldPassword.message}</p>}
           </div>
 
 
@@ -203,10 +213,19 @@ export default function AccountDetails() {
               id="account-new-password"
               type="password"
               autoComplete="new-password"
-              {...register("newPassword")}
+              {...register("newPassword", {
+                validate: {
+                  minLen: (val) => !val || val.length >= 8 || "Min 8 characters",
+                  hasUpper: (val) => !val || /[A-Z]/.test(val) || "Requires uppercase letter",
+                  hasLower: (val) => !val || /[a-z]/.test(val) || "Requires lowercase letter",
+                  hasNumber: (val) => !val || /\d/.test(val) || "Requires a number",
+                  hasSpecial: (val) => !val || /[@$!%*?&]/.test(val) || "Requires a special character (@$!%*?&)",
+                }
+              })}
               placeholder="New Password"
               className="w-full border border-gray-200 py-3 px-4 text-black focus:outline-none focus:ring-2 focus:ring-black/5 rounded-xl transition-all"
             />
+            {errors.newPassword && <p className="text-red-500 text-xs mt-1">{errors.newPassword.message}</p>}
           </div>
 
           <div className="flex flex-col">
@@ -215,10 +234,18 @@ export default function AccountDetails() {
               id="account-repeat-password"
               type="password"
               autoComplete="new-password"
-              {...register("repeatPassword")}
+              {...register("repeatPassword", {
+                validate: (value, formValues) => {
+                  if (formValues.newPassword && value !== formValues.newPassword) {
+                    return "Passwords do not match"
+                  }
+                  return true
+                }
+              })}
               placeholder="Repeat New Password"
               className="w-full border border-gray-200 py-3 px-4 text-black focus:outline-none focus:ring-2 focus:ring-black/5 rounded-xl transition-all"
             />
+            {errors.repeatPassword && <p className="text-red-500 text-xs mt-1">{errors.repeatPassword.message}</p>}
           </div>
 
         </div>
