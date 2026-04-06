@@ -36,7 +36,7 @@ export default async function BlogPage() {
 
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4 gap-3">
                         <p className="text-sm md:text-base mb-2"><span className="text-[#605F5F]"><Link href={'/'}>Home</Link></span> &gt; &nbsp; blog</p>
-                        <h1 className="text-[12px] sm:text-[20px] md:text-[30px] lg:text-[54px] font-semibold mb-2">{bannerTitle}</h1>
+                        <h1 className="text-[30px] sm:text-[40px] md:text-[40px] lg:text-[54px] font-semibold mb-2">{bannerTitle}</h1>
                         <h3 className="text-sm md:text-lg">
                             {bannerSubtitle}
                         </h3>

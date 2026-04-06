@@ -8,12 +8,15 @@ import { REFUND_REASONS, isWithinRefundWindow, getDaysRemainingForRefund } from 
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { FiChevronDown, FiChevronRight, FiInfo } from "react-icons/fi";
 import { setOrders, cancelOrder, submitRefund, cancelRefundRequest } from "@/store/slices/orderSlice";
+import { addToCart } from "@/store/slices/cartSlice";
+import { fetchProducts } from "@/store/slices/productSlice";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { DEFAULT_REFUND_WINDOW_DAYS } from "@/constants/RefundConfig";
 import Pagination from "@/components/common/Pagination";
 import Modal from "@/components/ui/Modal";
 import { toast } from "react-toastify";
+import ReviewTab from "./ReviewTab";
 
 type OrderItem = {
   id: number;
@@ -56,11 +59,19 @@ export default function OrdersContent({ userId, currentPage, refundWindowDays }:
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const { orders: reduxOrders } = useAppSelector(state => state.orders);
+  const { items: allProducts, initialized: productsInitialized, loading: productsLoading } = useAppSelector((state: any) => state.products);
 
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
   const [refundModal, setRefundModal] = useState<{ orderid: number | null; visible: boolean }>({ orderid: null, visible: false });
+
+  // Ensure products are fetched for live stock/data synchronization
+  useEffect(() => {
+    if (!productsInitialized && !productsLoading) {
+      dispatch(fetchProducts());
+    }
+  }, [productsInitialized, productsLoading, dispatch]);
   const [refundForm, setRefundForm] = useState({ reason: "", details: "", amount: 0 });
   const [submitting, setSubmitting] = useState(false);
   const [actionModal, setActionModal] = useState<{
@@ -74,6 +85,10 @@ export default function OrdersContent({ userId, currentPage, refundWindowDays }:
     title: "",
     message: "",
     type: "info"
+  });
+  const [reviewModalState, setReviewModalState] = useState<{ isOpen: boolean; productId: number | null }>({
+    isOpen: false,
+    productId: null
   });
 
   // Fetch Orders on the client side
@@ -420,33 +435,76 @@ export default function OrdersContent({ userId, currentPage, refundWindowDays }:
                     <h4 className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-4">Items ({itemsCount})</h4>
                     <div className="space-y-3">
                       {itemsFromSnapshot.map((item: any, idx: number) => (
-                        <div key={`item-${order.id}-${idx}`} className="flex gap-4 items-start bg-gray-50 p-3 rounded-lg">
-                          {/* Product Image */}
-                          <img
-                            src={item.image || item.color_image?.[0] || '/placeholder.png'}
-                            alt={item.name || 'Product'}
-                            className="w-16 h-16 object-cover rounded-md flex-shrink-0"
-                          />
+                        <div key={`item-${order.id}-${idx}`} className="flex flex-col sm:flex-row gap-4 items-start sm:items-center bg-gray-50 p-4 rounded-xl border border-gray-100/50 hover:border-gray-200 transition-colors">
+                          {/* Product Image & Core Info */}
+                          <div className="flex gap-4 items-start flex-1 w-full min-w-0">
+                            <img
+                              src={item.image || item.color_image?.[0] || '/placeholder.png'}
+                              alt={item.name || 'Product'}
+                              className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg flex-shrink-0 shadow-sm"
+                            />
 
-                          {/* Product Info */}
-                          <div className="flex-1 min-w-0">
-                            <Link href={`${APP_ROUTE.product}/${item.product_id || item.id}?variantId=${item.variant_id || ''}`} className="hover:underline">
-                              <h5 className="font-bold text-sm text-black line-clamp-2 mb-1">
-                                {item.name || `Product #${item.product_id || item.id}`}
-                              </h5>
-                            </Link>
-                            <div className="flex gap-3 text-xs text-gray-600 mb-2">
-                              <span>Color: <strong>{item.color || 'N/A'}</strong></span>
-                              {item.size && <span>Size: <strong>{item.size}</strong></span>}
+                            <div className="flex-1 min-w-0 py-0.5">
+                              <Link href={`${APP_ROUTE.product}/${item.product_id || item.id}?variantId=${item.variant_id || ''}`} className="hover:underline group">
+                                <h5 className="font-bold text-sm sm:text-base text-black line-clamp-2 mb-1 group-hover:text-gray-600 transition-colors">
+                                  {item.name || `Product #${item.product_id || item.id}`}
+                                </h5>
+                              </Link>
+                              <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] sm:text-xs text-gray-500 mb-2">
+                                <span>Color: <strong className="text-gray-700">{item.color || 'N/A'}</strong></span>
+                                {item.size && <span>Size: <strong className="text-gray-700">{item.size}</strong></span>}
+                                <span>Qty: <strong className="text-gray-700">{item.quantity}</strong></span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-black text-sm sm:text-base text-black">
+                                  {formatCurrency(item.price * item.quantity)}
+                                </span>
+                              </div>
                             </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs text-gray-500">
-                                Qty: <strong>{item.quantity}</strong>
-                              </span>
-                              <span className="font-bold text-sm text-black">
-                                {formatCurrency(item.price * item.quantity)}
-                              </span>
-                            </div>
+                          </div>
+
+                          {/* Amazon-style Actions Section */}
+                          <div className="flex flex-col gap-2 w-full sm:w-auto pt-2 sm:pt-0">
+                            {order.status.toLowerCase() === "delivered" && (
+                              <button
+                                onClick={() => setReviewModalState({ isOpen: true, productId: item.product_id || item.id })}
+                                className="flex items-center justify-center gap-2 py-2 px-4 bg-white border border-gray-200 rounded-lg text-[11px] font-bold text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm active:scale-[0.98] w-full sm:min-w-[160px]"
+                              >
+                                <span>Write a product review</span>
+                              </button>
+                            )}
+                            <button
+                              onClick={() => {
+                                const targetVariantId = item.variant_id || item.id;
+                                const liveProduct = allProducts.find((p: any) => Number(p.variant_id) === Number(targetVariantId));
+
+                                // Cross-check stock: Use live data if available, else fallback to snapshot
+                                const currentStock = liveProduct ? Number(liveProduct.stock) : Number(item.stock || 0);
+
+                                if (currentStock <= 0) {
+                                  toast.error("Sorry, this product is currently out of stock.");
+                                  return;
+                                }
+
+                                dispatch(addToCart({
+                                  userId: userId,
+                                  item: {
+                                    id: item.product_id || item.id,
+                                    variant_id: targetVariantId,
+                                    name: item.name || "Product",
+                                    price: Number(item.price),
+                                    image: item.image || item.color_image?.[0] || "",
+                                    color: item.color || "Default",
+                                    quantity: 1,
+                                    stock: currentStock
+                                  } as any
+                                }));
+                                toast.success("Added to cart");
+                              }}
+                              className="flex items-center justify-center gap-2 py-2 px-4 bg-gray-900 text-white rounded-lg text-[11px] font-bold hover:bg-black transition-all shadow-sm active:scale-[0.98] w-full sm:min-w-[160px]"
+                            >
+                              <span>Buy it again</span>
+                            </button>
                           </div>
                         </div>
                       ))}
@@ -596,6 +654,23 @@ export default function OrdersContent({ userId, currentPage, refundWindowDays }:
                 Yes, Proceed
               </button>
             </div>
+          )}
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={reviewModalState.isOpen}
+        onClose={() => setReviewModalState({ isOpen: false, productId: null })}
+        title="Product Review"
+      >
+        <div className="max-h-[70vh] overflow-y-auto px-1 custom-scrollbar">
+          {reviewModalState.productId && (
+            <ReviewTab
+              productId={reviewModalState.productId}
+              onReviewStatsChange={(stats) => {
+                // Background update if needed, normally not needed for orders page
+              }}
+            />
           )}
         </div>
       </Modal>

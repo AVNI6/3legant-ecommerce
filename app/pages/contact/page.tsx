@@ -1,12 +1,15 @@
 import { BiArrowFromBottom } from "react-icons/bi";
 import { IoIosArrowForward } from "react-icons/io";
 import Link from "next/link";
-import Hundreds from "@/sections/home/hundreds";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import { contact } from "@/constants/Data"
 import ContactFeature from "@/components/contactFeature";
 import MapPage from "@/components/MapPage";
+import BlackShopButton from "@/components/blackbutton";
+import link from "next/link";
+import { APP_ROUTE } from "@/constants/AppRoutes";
 
 const ContactUs = async () => {
     const cookieStore = cookies();
@@ -36,7 +39,35 @@ const ContactUs = async () => {
                     </p>
                 </div>
                 <div className="py-6 min-[375px]:py-8 sm:py-10">
-                    <Hundreds initialBanner={hundredsBanner} />
+                    <section className="w-full flex flex-col md:flex-row ">
+                        <div className="w-full md:w-1/2">
+                            <Image
+                                src="/home2.png"
+                                alt="COntact US"
+                                width={1920}
+                                height={1080}
+                                loading="eager"
+                                className="w-full object-cover h-[260px] max-[353px]:h-[220px] sm:h-[320px] md:h-full" />
+                        </div>
+
+                        <div className="w-full md:w-1/2 bg-gray-100 flex flex-col justify-center p-5 sm:p-8 md:p-12 lg:p-20 ">
+                            <span className="font-poppins font-medium text-2xl  md:text-[40px] leading-[44px] tracking-[-0.4px]">
+                                About Us
+                            </span>
+
+                            <h2 className="my-5 font-inter font-normal text-md text-[16px] leading-[30px] tracking-[0px]">
+                                <p>3legant is a gift & decorations store based in HCMC, Vietnam. Est since 2019.</p>
+                                <p>Our customer service is always prepared to support you 24/7</p>
+                            </h2>
+                            <BlackShopButton href={APP_ROUTE.product} className="
+                                            font-medium
+                                            text-[13px]
+                                            max-[353px]:text-[12px]
+                                            sm:text-[14px]
+                                            md:text-[15px]
+                                            lg:text-[16px] "  />
+                        </div>
+                    </section>
                 </div>
                 <div className="">
                     <p className="text-center font-bold text-lg min-[375px]:text-xl md:text-2xl lg:text-[40px]">Contact Us</p>

@@ -79,13 +79,8 @@ function StoreInitializer({ children }: { children: React.ReactNode }) {
     }
   }, [dispatch])
 
-  // 2. Fetch Global Products for Search/Catalog (Deduplicated)
-  useEffect(() => {
-    if (!productsInitialized && !productsLoading && !productsFetchAttempted.current) {
-      productsFetchAttempted.current = true;
-      dispatch(fetchProducts())
-    }
-  }, [dispatch, productsInitialized, productsLoading])
+  // 2. Fetch Global Products (Removed from auto-load to optimize home page)
+  // Moved to Navbar/Search for lazy-loading on demand
 
   return <>{children}</>
 }

@@ -12,6 +12,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { APP_ROUTE } from "@/constants/AppRoutes";
 import { supabase } from "@/lib/supabase/client";
 import { mapProducts } from "@/lib/supabase/productMapping";
+import { getEffectivePrice } from "@/constants/Data";
 
 const INITIAL_LIMIT = 12;
 const INCREMENT_LIMIT = 12;
@@ -37,9 +38,10 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
   const [selectedPrice, setSelectedPrice] = useState<string[]>(["all", "0-99", "100-199", "200-299", "300-399", "400+"]);
 
   // Fetch logic
-  const fetchProductsBatch = useCallback(async (limit: number, currentOffset: number, category: string, priceFilters: string[]) => {
+  // Fetch logic
+  const fetchProductsBatch = useCallback(async (limit: number, currentOffset: number, category: string, priceFilters: string[], sortVal: string) => {
     try {
-      // 1. Fetch from product_variant to ensure CARD-BASED pagination (12 cards per row/batch)
+      // 1. Base Query
       let query = supabase
         .from("product_variant")
         .select(`
@@ -55,27 +57,24 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
         query = query.eq("products.category", category);
       }
 
-      // Apply Price Filters
-      if (priceFilters.length > 0 && !priceFilters.includes("all")) {
-        const filters = priceFilters.map(range => {
-          if (range === "0-99") return { min: 0, max: 99 };
-          if (range === "100-199") return { min: 100, max: 199 };
-          if (range === "200-299") return { min: 200, max: 299 };
-          if (range === "300-399") return { min: 300, max: 399 };
-          if (range === "400+") return { min: 400, max: 1000000 };
-          return null;
-        }).filter(Boolean);
+      // NOTE: We remove database-side price filtering because the DB doesn't know 
+      // about the 'validation_till' logic. We will handle accurate price filtering 
+      // and sorting on the client-side for now.
 
-        if (filters.length > 0) {
-          // Use OR logic for multiple ranges: (price >= min1 AND price <= max1) OR (price >= min2 AND price <= max2)
-          const orFilter = filters.map(f => `and(price.gte.${f!.min},price.lte.${f!.max})`).join(",");
-          query = query.or(orFilter);
-        }
+      // Apply Sorting at DB level for better global results
+      if (sortVal === "newest") {
+        query = query.order("id", { ascending: false });
+      } else if (sortVal === "low") {
+        query = query.order("price", { ascending: true });
+      } else if (sortVal === "high") {
+        query = query.order("price", { ascending: false });
+      } else {
+        // Default sorting
+        query = query.order("id", { ascending: false });
       }
 
-      // Order by product creation then variant ID for consistency
+      // Apply Range
       const { data: variantsData, error: variantError } = await query
-        .order("id", { ascending: false })
         .range(currentOffset, currentOffset + limit - 1);
 
       if (variantError) throw variantError;
@@ -107,12 +106,19 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
         const pid = p.id;
         const reviewEntry = groupedReviews[pid];
 
+        // Standardize Price Calculation using global utility
+        const { price: effectivePrice } = getEffectivePrice({
+          price: Number(v.price || 0),
+          old_price: Number(v.old_price || 0),
+          validationTill: p.validation_till
+        });
+
         return {
           id: pid,
           variant_id: v.id,
           name: p.name,
           category: p.category,
-          price: v.price || 0,
+          price: effectivePrice,
           old_price: v.old_price || 0,
           image: (v.color_images && Array.isArray(v.color_images) && v.color_images[0]) || p.image,
           is_new: p.is_new,
@@ -128,15 +134,18 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
         };
       });
 
-      // Shuffle the results within this batch for dynamic feel
-      const shuffled = [...mappedItems];
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      // Shuffle only if default/shuffled logic is needed, but for Price/Newest we keep DB order
+      const processedItems = [...mappedItems];
+      if (sortVal === "default") {
+        // Simple shuffle for non-specific sorts
+        for (let i = processedItems.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [processedItems[i], processedItems[j]] = [processedItems[j], processedItems[i]];
+        }
       }
 
       return {
-        items: shuffled,
+        items: processedItems,
         rawCount: variantsData?.length || 0
       };
     } catch (err) {
@@ -177,16 +186,11 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
 
     // 2. Fetch Logic
     const initFetch = async () => {
-      // If we already have items and filters haven't meaningfully changed compared to initial, skip
-      if (fetchAttemptedRef.current && selectedCategory === "All Rooms" && selectedPrice.length === 6) {
-        return;
-      }
-
       fetchAttemptedRef.current = true;
       setIsLoading(true);
       setItems([]);
 
-      const { items: batchItems, rawCount } = await fetchProductsBatch(INITIAL_LIMIT, 0, selectedCategory, selectedPrice);
+      const { items: batchItems, rawCount } = await fetchProductsBatch(INITIAL_LIMIT, 0, selectedCategory, selectedPrice, sort);
 
       setItems(batchItems);
       setItemsOffset(rawCount);
@@ -223,7 +227,7 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
     if (isFetchingMore) return;
     setIsFetchingMore(true);
 
-    const { items: batchItems, rawCount } = await fetchProductsBatch(INCREMENT_LIMIT, itemsOffset, selectedCategory, selectedPrice);
+    const { items: batchItems, rawCount } = await fetchProductsBatch(INCREMENT_LIMIT, itemsOffset, selectedCategory, selectedPrice, sort);
 
     setItems((prev) => [...prev, ...batchItems]);
     setItemsOffset((prev) => prev + rawCount);
@@ -244,15 +248,26 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
     setSelectedCategory(category);
   }, []);
 
-  const handlePriceChange = useCallback((price: string | string[]) => {
+  const handlePriceChange = useCallback((price: string | string[], isSingleSelect: boolean = false) => {
     if (Array.isArray(price)) {
-      setSelectedPrice(price);
+      setSelectedPrice(price.length > 0 ? price : ["all", "0-99", "100-199", "200-299", "300-399", "400+"]);
       return;
     }
+
+    if (isSingleSelect) {
+      if (price === "all" || price === "") {
+        setSelectedPrice(["all", "0-99", "100-199", "200-299", "300-399", "400+"]);
+      } else {
+        setSelectedPrice([price]);
+      }
+      return;
+    }
+
     if (price === "all") {
       setSelectedPrice((prev) => {
         const specificPrices = ["0-99", "100-199", "200-299", "300-399", "400+"];
-        const isCurrentlyAll = prev.includes("all") && specificPrices.every(p => prev.includes(p));
+        const isCurrentlyAll = prev.includes("all");
+        // Toggle everything: if all on -> clear all; if all off -> select all
         return isCurrentlyAll ? [] : ["all", ...specificPrices];
       });
     } else {
@@ -265,8 +280,10 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
         } else {
           next = [...brands, price];
         }
+
         const specificPrices = ["0-99", "100-199", "200-299", "300-399", "400+"];
-        if (specificPrices.every(p => next.includes(p))) {
+        // If all specific options are selected manually, automatically add "all"
+        if (next.length > 0 && specificPrices.every(p => next.includes(p))) {
           return ["all", ...next];
         }
         return next;
@@ -284,7 +301,7 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
 
   // Derived state
   const filteredProducts = useMemo(() => {
-    // If no price is selected, return an empty list immediately
+    // If no price is selected at all (and 'all' isn't checked), show nothing
     if (selectedPrice.length === 0) return [];
 
     let list = [...items];
@@ -292,16 +309,16 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
       list = list.filter((p: any) => p.category === selectedCategory);
     }
 
-    // If not "all", filter by specific ranges
+    // Filter by specific ranges ONLY IF "all" is not selected
     if (!selectedPrice.includes("all")) {
       list = list.filter((p: any) => {
-        const price = p.price;
+        const priceValue = Number(p.price);
         return selectedPrice.some(range => {
-          if (range === "0-99") return price <= 99;
-          if (range === "100-199") return price >= 100 && price <= 199;
-          if (range === "200-299") return price >= 200 && price <= 299;
-          if (range === "300-399") return price >= 300 && price <= 399;
-          if (range === "400+") return price >= 400;
+          if (range === "0-99") return priceValue >= 0 && priceValue <= 99;
+          if (range === "100-199") return priceValue >= 100 && priceValue <= 199;
+          if (range === "200-299") return priceValue >= 200 && priceValue <= 299;
+          if (range === "300-399") return priceValue >= 300 && priceValue <= 399;
+          if (range === "400+") return priceValue >= 400;
           return false;
         });
       });
@@ -376,10 +393,30 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
             selectedCategory={selectedCategory}
             setSelectedCategory={handleCategoryChange}
             selectedPrice={selectedPrice}
-            setSelectedPrice={handlePriceChange}
+            setSelectedPrice={(price) => handlePriceChange(price, true)}
           />
 
           <Products products={displayedProducts} grid={grid} isLoading={isLoading} />
+
+          {!isLoading && displayedProducts.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-20 px-4 text-center bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-4">
+                <svg className="w-8 h-8 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-black mb-2">No products found</h3>
+              <p className="text-gray-500 max-w-[300px] text-sm">
+                We couldn&apos;t find any products matching your current filters. Try adjusting your price range or category.
+              </p>
+              <button
+                onClick={() => handlePriceChange("all", true)}
+                className="mt-6 text-sm font-bold text-black border-b border-black pb-0.5 hover:text-gray-600 hover:border-gray-600 transition-all"
+              >
+                Clear all filters
+              </button>
+            </div>
+          )}
 
           {!isLoading && uniqueProducts.length > 0 && hasMoreToShow && (
             <div className="flex justify-center my-0 md:my-10">

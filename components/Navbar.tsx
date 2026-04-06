@@ -13,12 +13,21 @@ import { GoHeart } from "react-icons/go"
 import { IoLogoFacebook, IoLogoInstagram, IoLogoYoutube } from "react-icons/io"
 import ProductSearch from "./ProductSearch"
 import { useState, useEffect } from "react"
-import { useAppSelector } from "@/store/hooks"
+import { useAppSelector, useAppDispatch } from "@/store/hooks"
+import { fetchProducts } from "@/store/slices/productSlice"
 
 const Navbar = () => {
+  const dispatch = useAppDispatch()
+  const { items: products, initialized: productsInitialized, loading: productsLoading } = useAppSelector((state) => state.products)
   const [open, setOpen] = useState(false)
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [shopOpen, setShopOpen] = useState(false)
+
+  const prefetchProducts = () => {
+    if (!productsInitialized && !productsLoading) {
+      dispatch(fetchProducts())
+    }
+  }
 
   const { user, isAdmin, adminChecked } = useAppSelector((state) => state.auth)
   const cartItems = useAppSelector((state) => state.cart.items)
@@ -51,7 +60,7 @@ const Navbar = () => {
   const accountLink = isUserAdmin ? APP_ROUTE.admindashboard : APP_ROUTE.account
   return (
     <>
-      <header className="w-full sticky top-0 z-30 bg-white px-3 min-[428px]:px-4 sm:px-4 md:px-8 lg:px-30 py-3 sm:py-5 flex items-center justify-between shadow-sm">
+      <header className="w-full sticky top-0 z-30 bg-white px-3 min-[428px]:px-4 sm:px-10 lg:px-30 py-3 sm:py-5 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-1.5 min-[428px]:gap-2 sm:gap-3">
           <button className="sm:hidden text-lg min-[428px]:text-xl" onClick={() => setOpen(true)}>
             <GiHamburgerMenu />
@@ -69,7 +78,9 @@ const Navbar = () => {
         </nav>
 
         <div className="flex gap-2 min-[428px]:gap-3 sm:gap-3 md:gap-5 text-lg min-[428px]:text-xl sm:text-xl md:text-2xl items-center max-[234px]:hidden transition-all">
-          <ProductSearch />
+          <div onMouseEnter={prefetchProducts} onTouchStart={prefetchProducts} onClick={prefetchProducts}>
+            <ProductSearch />
+          </div>
           <div className="hidden md:block font-space">
             {user ? (
               <Link href={accountLink}>
@@ -78,6 +89,8 @@ const Navbar = () => {
                     src={supabase.storage.from("avatars").getPublicUrl(user.user_metadata.avatar_url).data.publicUrl}
                     className="w-8 h-8 rounded-full border object-cover bg-gray-50 shadow-sm"
                     alt="User"
+                    width={32}
+                    height={32}
                   />
                 ) : (
                   <div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center text-sm font-semibold cursor-pointer">
@@ -223,8 +236,8 @@ const Navbar = () => {
                     src={supabase.storage.from("avatars").getPublicUrl(user.user_metadata.avatar_url).data.publicUrl}
                     className="w-12 h-12 rounded-full border object-cover bg-gray-50 shadow-sm"
                     alt="User"
-                    width={1920}
-                    height={1080}
+                    width={48}
+                    height={48}
                     loading="eager"
                     unoptimized
                     priority

@@ -39,13 +39,12 @@ export default async function Home() {
   ]);
 
   const initialArticles = articlesRes.data || [];
-  const initialProducts = mapProducts(productsRes.data || []);
 
   return (
     <main>
       <HomeSection />
       <HomeFeatures />
-      <NewArrival initialProducts={initialProducts} />
+      <NewArrival />
       <Features />
       <Hundreds />
       <ArticlePage initialArticles={initialArticles} />

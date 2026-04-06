@@ -6,6 +6,7 @@ import Link from "next/link";
 import { AccountLayoutSkeleton } from "@/components/ui/skeleton";
 import Avatar from "./Avatar";
 import { useAppSelector } from "@/store/hooks";
+import Modal from "@/components/ui/Modal";
 
 export default function AccountLayout({ children }: { children: React.ReactNode }) {
 
@@ -18,6 +19,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
 
 	const { user, loading } = useAppSelector(state => state.auth);
 	const [dropdownOpen, setDropdownOpen] = useState(false);
+	const [showLogoutModal, setShowLogoutModal] = useState(false);
 
 	const router = useRouter();
 	const pathname = usePathname();
@@ -38,7 +40,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
 	const currentLinkName = links.find(l => l.path === pathname)?.name || "Menu";
 
 	return (
-		<div className="px-4 lg:px-30 py-4 sm:py-16">
+		<div className="px-4 lg:px-30 py-5">
 			<div className="lg:hidden mb-6">
 				<Link href="/" className="flex items-center gap-1 text-[#6C7275] hover:text-black transition-colors text-sm font-medium">
 					<span className="text-base">‹</span> back
@@ -73,11 +75,8 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
 						))}
 
 						<button
-							className="mt-4 text-red-500 text-left font-medium hover:underline transition-colors w-fit"
-							onClick={async () => {
-								await supabase.auth.signOut();
-								router.push("/");
-							}}
+							className="text-red-500 text-left font-medium hover:underline transition-colors w-fit"
+							onClick={() => setShowLogoutModal(true)}
 						>
 							Logout
 						</button>
@@ -122,10 +121,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
 									))}
 
 									<button
-										onClick={async () => {
-											await supabase.auth.signOut();
-											router.push("/");
-										}}
+										onClick={() => setShowLogoutModal(true)}
 										className="w-full text-left px-5 py-3.5 text-sm font-bold text-red-500 hover:bg-red-50 border-t border-gray-50 mt-1"
 									>
 										Logout
@@ -138,6 +134,42 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
 
 				<div className="lg:col-span-3">{children}</div>
 			</div>
+
+			<Modal
+				isOpen={showLogoutModal}
+				onClose={() => setShowLogoutModal(false)}
+				title="Log Out"
+			>
+				<div className="space-y-6 flex flex-col items-center text-center">
+					<div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-2">
+						<svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+						</svg>
+					</div>
+					<div className="space-y-2">
+						<h4 className="text-xl font-bold text-gray-900">Log Out?</h4>
+						<p className="text-gray-500 font-medium">Are you sure you want to log out of your account?</p>
+					</div>
+					<div className="flex gap-3 w-full pt-4">
+						<button
+							onClick={() => setShowLogoutModal(false)}
+							className="flex-1 px-6 py-3.5 border border-gray-200 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all text-gray-500"
+						>
+							Cancel
+						</button>
+						<button
+							onClick={async () => {
+								await supabase.auth.signOut();
+								setShowLogoutModal(false);
+								router.push("/");
+							}}
+							className="flex-1 px-6 py-3.5 bg-red-600 text-white rounded-xl font-bold text-sm hover:bg-red-700 transition-all shadow-lg active:scale-95"
+						>
+							Log Out
+						</button>
+					</div>
+				</div>
+			</Modal>
 		</div>
 	);
 }

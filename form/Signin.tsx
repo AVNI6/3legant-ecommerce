@@ -6,29 +6,48 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { APP_ROUTE } from "@/constants/AppRoutes";
-import { useAppDispatch } from "@/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { checkIsAdmin, setAuth } from "@/store/slices/authSlice";
 import { fetchCart } from "@/store/slices/cartSlice";
 import { toast } from "react-toastify";
 import { HiOutlineEye, HiOutlineEyeOff } from "react-icons/hi";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type SignInInputs = {
   email: string;
   password: string;
+  rememberMe: boolean;
 };
 
 const Signin = () => {
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const { user, loading } = useAppSelector((state) => state.auth);
+
+  // 1. Guard: If already logged in, redirect away from signin
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace(APP_ROUTE.home);
+    }
+  }, [user, loading, router]);
 
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<SignInInputs>();
 
   const [showPassword, setShowPassword] = useState(false);
+
+  // 2. Persistence: Load remembered email on mount
+  useEffect(() => {
+    const rememberedEmail = localStorage.getItem("rememberedEmail");
+    if (rememberedEmail) {
+      setValue("email", rememberedEmail);
+      setValue("rememberMe", true);
+    }
+  }, [setValue]);
 
   const onSubmit: SubmitHandler<SignInInputs> = async (data) => {
     const { data: authData, error } = await supabase.auth.signInWithPassword({
@@ -47,6 +66,13 @@ const Signin = () => {
         toast.error(`Login failed: ${error.message}`);
       }
       return;
+    }
+
+    // Persistence: Save or clear remembered email
+    if (data.rememberMe) {
+      localStorage.setItem("rememberedEmail", data.email);
+    } else {
+      localStorage.removeItem("rememberedEmail");
     }
 
     if (authData.user) {
@@ -152,14 +178,21 @@ const Signin = () => {
               <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>
             )}
 
-            <div className="flex justify-between">
-              <label className="flex items-center gap-2 text-gray-600 text-[10px] md:text-sm">
-                <input id="signin-remember" name="rememberMe" type="checkbox" autoComplete="on" />
-                Remember me
+            <div className="flex justify-between items-center py-1">
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <input
+                  id="signin-remember"
+                  type="checkbox"
+                  {...register("rememberMe")}
+                  className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black accent-black cursor-pointer"
+                />
+                <span className="text-gray-600 text-xs md:text-sm font-medium group-hover:text-black transition-colors">
+                  Remember me
+                </span>
               </label>
               <Link
                 href="/pages/forgotpassword"
-                className="font-semibold hover:underline"
+                className="text-xs md:text-sm font-semibold hover:underline text-black"
               >
                 Forgot password?
               </Link>

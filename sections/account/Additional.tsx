@@ -3,8 +3,9 @@
 import BlackShopButton from "@/components/blackbutton";
 import { useState, useEffect } from "react";
 import Products from "@/components/products";
-import { useAppSelector } from "@/store/hooks";
+import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { type ProductType } from '@/types/index'
+import { fetchProducts } from "@/store/slices/productSlice";
 
 type Props = {
   product: ProductType
@@ -12,31 +13,40 @@ type Props = {
 
 const Additional = ({ product }: Props) => {
 
-  const { items: products } = useAppSelector((state: any) => state.products)
+  const { items: products, initialized, loading } = useAppSelector((state: any) => state.products)
   const [shuffled, setShuffled] = useState<any[]>([])
+  const dispatch = useAppDispatch()
+
+  useEffect(() => {
+    if (!initialized && !loading) {
+      dispatch(fetchProducts())
+    }
+  }, [initialized, loading, dispatch])
 
   useEffect(() => {
     if (!products || products.length === 0) return
 
+    const currentCategory = product.category?.trim()
+
     // 1. Get products in same category
     let list = products.filter(
-      (p: any) => p.category === product.category && p.id !== product.id
+      (p: any) => p.category?.trim() === currentCategory && p.variant_id !== product.variant_id
     )
 
     // 2. Fallback to other products if category is empty
     if (list.length === 0) {
-      list = products.filter((p: any) => p.id !== product.id)
+      list = products.filter((p: any) => p.variant_id !== product.variant_id)
     }
 
-    // 3. Shuffle logic (Fisher-Yates)
+    // 3. Shuffle logic
     const items = [...list]
     for (let i = items.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [items[i], items[j]] = [items[j], items[i]]
     }
 
-    setShuffled(items.slice(0, 10)) // Limit to top 10 random matches
-  }, [products, product.id, product.category])
+    setShuffled(items.slice(0, 12)) // Limit to 12
+  }, [products, product.id, product.category, product.variant_id])
 
 
   return (
@@ -76,7 +86,7 @@ const Additional = ({ product }: Props) => {
           />
         </div>
 
-        <Products products={shuffled} variant="scroll" />
+        <Products products={shuffled} variant="scroll" isLoading={loading && !initialized} />
       </div>
     </div>
   )

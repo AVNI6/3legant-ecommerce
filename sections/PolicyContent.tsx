@@ -3,7 +3,7 @@ export const PRIVACY_POLICY_CONTENT = (
     <section>
       <h2 className="text-base sm:text-lg font-medium text-black mb-2">1. Introduction</h2>
       <p>
-        Welcome to 3legant. ("we," "our," or "us"). We respect your privacy and are committed to protecting your personal data. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website "3legant" and use our e-commerce platform.
+        Welcome to 3legant.We respect your privacy and are committed to protecting your personal data. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website "3legant" and use our e-commerce platform.
       </p>
     </section>
 
@@ -53,7 +53,7 @@ export const TERMS_OF_USE_CONTENT = (
     <section>
       <h2 className="text-base sm:text-lg font-medium text-black mb-2">1. Agreement to Terms</h2>
       <p>
-        These Terms of Use constitute a legally binding agreement made between you and 3legant. ("we," "us" or "our"), concerning your access to and use of the 3legant e-commerce website.
+        These Terms of Use constitute a legally binding agreement made between you and 3legant.We, concerning your access to and use of the 3legant e-commerce website.
       </p>
       <p className="mt-4">
         You agree that by accessing the Site, you have read, understood, and agree to be bound by all of these Terms of Use.

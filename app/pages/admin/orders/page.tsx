@@ -82,7 +82,7 @@ function CommandCenter() {
 
   return (
     <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-2xl shadow-gray-200/50 overflow-hidden">
-      <div className="grid grid-cols-1 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-gray-100">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-gray-100">
 
         {/* 🚀 LEFT PANEL: OUTBOUND FULFILLMENT (3/4 Width) */}
         <div className="lg:col-span-3 p-8 space-y-6">
@@ -243,37 +243,36 @@ function AdminOrdersContent() {
             <h1 className="text-4xl font-black text-gray-900 uppercase tracking-tighter">Orders Center</h1>
             <p className="text-sm text-gray-500 font-medium mt-1">Direct management and smart fulfillment dashboard</p>
           </div>
-
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative group">
-              <HiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 group-focus-within:text-blue-500 transition-colors" />
-              <input
-                type="text"
-                placeholder="Search by ID or Name..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="pl-12 pr-6 py-3 bg-white border border-gray-100 rounded-2xl text-sm w-full sm:w-80 shadow-sm focus:ring-4 focus:ring-blue-100 outline-none transition-all"
-              />
-            </div>
-
-            <div className="relative group">
-              <HiFilter className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 group-focus-within:text-blue-500 transition-colors" />
-              <select
-                value={statusFilter}
-                onChange={e => { setStatusFilter(e.target.value); setPage(0) }}
-                className="pl-12 pr-10 py-3 bg-white border border-gray-100 rounded-2xl text-sm appearance-none shadow-sm focus:ring-4 focus:ring-blue-100 outline-none transition-all cursor-pointer font-bold uppercase tracking-wider"
-              >
-                <option value="all">ALL FILTERS</option>
-                {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}
-              </select>
-              <HiChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-900 w-5 h-5 pointer-events-none" />
-            </div>
-          </div>
         </div>
       </div>
 
       <CommandCenter />
 
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative group">
+          <HiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 group-focus-within:text-blue-500 transition-colors" />
+          <input
+            type="text"
+            placeholder="Search by ID or Name..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-12 pr-6 py-3 bg-white border border-gray-100 rounded-2xl text-sm w-full sm:w-80 shadow-sm focus:ring-4 focus:ring-blue-100 outline-none transition-all"
+          />
+        </div>
+
+        <div className="relative group">
+          <HiFilter className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 group-focus-within:text-blue-500 transition-colors" />
+          <select
+            value={statusFilter}
+            onChange={e => { setStatusFilter(e.target.value); setPage(0) }}
+            className="pl-12 pr-10 py-3 bg-white border border-gray-100 rounded-2xl text-sm appearance-none shadow-sm focus:ring-4 focus:ring-blue-100 outline-none transition-all cursor-pointer font-bold uppercase tracking-wider"
+          >
+            <option value="all">ALL FILTERS</option>
+            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}
+          </select>
+          <HiChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-900 w-5 h-5 pointer-events-none" />
+        </div>
+      </div>
       <div className="bg-white rounded-[2.5rem] shadow-xl shadow-gray-100/50 border border-gray-100 overflow-hidden">
         {isLoading ? (
           <TableSkeleton rows={10} columns={7} />

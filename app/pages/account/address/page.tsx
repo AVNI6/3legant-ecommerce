@@ -12,6 +12,7 @@ import { HiOutlineLocationMarker, HiOutlinePhone } from "react-icons/hi";
 import AddressForm, { AddressType } from "./AddressForm";
 import Pagination from "@/components/common/Pagination";
 import { useSearchParams } from "next/navigation";
+import Modal from "@/components/ui/Modal";
 
 const Address = () => {
   const dispatch = useAppDispatch();
@@ -237,28 +238,35 @@ const Address = () => {
         </div>
       )}
 
-      {addressToRemove && (
-        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center px-4" onClick={() => setAddressToRemove(null)}>
-          <div className="bg-white p-8 rounded-2xl shadow-xl max-w-sm w-full" onClick={e => e.stopPropagation()}>
-            <h3 className="text-xl font-bold mb-2 text-black">Delete Address?</h3>
-            <p className="text-gray-500 text-sm mb-8 font-medium">Are you sure you want to remove this address? This action cannot be undone.</p>
-            <div className="flex gap-3">
-              <button
-                className="flex-1 py-3 border border-gray-200 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all text-gray-600"
-                onClick={() => setAddressToRemove(null)}
-              >
-                Cancel
-              </button>
-              <button
-                className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold text-sm hover:bg-red-700 transition-all shadow-lg active:scale-95"
-                onClick={() => removeAddress(addressToRemove)}
-              >
-                Remove
-              </button>
-            </div>
+      <Modal
+        isOpen={!!addressToRemove}
+        onClose={() => setAddressToRemove(null)}
+        title="Delete Address"
+      >
+        <div className="space-y-6 flex flex-col items-center text-center">
+          <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-2">
+            <FiTrash2 className="w-8 h-8 text-red-500" />
+          </div>
+          <div className="space-y-2">
+            <h4 className="text-xl font-bold text-gray-900">Delete Address?</h4>
+            <p className="text-gray-500 font-medium">Are you sure you want to remove this address? This action cannot be undone.</p>
+          </div>
+          <div className="flex gap-3 w-full pt-4">
+            <button
+              className="flex-1 py-3.5 border border-gray-200 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all text-gray-500"
+              onClick={() => setAddressToRemove(null)}
+            >
+              Cancel
+            </button>
+            <button
+              className="flex-1 py-3.5 bg-red-600 text-white rounded-xl font-bold text-sm hover:bg-red-700 transition-all shadow-lg active:scale-95"
+              onClick={() => addressToRemove && removeAddress(addressToRemove)}
+            >
+              Remove
+            </button>
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 };

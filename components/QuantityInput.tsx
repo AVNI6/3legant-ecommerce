@@ -119,7 +119,7 @@ const QuantityInput = ({
       <button
         type="button"
         onClick={() => handleUpdate("dec")}
-        className={`text-lg sm:text-xl font-medium focus:outline-none transition-colors ${quantity <= 1 ? "text-gray-300 cursor-not-allowed" : "text-black hover:text-gray-600"
+        className={`text-lg sm:text-xl font-medium focus:outline-none transition-colors ${quantity <= 1 ? "text-gray-300 !cursor-not-allowed" : "text-black hover:text-gray-600"
           }`}
         disabled={quantity <= 1}
       >
@@ -135,7 +135,7 @@ const QuantityInput = ({
       <button
         type="button"
         onClick={() => handleUpdate("inc")}
-        className={`text-lg sm:text-xl font-medium focus:outline-none transition-colors ${maxReached ? "text-gray-300 cursor-not-allowed" : "text-black hover:text-gray-600"
+        className={`text-lg sm:text-xl font-medium focus:outline-none transition-colors ${maxReached ? "text-gray-300 !cursor-not-allowed" : "text-black hover:text-gray-600"
           }`}
       >
         +

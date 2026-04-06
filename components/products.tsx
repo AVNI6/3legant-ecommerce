@@ -132,10 +132,7 @@ const Products = ({ products, grid = "4", variant = "grid", isLoading }: Props) 
                     </div>
                 ))
             ) : products.length === 0 ? (
-                <div className="col-span-full py-20 text-center">
-                    <p className="text-gray-500 text-lg sm:text-xl font-medium">No products found</p>
-                    <p className="text-gray-400 text-sm mt-2">Try adjusting your filters to find what you're looking for.</p>
-                </div>
+                null
             ) : (
                 products.map((product) => {
                     const {

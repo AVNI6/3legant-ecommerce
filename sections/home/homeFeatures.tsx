@@ -3,7 +3,7 @@ import { APP_ROUTE } from "@/constants/AppRoutes";
 
 const HomeFeatures = () => {
   return (
-    <div className="flex flex-col md:flex-row mx-6 sm:mx-12 lg:mx-30 gap-5">
+    <div className="flex flex-col md:flex-row mx-4 sm:mx-10 lg:mx-30 gap-5">
       <div className="relative w-full lg:w-1/2">
         <div className="absolute z-10 p-6 sm:p-10">
           <h3 className="font-poppins text-lg sm:text-2xl font-semibold">

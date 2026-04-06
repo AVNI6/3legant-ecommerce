@@ -79,11 +79,11 @@ export default async function BlogDetail({ params }: PageProps) {
                 <div className="flex items-center gap-2.5">
                   <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center relative">
                     {article.author_image ? (
-                      <Image 
-                        src={article.author_image} 
-                        alt={article.author_name || "Author"} 
-                        fill 
-                        className="object-cover" 
+                      <Image
+                        src={article.author_image}
+                        alt={article.author_name || "Author"}
+                        fill
+                        className="object-cover"
                       />
                     ) : (
                       <RiAccountCircleLine className="text-xl" />
@@ -118,8 +118,8 @@ export default async function BlogDetail({ params }: PageProps) {
                       </div>
                     );
                   },
-                  p: (props: any) => <div {...props} className="mb-4 last:mb-0" />
-                }} 
+                  p: (props: any) => <p {...props} className="mb-4 last:mb-0" />
+                }}
               />
             </div>
           </article>

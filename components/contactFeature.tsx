@@ -4,10 +4,10 @@ const ContactFeature = () => {
   return (
     <div className="bg-gray-100 py-6 min-[375px]:py-10 ">
       <div className="max-w-7xl mx-auto px-4 min-[375px]:px-6 sm:px-14 lg:px-0 ">
-        <div className="grid grid-cols-1 min-[375px]:grid-cols-2 md:grid-cols-4 gap-6 min-[375px]:gap-12">
+        <div className="grid grid-cols-1 min-[300px]:grid-cols-2 md:grid-cols-4 gap-6 min-[300px]:gap-12">
 
           {features.map((item, index) => (
-            <div key={index} className="flex flex-col gap-1 min-[375px]:gap-2 items-center min-[375px]:items-start text-center min-[375px]:text-left" >
+            <div key={index} className="flex flex-col gap-1 min-[300px]:gap-2 items-center min-[300px]:items-start text-center min-[375px]:text-left" >
               <div className="text-xl min-[375px]:text-2xl">
                 {item.icon}
               </div>

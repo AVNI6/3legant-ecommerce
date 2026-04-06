@@ -43,6 +43,8 @@ export default function ReviewTab({
     show: false,
     msg: "",
   });
+  const [hasPurchased, setHasPurchased] = useState(false);
+  const [checkingPurchase, setCheckingPurchase] = useState(true);
 
   const lastFetchedProductIdRef = useRef<number | null>(null);
 
@@ -56,6 +58,36 @@ export default function ReviewTab({
       if (channel) channel.unsubscribe();
     };
   }, [productId]);
+
+  useEffect(() => {
+    if (user && productId) {
+      checkPurchaseStatus();
+    } else {
+      setHasPurchased(false);
+      setCheckingPurchase(false);
+    }
+  }, [user, productId]);
+
+  const checkPurchaseStatus = async () => {
+    setCheckingPurchase(true);
+    try {
+      // Check if user has an order for this product
+      // We join order_items with orders to check the user_id
+      const { data, error, count } = await supabase
+        .from('order_items')
+        .select('id, orders!inner(user_id, status)', { count: 'exact' })
+        .eq('product_id', productId)
+        .eq('orders.user_id', user.id);
+
+      if (error) throw error;
+      setHasPurchased((count ?? 0) > 0);
+    } catch (err) {
+      console.error("Error checking purchase status:", err);
+      setHasPurchased(false);
+    } finally {
+      setCheckingPurchase(false);
+    }
+  };
 
   const setupRealtime = () => {
     const channel = supabase
@@ -202,75 +234,94 @@ export default function ReviewTab({
       </div>
 
       <div className="relative mb-8 sm:mb-10 md:mb-12">
-        {user && reviews.some(r => r.user_id === user.id) ? (
-          <div className="bg-gray-50 border border-gray-100 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center">
-            <p className="text-[#141718] font-medium text-sm sm:text-base mb-1">
-              You have already reviewed this product.
-            </p>
-            <p className="text-gray-400 text-xs sm:text-sm">
-              You can edit or delete your existing review in the list below.
-            </p>
-          </div>
-        ) : (
-          <div className="flex flex-col md:flex-row gap-3 sm:gap-4 items-stretch md:items-center bg-white border-2 border-gray-100 rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-6 transition-shadow hover:shadow-md">
-
-            <textarea
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              placeholder={user ? "Share your thoughts..." : "Please login to write a review"}
-              disabled={!user}
-              rows={1}
-              className="w-full md:flex-1 resize-none border-none text-sm sm:text-base focus:outline-none placeholder:text-gray-400 font-inter py-2"
-            />
-
-            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 w-full md:w-auto justify-between md:justify-end">
-
-              <div className="flex gap-1">
-                {[1, 2, 3, 4, 5].map((s) => (
-                  <button key={s} onClick={() => user && setRating(s)}>
-                    <FaStar className={`text-lg sm:text-xl transition-colors ${rating >= s ? "text-[#141718]" : "text-gray-200"}`} />
-                  </button>
-                ))}
-              </div>
-
-              <button
-                onClick={postReview}
-                disabled={!user || !comment.trim()}
-                className="w-full sm:w-auto bg-[#141718] text-white px-5 sm:px-6 md:px-8 py-2.5 sm:py-3 rounded-full text-xs sm:text-sm font-bold transition-all hover:bg-gray-800 disabled:opacity-30 disabled:grayscale"
-              >
-                Write Review
-              </button>
+        {user && hasPurchased && (
+          reviews.some(r => r.user_id === user.id) ? (
+            <div className="bg-gray-50 border border-gray-100 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center">
+              <p className="text-[#141718] font-medium text-sm sm:text-base mb-1">
+                You have already reviewed this product.
+              </p>
+              <p className="text-gray-400 text-xs sm:text-sm">
+                You can edit or delete your existing review in the list below.
+              </p>
             </div>
+          ) : (
+            <div className="flex flex-col md:flex-row gap-3 sm:gap-4 items-stretch md:items-center bg-white border-2 border-gray-100 rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-6 transition-shadow hover:shadow-md">
+
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Share your thoughts..."
+                rows={1}
+                className="w-full md:flex-1 resize-none border-none text-sm sm:text-base focus:outline-none placeholder:text-gray-400 font-inter py-2"
+              />
+
+              <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 w-full md:w-auto justify-between md:justify-end">
+
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <button key={s} onClick={() => setRating(s)}>
+                      <FaStar className={`text-lg sm:text-xl transition-colors ${rating >= s ? "text-[#141718]" : "text-gray-200"}`} />
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={postReview}
+                  disabled={!comment.trim()}
+                  className="w-full sm:w-auto bg-[#141718] text-white px-5 sm:px-6 md:px-8 py-2.5 sm:py-3 rounded-full text-xs sm:text-sm font-bold transition-all hover:bg-gray-800 disabled:opacity-30 disabled:grayscale"
+                >
+                  Write Review
+                </button>
+              </div>
+            </div>
+          )
+        )}
+        {!user && (
+          <div className="hidden">
+            {/* Guest logic removed as requested */}
+          </div>
+        )}
+        {user && !hasPurchased && !checkingPurchase && (
+          <div className="hidden">
+            {/* Not purchased logic removed as requested - they will simply see reviews given by others */}
           </div>
         )}
       </div>
 
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 sm:gap-4 mb-5 sm:mb-6">
-        <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-[#141718] tracking-tight">
-          {reviews.length} Reviews
-        </h2>
+      {reviews.length > 0 && (
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 sm:gap-4 mb-5 sm:mb-6">
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-[#141718] tracking-tight">
+            {reviews.length} Reviews
+          </h2>
 
-        <select
-          value={sort}
-          onChange={(e) => setSort(e.target.value as any)}
-          className="w-full md:w-auto border border-gray-200 rounded-lg px-3 sm:px-4 py-2 text-xs sm:text-sm font-bold bg-white outline-none"
-        >
-          <option value="newest">Newest</option>
-          <option value="oldest">Oldest</option>
-        </select>
-      </div>
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as any)}
+            className="w-full md:w-auto border border-gray-200 rounded-lg px-3 sm:px-4 py-2 text-xs sm:text-sm font-bold bg-white outline-none"
+          >
+            <option value="newest">Newest</option>
+            <option value="oldest">Oldest</option>
+          </select>
+        </div>
+      )}
 
       <div className="divide-y divide-gray-100">
-        {displayed.slice(0, visible).map((review) => (
-          <ReviewItem
-            key={review.id}
-            review={review}
-            onDelete={(id: string) => setReviews(prev => prev.filter(r => r.id !== id))}
-            onUpdate={(id: string, updates: any) =>
-              setReviews(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r))
-            }
-          />
-        ))}
+        {reviews.length === 0 ? (
+          <div className="py-10 mb-5 text-center bg-gray-50/50 rounded-2xl border-2 border-dashed border-gray-100">
+            <p className="text-gray-500 font-medium text-base sm:text-lg">No customer reviews yet</p>
+          </div>
+        ) : (
+          displayed.slice(0, visible).map((review) => (
+            <ReviewItem
+              key={review.id}
+              review={review}
+              onDelete={(id: string) => setReviews(prev => prev.filter(r => r.id !== id))}
+              onUpdate={(id: string, updates: any) =>
+                setReviews(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r))
+              }
+            />
+          ))
+        )}
       </div>
 
       {visible < reviews.length && (

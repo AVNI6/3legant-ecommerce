@@ -117,7 +117,7 @@ const ArticlePage = ({
                   <div className="pt-3 sm:pt-4">
                     <h2 className={titleStyle}>{data.title}</h2>
 
-                    <p className={dateStyle}>{displayDate}</p>
+                    {/* <p className={dateStyle}>{displayDate}</p> */}
 
                     {showButton && (
                       <div className="mt-2 sm:mt-3">

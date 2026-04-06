@@ -22,13 +22,13 @@ export default function ProductGallery({
 }: Props) {
 
   const next = () => {
-    //setCurrentIndex((currentIndex + 1) % images.length);
-    setCurrentIndex((currentIndex - 1 + images.length) % images.length);
+    setCurrentIndex((currentIndex + 1) % images.length);
+    // setCurrentIndex((currentIndex - 1 + images.length) % images.length);
   };
 
   const prev = () => {
-    // setCurrentIndex((currentIndex - 1 + images.length) % images.length);
-    setCurrentIndex((currentIndex + 1) % images.length);
+    setCurrentIndex((currentIndex - 1 + images.length) % images.length);
+    //setCurrentIndex((currentIndex + 1) % images.length);
   };
 
   const rowThumbnails = thumbnailPool.filter((img) => img && img !== mainImage).slice(0, 3);
@@ -61,6 +61,19 @@ export default function ProductGallery({
         <button onClick={next} className="absolute right-1 top-1/2 -translate-y-1/2 z-10 bg-white/90 w-6 h-6 sm:w-8 sm:h-8 rounded-full shadow flex items-center justify-center" >
           <IoMdArrowForward className="text-xs sm:text-base" />
         </button>
+      </div>
+
+      {/* Dot Indicators for Mobile */}
+      <div className="flex justify-center gap-2 mt-4 md:hidden">
+        {images.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => setCurrentIndex(i)}
+            className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${currentIndex === i ? 'bg-black w-4' : 'bg-gray-300'
+              }`}
+            aria-label={`Go to image ${i + 1}`}
+          />
+        ))}
       </div>
 
       <div className="hidden md:grid grid-cols-3 gap-3 md:gap-4 mt-4 lg:mt-6">

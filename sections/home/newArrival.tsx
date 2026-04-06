@@ -15,10 +15,6 @@ const NewArrival = ({ initialProducts = [] }: { initialProducts?: ProductType[] 
     const [isLoading, setIsLoading] = useState(initialProducts.length === 0);
 
     useEffect(() => {
-        if (initialProducts.length > 0) {
-            return;
-        }
-
         const fetchNewArrivals = async () => {
             setIsLoading(true);
             try {

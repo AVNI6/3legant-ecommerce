@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { CiSearch } from "react-icons/ci"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
+import Link from "next/link"
 import { type ProductType } from '@/types/index'
 import { formatCurrency, getEffectivePrice, isNewProduct, SearchData } from "@/constants/Data"
 import { useAppSelector } from "@/store/hooks"
@@ -154,17 +155,17 @@ export default function ProductSearch() {
               </button>
             </div>
 
-            <div className="relative mb-8 sm:mb-12">
+            <div className="relative flex items-center justify-between border-b border-gray-100 pb-4 min-[350px]:pb-6 mb-8 sm:mb-12">
               <input
                 ref={inputRef}
                 type="text"
                 placeholder="What are you looking for?"
-                className="w-full text-xl min-[480px]:text-2xl sm:text-4xl font-light border-b border-gray-100 pb-4 min-[350px]:pb-6 focus:outline-none focus:border-black transition-colors placeholder:text-gray-200"
+                className="w-full text-lg min-[350px]:text-xl min-[480px]:text-2xl sm:text-2xl font-light focus:outline-none transition-colors placeholder:text-gray-200"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 suppressHydrationWarning
               />
-              <CiSearch className="absolute right-0 top-1/2 -translate-y-1/2 w-6 h-6 min-[350px]:w-8 min-[350px]:h-8 text-gray-300" />
+              <CiSearch className="flex-shrink-0 w-6 h-6 min-[350px]:w-8 min-[350px]:h-8 text-gray-300 ml-2" />
             </div>
             <div className="min-h-[250px]">
               {query.length >= 2 ? (
@@ -219,11 +220,7 @@ export default function ProductSearch() {
                                 className="object-contain p-2 mix-blend-multiply group-hover:scale-105 transition-transform duration-700"
                                 sizes="(max-width: 768px) 50vw, 25vw"
                               />
-                              {(isNewProduct(product.created_at) || (isOfferActive && hasDiscount)) && (
-                                <span className="absolute top-3 left-3 bg-black text-white text-[9px] sm:text-[10px] font-black px-2 py-1 uppercase tracking-widest rounded-sm shadow-sm">
-                                  {isOfferActive && hasDiscount ? 'Sale' : 'New'}
-                                </span>
-                              )}
+
                               {Number(product.stock) <= 0 && (
                                 <span className="absolute top-3 right-3 bg-red-500 text-white text-[9px] sm:text-[10px] font-black px-2 py-1 uppercase tracking-widest rounded-sm shadow-sm">
                                   Out of Stock
@@ -283,14 +280,22 @@ export default function ProductSearch() {
                   <div className="hidden md:block space-y-4">
                     <h3 className="text-[10px] font-bold tracking-[0.2em] uppercase text-black border-b border-gray-100 pb-2">Top Categories</h3>
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors group">
+                      <Link
+                        href="/pages/product?category=Living Room"
+                        onClick={() => setIsOpen(false)}
+                        className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors group block"
+                      >
                         <p className="text-xs font-bold mb-1">Living Room</p>
                         <p className="text-[10px] text-gray-400">View Collection →</p>
-                      </div>
-                      <div className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors group">
+                      </Link>
+                      <Link
+                        href="/pages/product?category=Bedroom"
+                        onClick={() => setIsOpen(false)}
+                        className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors group block"
+                      >
                         <p className="text-xs font-bold mb-1">Bedroom</p>
                         <p className="text-[10px] text-gray-400">View Collection →</p>
-                      </div>
+                      </Link>
                     </div>
                   </div>
                 </div>
