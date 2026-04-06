@@ -66,8 +66,11 @@ const SortBar = ({
 
   const handleCategoryChange = (value: string) => {
     setSelectedCategory(value);
-    router.push(`${APP_ROUTE.product}?category=${encodeURIComponent(value)}`);
+    const params = new URLSearchParams(window.location.search);
+    params.set("category", value);
+    router.push(`${APP_ROUTE.product}?${params.toString()}`);
   };
+
 
   if (!mounted) return null;
 

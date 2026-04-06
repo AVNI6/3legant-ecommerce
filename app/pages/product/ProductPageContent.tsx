@@ -147,26 +147,45 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
 
   const fetchAttemptedRef = useRef(false);
 
+  // Sync URL parameters on mount
+  useEffect(() => {
+    const gridFromURL = searchParams.get("grid");
+    const categoryFromURL = searchParams.get("category");
+    const sortFromURL = searchParams.get("sort");
+
+    if (gridFromURL && ["one", "two", "three", "four"].includes(gridFromURL) && gridFromURL !== grid) {
+      dispatch(setGrid(gridFromURL));
+    }
+
+    if (categoryFromURL && categoryFromURL !== selectedCategory) {
+      setSelectedCategory(categoryFromURL);
+    }
+
+    if (sortFromURL && sortFromURL !== sort) {
+      dispatch(setSort(sortFromURL));
+    }
+  }, [searchParams, dispatch]); // Only run when URL params change or on mount
+
+
   // Sync initial load and filter changes (Deduplicated)
   useEffect(() => {
-    // 1. Initial Hydration Guard: 
-    // If we have products from the server AND we're on the default category, skip the first fetch.
-    if (mappedInitial.length > 0 && selectedCategory === "All Rooms") {
+    // 1. Initial Hydration Guard
+    if (mappedInitial.length > 0 && selectedCategory === "All Rooms" && !fetchAttemptedRef.current) {
       setIsLoading(false);
       return;
     }
 
     // 2. Fetch Logic
     const initFetch = async () => {
+      // If we already have items and filters haven't meaningfully changed compared to initial, skip
       if (fetchAttemptedRef.current && selectedCategory === "All Rooms" && selectedPrice.length === 6) {
-        // If we already attempted the default view, don't redo it unless filters changed
         return;
       }
-      fetchAttemptedRef.current = true;
 
+      fetchAttemptedRef.current = true;
       setIsLoading(true);
-      // Reset items before fetching new filter results
       setItems([]);
+
       const { items: batchItems, rawCount } = await fetchProductsBatch(INITIAL_LIMIT, 0, selectedCategory, selectedPrice);
 
       setItems(batchItems);
@@ -179,16 +198,25 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
   }, [fetchProductsBatch, selectedCategory, selectedPrice, mappedInitial.length]);
 
 
+
   useEffect(() => {
     const handleResize = () => {
+      // Only force grid "three" (2 columns) if we are on mobile AND 
+      // the current grid is a desktop-only grid (one or two).
+      // This prevents overriding a user's manual selection of "four" (List View) on mobile.
       if (window.innerWidth < 1024) {
-        dispatch(setGrid("three"));
+        if (grid === "one" || grid === "two") {
+          dispatch(setGrid("three"));
+        }
       }
     };
+
+    // We don't call handleResize() immediately here because we want to 
+    // respect whatever came from the URL or previous state first.
     window.addEventListener("resize", handleResize);
-    handleResize();
     return () => window.removeEventListener("resize", handleResize);
-  }, [dispatch]);
+  }, [dispatch, grid]);
+
 
   // Pagination
   const handleLoadMore = async () => {
@@ -248,7 +276,11 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
 
   const handleSortChange = useCallback((sortVal: string) => {
     dispatch(setSort(sortVal));
-  }, [dispatch]);
+    const params = new URLSearchParams(window.location.search);
+    params.set("sort", sortVal);
+    router.push(`${window.location.pathname}?${params.toString()}`, { scroll: false });
+  }, [dispatch, router]);
+
 
   // Derived state
   const filteredProducts = useMemo(() => {

@@ -40,8 +40,11 @@ const FilterSidebar: React.FC<FilterBarProps> = ({
                             key={cat}
                             onClick={() => {
                                 setSelectedCategory(cat);
-                                router.push(`${APP_ROUTE.product}?category=${encodeURIComponent(cat)}`);
+                                const params = new URLSearchParams(window.location.search);
+                                params.set("category", cat);
+                                router.push(`${APP_ROUTE.product}?${params.toString()}`);
                             }}
+
 
                             className={`cursor-pointer ${selectedCategory === cat
                                 ? "font-semibold underline"
@@ -94,4 +97,4 @@ const FilterSidebar: React.FC<FilterBarProps> = ({
     )
 }
 
-export default FilterSidebar
+export default FilterSidebar

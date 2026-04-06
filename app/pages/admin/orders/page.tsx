@@ -466,7 +466,7 @@ function OrderExpandedContent({ order, getRefundStatusColor }: { order: any, get
               </p>
               <p className="text-xs text-gray-400 font-medium">{formatCurrency(order.shipping_amount || 0)} delivery fee</p>
             </div>
-            
+
             <div>
               <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Payment</h4>
               <p className="text-sm font-bold text-gray-900 uppercase flex items-center gap-2">

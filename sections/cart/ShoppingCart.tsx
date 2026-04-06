@@ -62,11 +62,11 @@ export default function ShoppingCart() {
 					if (!selectedShipping) {
 						const freeMethod = methods.find(m => m.name.toLowerCase().includes("free"));
 						const defaultChoice = freeMethod || methods[0];
-						
+
 						if (defaultChoice) {
-							dispatch(setShipping({ 
-								name: defaultChoice.name, 
-								cost: computeShipping(defaultChoice) 
+							dispatch(setShipping({
+								name: defaultChoice.name,
+								cost: computeShipping(defaultChoice)
 							}));
 						}
 					}
