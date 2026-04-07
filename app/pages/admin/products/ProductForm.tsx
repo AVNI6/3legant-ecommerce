@@ -634,10 +634,10 @@ export default function ProductForm({
 }
 
 function input() {
-  return "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-400 transition"
+  return "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-400 transition cursor-pointer"
 }
 function inputSm() {
-  return "w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-400 transition"
+  return "w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-400 transition cursor-pointer"
 }
 
 function Field({

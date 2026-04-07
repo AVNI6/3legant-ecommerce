@@ -47,6 +47,7 @@ export interface PaymentDetails {
   totalAmount?: number;
   country?: string;
   couponCode?: string;
+  shippingMethod?: string;
 }
 
 export interface CheckoutRequestBody {

@@ -361,6 +361,36 @@ async function processSuccessfulSession(session: any, paymentRow: any, orderId: 
     if (payErr) console.error(`[STRIPE-WEBHOOK] Payment update FAILED:`, payErr.message);
   }
 
+  // 6.1 Increment coupon usage count after successful payment (if coupon was applied)
+  const orderCouponCode = asText(order.coupon_code).toUpperCase();
+  if (orderCouponCode) {
+    console.log(`[STRIPE-WEBHOOK] Incrementing coupon usage for code: ${orderCouponCode}`);
+
+    const { data: couponRow, error: couponFetchError } = await supabase
+      .from("coupons")
+      .select("code, usage_count")
+      .eq("code", orderCouponCode)
+      .maybeSingle();
+
+    if (couponFetchError) {
+      console.error(`[STRIPE-WEBHOOK] Coupon fetch FAILED:`, couponFetchError.message);
+    } else if (!couponRow) {
+      console.warn(`[STRIPE-WEBHOOK] Coupon not found for code: ${orderCouponCode}`);
+    } else {
+      const nextUsageCount = Number(couponRow.usage_count ?? 0) + 1;
+      const { error: couponUpdateError } = await supabase
+        .from("coupons")
+        .update({ usage_count: nextUsageCount })
+        .eq("code", orderCouponCode);
+
+      if (couponUpdateError) {
+        console.error(`[STRIPE-WEBHOOK] Coupon usage increment FAILED:`, couponUpdateError.message);
+      } else {
+        console.log(`[STRIPE-WEBHOOK] Coupon ${orderCouponCode} usage_count updated to ${nextUsageCount}`);
+      }
+    }
+  }
+
   // 7. Clear Cart
   const targetUserId = paymentRow?.user_id || session.metadata?.userId;
   if (targetUserId) {

@@ -1,15 +1,12 @@
 import BlogCards from "@/sections/blog/BlogCards";
 import Newsletter from "@/sections/home/newsletter";
-import Image from "next/image";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-import { cookies } from "next/headers";
+import { publicSupabase } from "@/lib/supabase/public";
+
+export const revalidate = 60;
 
 export default async function BlogPage() {
-    const cookieStore = cookies();
-    const supabase = createClient(cookieStore);
-
-    const { data: articles, error, count } = await supabase
+    const { data: articles, error, count } = await publicSupabase
         .from("blogs")
         .select("id, title, slug, author_name, author_image, category, status, created_at, cover_image", { count: "exact" })
         .ilike("status", "published")

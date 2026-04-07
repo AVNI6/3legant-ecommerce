@@ -8,8 +8,7 @@ import { HiOutlineCalendar } from "react-icons/hi2"
 import { MDXRemote } from 'next-mdx-remote/rsc'
 import Image from "next/image"
 import { FaArrowLeftLong } from "react-icons/fa6";
-import { createClient } from "@/lib/supabase/server"
-import { cookies } from "next/headers"
+import { publicSupabase } from "@/lib/supabase/public"
 
 export const revalidate = 3600 // Revalidate every hour
 
@@ -19,18 +18,16 @@ interface PageProps {
 
 export default async function BlogDetail({ params }: PageProps) {
   const { slug } = await params
-  const cookieStore = cookies()
-  const supabase = createClient(cookieStore)
 
   // 🚀 Parallel data fetching for better performance
   const [articleRes, recentRes] = await Promise.all([
-    supabase
+    publicSupabase
       .from("blogs")
       .select("id, title, content, author_name, author_image, published_at, created_at")
       .eq("slug", slug)
       .eq("status", "published")
       .single(),
-    supabase
+    publicSupabase
       .from("blogs")
       .select("id, title, slug, created_at, cover_image")
       .eq("status", "published")

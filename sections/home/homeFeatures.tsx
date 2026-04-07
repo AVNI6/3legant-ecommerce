@@ -21,7 +21,7 @@ const HomeFeatures = () => {
 
       <div className="flex flex-col justify-between gap-5 w-full lg:w-1/2">
         <div className="relative w-full">
-          <div className="absolute top-6 sm:top-10 p-4">
+          <div className="absolute bottom-6 sm:bottom-10 p-4 left-0">
             <h3 className="font-poppins font-semibold text-lg md:text-[28px] leading-[38px] tracking-[-0.6px]">
               BedRoom
             </h3>
@@ -35,7 +35,7 @@ const HomeFeatures = () => {
         </div>
 
         <div className="relative w-full">
-          <div className="absolute top-6 sm:top-10 p-4">
+          <div className="absolute bottom-6 sm:bottom-10 p-4 left-0">
             <h3 className="font-poppins font-semibold text-lg md:text-[28px] leading-[38px] tracking-[-0.6px]">
               Kitchen
             </h3>

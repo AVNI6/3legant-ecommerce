@@ -8,161 +8,180 @@ import { setSort, setGrid } from "@/store/slices/productSlice";
 import Products from "@/components/products";
 import SortBar from "@/app/pages/product/SortBar";
 import FilterSidebar from "@/components/FilterSidebar";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { APP_ROUTE } from "@/constants/AppRoutes";
-import { supabase } from "@/lib/supabase/client";
-import { mapProducts } from "@/lib/supabase/productMapping";
-import { getEffectivePrice } from "@/constants/Data";
+import { ProductGridSkeleton } from "@/components/ui/skeleton";
 
 const INITIAL_LIMIT = 12;
 const INCREMENT_LIMIT = 12;
+const PRODUCT_PAGE_CACHE_KEY = "product-page-batch-cache-v3";
 
-export default function ProductPageContent({ initialProducts = [] }: { initialProducts?: any[] }) {
-  const mappedInitial = useMemo(() => mapProducts(initialProducts), [initialProducts]);
+type BatchFetchResult = {
+  items: any[];
+  sourceOffset: number;
+  hasMoreInDB: boolean;
+};
+
+const inFlightBatchRequests = new Map<string, Promise<BatchFetchResult>>();
+
+type CachedBatchState = {
+  items: any[];
+  visibleCount: number;
+  sourceOffset: number;
+  hasMoreInDB: boolean;
+};
+
+const PRICE_RANGE_VALUES = ["0-99", "100-199", "200-299", "300-399", "400+"] as const;
+
+const readBatchCache = (): Record<string, CachedBatchState> => {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(PRODUCT_PAGE_CACHE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+const writeBatchCache = (cache: Record<string, CachedBatchState>) => {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(PRODUCT_PAGE_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // Ignore quota/write errors for non-critical UI cache.
+  }
+};
+
+export default function ProductPageContent({ initialItems = [] }: { initialItems?: any[] }) {
   const { sort, grid } = useAppSelector((state: any) => state.products);
   const dispatch = useAppDispatch();
   const searchParams = useSearchParams();
-  const router = useRouter();
 
   const urlCategory = searchParams.get("category") || "All Rooms";
 
   // State
-  const [items, setItems] = useState<any[]>(mappedInitial);
+  const [items, setItems] = useState<any[]>(initialItems);
   const [visibleCount, setVisibleCount] = useState(INITIAL_LIMIT);
-  const [isLoading, setIsLoading] = useState(mappedInitial.length === 0);
-  const [itemsOffset, setItemsOffset] = useState(mappedInitial.length);
-  const [hasMoreInDB, setHasMoreInDB] = useState(mappedInitial.length < INITIAL_LIMIT ? false : true);
+  const [isLoading, setIsLoading] = useState(initialItems.length === 0);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [sourceOffset, setSourceOffset] = useState(initialItems.length);
+  const [hasMoreInDB, setHasMoreInDB] = useState(initialItems.length === INITIAL_LIMIT);
 
   const [selectedCategory, setSelectedCategory] = useState(urlCategory);
   const [selectedPrice, setSelectedPrice] = useState<string[]>(["all", "0-99", "100-199", "200-299", "300-399", "400+"]);
+  const batchCacheRef = useRef<Record<string, CachedBatchState>>(readBatchCache());
 
-  // Fetch logic
-  // Fetch logic
-  const fetchProductsBatch = useCallback(async (limit: number, currentOffset: number, category: string, priceFilters: string[], sortVal: string) => {
-    try {
-      // 1. Base Query
-      let query = supabase
-        .from("product_variant")
-        .select(`
-          id, color, price, old_price, stock, thumbnails, color_images,
-          products!inner (
-            id, name, category, image, measurements, is_new, created_at, description, is_deleted, validation_till
-          )
-        `)
-        .eq("products.is_deleted", false);
+  const normalizePriceRangesForKey = useCallback((ranges: string[]) => {
+    if (ranges.includes("all")) return "all";
+    if (ranges.length === 0) return "none";
+    return [...ranges].sort().join(",");
+  }, []);
 
-      // Apply Category Filter on the joined product
-      if (category !== "All Rooms") {
-        query = query.eq("products.category", category);
-      }
+  const getBatchCacheKey = useCallback((category: string, sortVal: string, ranges: string[]) => {
+    return `${category}|${sortVal}|${normalizePriceRangesForKey(ranges)}`;
+  }, [normalizePriceRangesForKey]);
 
-      // NOTE: We remove database-side price filtering because the DB doesn't know 
-      // about the 'validation_till' logic. We will handle accurate price filtering 
-      // and sorting on the client-side for now.
+  const matchesAnyPriceRange = useCallback((price: number, ranges: string[]) => {
+    if (ranges.includes("all")) {
+      return true;
+    }
 
-      // Apply Sorting at DB level for better global results
-      if (sortVal === "newest") {
-        query = query.order("id", { ascending: false });
-      } else if (sortVal === "low") {
-        query = query.order("price", { ascending: true });
-      } else if (sortVal === "high") {
-        query = query.order("price", { ascending: false });
-      } else {
-        // Default sorting
-        query = query.order("id", { ascending: false });
-      }
+    if (ranges.length === 0) {
+      return false;
+    }
 
-      // Apply Range
-      const { data: variantsData, error: variantError } = await query
-        .range(currentOffset, currentOffset + limit - 1);
+    return ranges.some((range) => {
+      if (range === "0-99") return price >= 0 && price <= 99;
+      if (range === "100-199") return price >= 100 && price <= 199;
+      if (range === "200-299") return price >= 200 && price <= 299;
+      if (range === "300-399") return price >= 300 && price <= 399;
+      if (range === "400+") return price >= 400;
+      return false;
+    });
+  }, []);
 
-      if (variantError) throw variantError;
+  const normalizeSelectedPrice = useCallback((ranges: string[]) => {
+    if (ranges.includes("all")) {
+      return ["all", ...PRICE_RANGE_VALUES];
+    }
 
-      const productIds = Array.from(new Set((variantsData || []).map((v: any) => v.products.id)));
+    const validRanges = ranges.filter((range) => PRICE_RANGE_VALUES.includes(range as any));
+    if (validRanges.length === 0) {
+      return [];
+    }
 
-      // Parallel fetch for collective review stats
-      const { data: reviewsData, error: reviewsError } = await supabase
-        .from("reviews")
-        .select("product_id, rating")
-        .in("product_id", productIds);
+    if (validRanges.length === PRICE_RANGE_VALUES.length) {
+      return ["all", ...PRICE_RANGE_VALUES];
+    }
 
-      if (reviewsError) {
-        console.error("Failed to load review stats:", reviewsError);
-      }
+    return validRanges;
+  }, []);
 
-      // Group reviews by product_id
-      const groupedReviews: Record<number, { sum: number; count: number }> = {};
-      (reviewsData ?? []).forEach(row => {
-        const pid = Number(row.product_id);
-        if (!groupedReviews[pid]) groupedReviews[pid] = { sum: 0, count: 0 };
-        groupedReviews[pid].sum += Number(row.rating ?? 0);
-        groupedReviews[pid].count += 1;
-      });
+  const fetchProductsBatch = useCallback(async (limit: number, initialSourceOffset: number, category: string, sortVal: string, ranges: string[]) => {
+    const requestKey = `${category}|${sortVal}|${normalizePriceRangesForKey(ranges)}|${initialSourceOffset}|${limit}`;
 
-      // Transform variant data into the standard product object format the UI expects
-      const mappedItems = (variantsData || []).map((v: any) => {
-        const p = v.products;
-        const pid = p.id;
-        const reviewEntry = groupedReviews[pid];
+    const inFlight = inFlightBatchRequests.get(requestKey);
+    if (inFlight) {
+      return inFlight;
+    }
 
-        // Standardize Price Calculation using global utility
-        const { price: effectivePrice } = getEffectivePrice({
-          price: Number(v.price || 0),
-          old_price: Number(v.old_price || 0),
-          validationTill: p.validation_till
+    const requestPromise = (async (): Promise<BatchFetchResult> => {
+      try {
+        const rangesParam = ranges.length > 0 ? ranges.join(",") : "none";
+        const params = new URLSearchParams({
+          category,
+          sort: sortVal,
+          offset: String(initialSourceOffset),
+          limit: String(limit),
+          ranges: rangesParam,
         });
 
-        return {
-          id: pid,
-          variant_id: v.id,
-          name: p.name,
-          category: p.category,
-          price: effectivePrice,
-          old_price: v.old_price || 0,
-          image: (v.color_images && Array.isArray(v.color_images) && v.color_images[0]) || p.image,
-          is_new: p.is_new,
-          created_at: p.created_at,
-          description: p.description,
-          measurements: p.measurements,
-          color: v.color,
-          validation_till: p.validation_till,
-          stock: Number(v.stock ?? 0),
-          reviewStats: reviewEntry
-            ? { rating: reviewEntry.sum / reviewEntry.count, count: reviewEntry.count }
-            : { rating: 0, count: 0 }
-        };
-      });
+        const response = await fetch(`/api/products/filter?${params.toString()}`, {
+          method: "GET",
+          cache: "no-store",
+        });
 
-      // Shuffle only if default/shuffled logic is needed, but for Price/Newest we keep DB order
-      const processedItems = [...mappedItems];
-      if (sortVal === "default") {
-        // Simple shuffle for non-specific sorts
-        for (let i = processedItems.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [processedItems[i], processedItems[j]] = [processedItems[j], processedItems[i]];
+        if (!response.ok) {
+          return { items: [], sourceOffset: initialSourceOffset, hasMoreInDB: false };
         }
-      }
 
-      return {
-        items: processedItems,
-        rawCount: variantsData?.length || 0
-      };
-    } catch (err) {
-      console.error("Fetch error:", err);
-      return { items: [], rawCount: 0 };
+        const data = await response.json();
+        return {
+          items: Array.isArray(data?.items) ? data.items : [],
+          sourceOffset: Number(data?.sourceOffset ?? initialSourceOffset),
+          hasMoreInDB: Boolean(data?.hasMoreInDB),
+        };
+      } catch (err) {
+        console.error("Fetch error:", err);
+        return { items: [], sourceOffset: initialSourceOffset, hasMoreInDB: false };
+      }
+    })();
+
+    inFlightBatchRequests.set(requestKey, requestPromise);
+
+    try {
+      return await requestPromise;
+    } finally {
+      inFlightBatchRequests.delete(requestKey);
     }
-  }, []);
+  }, [normalizePriceRangesForKey]);
 
   const fetchAttemptedRef = useRef(false);
 
-  // Sync URL parameters on mount
+  // Sync URL parameters on mount + initialize mobile defaults
   useEffect(() => {
     const gridFromURL = searchParams.get("grid");
     const categoryFromURL = searchParams.get("category");
     const sortFromURL = searchParams.get("sort");
 
-    if (gridFromURL && ["one", "two", "three", "four"].includes(gridFromURL) && gridFromURL !== grid) {
+    // Handle Mobile Default Grid
+    if (window.innerWidth < 1024 && !gridFromURL) {
+      if (grid === "one" || grid === "two") {
+        dispatch(setGrid("three"));
+      }
+    } else if (gridFromURL && ["one", "two", "three", "four"].includes(gridFromURL) && gridFromURL !== grid) {
       dispatch(setGrid(gridFromURL));
     }
 
@@ -173,33 +192,97 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
     if (sortFromURL && sortFromURL !== sort) {
       dispatch(setSort(sortFromURL));
     }
-  }, [searchParams, dispatch]); // Only run when URL params change or on mount
+  }, [searchParams, dispatch]); // Initial sync on mount+url change
 
 
   // Sync initial load and filter changes (Deduplicated)
   useEffect(() => {
-    // 1. Initial Hydration Guard
-    if (mappedInitial.length > 0 && selectedCategory === "All Rooms" && !fetchAttemptedRef.current) {
+    const normalizedRanges = normalizeSelectedPrice(selectedPrice);
+    const currentKey = getBatchCacheKey(selectedCategory, sort, normalizedRanges);
+    const hasCachedState = Object.prototype.hasOwnProperty.call(batchCacheRef.current, currentKey);
+    const cachedState = hasCachedState ? batchCacheRef.current[currentKey] : undefined;
+
+    if (hasCachedState && cachedState) {
+      setItems(cachedState.items);
+      setVisibleCount(cachedState.visibleCount);
+      setSourceOffset(cachedState.sourceOffset);
+      setHasMoreInDB(cachedState.hasMoreInDB);
       setIsLoading(false);
+      fetchAttemptedRef.current = true;
       return;
     }
 
-    // 2. Fetch Logic
-    const initFetch = async () => {
-      fetchAttemptedRef.current = true;
-      setIsLoading(true);
-      setItems([]);
+    if (
+      initialItems.length > 0 &&
+      selectedCategory === "All Rooms" &&
+      sort === "default" &&
+      normalizedRanges.includes("all") &&
+      !fetchAttemptedRef.current
+    ) {
+      setIsLoading(false);
+      setVisibleCount(INITIAL_LIMIT);
+      setItems(initialItems);
+      setSourceOffset(initialItems.length);
+      setHasMoreInDB(initialItems.length === INITIAL_LIMIT);
 
-      const { items: batchItems, rawCount } = await fetchProductsBatch(INITIAL_LIMIT, 0, selectedCategory, selectedPrice, sort);
+      const nextState: CachedBatchState = {
+        items: initialItems,
+        visibleCount: INITIAL_LIMIT,
+        sourceOffset: initialItems.length,
+        hasMoreInDB: initialItems.length === INITIAL_LIMIT,
+      };
+      batchCacheRef.current[currentKey] = nextState;
+      writeBatchCache(batchCacheRef.current);
+      return;
+    }
+
+    let active = true;
+
+    (async () => {
+      fetchAttemptedRef.current = true;
+      if (!hasCachedState) {
+        setIsLoading(true);
+      }
+
+      const { items: batchItems, sourceOffset: nextSourceOffset, hasMoreInDB: nextHasMoreInDB } = await fetchProductsBatch(
+        INITIAL_LIMIT,
+        0,
+        selectedCategory,
+        sort,
+        normalizedRanges
+      );
+
+      if (!active) return;
 
       setItems(batchItems);
-      setItemsOffset(rawCount);
-      setHasMoreInDB(rawCount === INITIAL_LIMIT);
-      setVisibleCount(batchItems.length);
+      setVisibleCount(INITIAL_LIMIT);
+      setSourceOffset(nextSourceOffset);
+      setHasMoreInDB(nextHasMoreInDB);
       setIsLoading(false);
+
+      const nextState: CachedBatchState = {
+        items: batchItems,
+        visibleCount: INITIAL_LIMIT,
+        sourceOffset: nextSourceOffset,
+        hasMoreInDB: nextHasMoreInDB,
+      };
+      batchCacheRef.current[currentKey] = nextState;
+      writeBatchCache(batchCacheRef.current);
+    })();
+
+    return () => {
+      active = false;
     };
-    initFetch();
-  }, [fetchProductsBatch, selectedCategory, selectedPrice, mappedInitial.length]);
+  }, [
+    fetchProductsBatch,
+    selectedCategory,
+    sort,
+    selectedPrice,
+    initialItems,
+    initialItems.length,
+    getBatchCacheKey,
+    normalizeSelectedPrice,
+  ]);
 
 
 
@@ -225,14 +308,72 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
   // Pagination
   const handleLoadMore = async () => {
     if (isFetchingMore) return;
+
+    const normalizedRanges = normalizeSelectedPrice(selectedPrice);
+    const currentKey = getBatchCacheKey(selectedCategory, sort, normalizedRanges);
+
+    // If we already have more items in memory, reveal the next 12 immediately.
+    if (uniqueProducts.length > visibleCount) {
+      setVisibleCount((prev) => {
+        const nextVisibleCount = prev + INCREMENT_LIMIT;
+        const prevState = batchCacheRef.current[currentKey];
+        if (prevState) {
+          const nextState: CachedBatchState = {
+            ...prevState,
+            visibleCount: nextVisibleCount,
+          };
+          batchCacheRef.current[currentKey] = nextState;
+          writeBatchCache(batchCacheRef.current);
+        }
+        return nextVisibleCount;
+      });
+      return;
+    }
+
+    if (!hasMoreInDB) return;
+
     setIsFetchingMore(true);
+    const { items: nextItems, sourceOffset: nextSourceOffset, hasMoreInDB: nextHasMoreInDB } = await fetchProductsBatch(
+      INCREMENT_LIMIT,
+      sourceOffset,
+      selectedCategory,
+      sort,
+      normalizedRanges
+    );
 
-    const { items: batchItems, rawCount } = await fetchProductsBatch(INCREMENT_LIMIT, itemsOffset, selectedCategory, selectedPrice, sort);
+    if (nextItems.length > 0) {
+      const nextMergedItems = [...items, ...nextItems];
+      const nextVisibleCount = visibleCount + INCREMENT_LIMIT;
 
-    setItems((prev) => [...prev, ...batchItems]);
-    setItemsOffset((prev) => prev + rawCount);
-    setHasMoreInDB(rawCount === INCREMENT_LIMIT);
-    setVisibleCount((prev) => prev + batchItems.length);
+      setItems(nextMergedItems);
+      setVisibleCount(nextVisibleCount);
+      setSourceOffset(nextSourceOffset);
+      setHasMoreInDB(nextHasMoreInDB);
+
+      const nextState: CachedBatchState = {
+        items: nextMergedItems,
+        visibleCount: nextVisibleCount,
+        sourceOffset: nextSourceOffset,
+        hasMoreInDB: nextHasMoreInDB,
+      };
+      batchCacheRef.current[currentKey] = nextState;
+      writeBatchCache(batchCacheRef.current);
+    } else {
+      setSourceOffset(nextSourceOffset);
+      setHasMoreInDB(nextHasMoreInDB);
+
+      const prevState = batchCacheRef.current[currentKey];
+      if (prevState) {
+        const nextState: CachedBatchState = {
+          ...prevState,
+          sourceOffset: nextSourceOffset,
+          hasMoreInDB: nextHasMoreInDB,
+        };
+        batchCacheRef.current[currentKey] = nextState;
+        writeBatchCache(batchCacheRef.current);
+      }
+    }
+
     setIsFetchingMore(false);
   };
 
@@ -241,8 +382,8 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
     dispatch(setGrid(gridVal));
     const params = new URLSearchParams(window.location.search);
     params.set("grid", gridVal);
-    router.push(`${window.location.pathname}?${params.toString()}`, { scroll: false });
-  }, [dispatch, router]);
+    window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
+  }, [dispatch]);
 
   const handleCategoryChange = useCallback((category: string) => {
     setSelectedCategory(category);
@@ -250,7 +391,7 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
 
   const handlePriceChange = useCallback((price: string | string[], isSingleSelect: boolean = false) => {
     if (Array.isArray(price)) {
-      setSelectedPrice(price.length > 0 ? price : ["all", "0-99", "100-199", "200-299", "300-399", "400+"]);
+      setSelectedPrice(price);
       return;
     }
 
@@ -295,50 +436,20 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
     dispatch(setSort(sortVal));
     const params = new URLSearchParams(window.location.search);
     params.set("sort", sortVal);
-    router.push(`${window.location.pathname}?${params.toString()}`, { scroll: false });
-  }, [dispatch, router]);
+    window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
+  }, [dispatch]);
 
 
   // Derived state
-  const filteredProducts = useMemo(() => {
-    // If no price is selected at all (and 'all' isn't checked), show nothing
-    if (selectedPrice.length === 0) return [];
-
-    let list = [...items];
-    if (selectedCategory !== "All Rooms") {
-      list = list.filter((p: any) => p.category === selectedCategory);
-    }
-
-    // Filter by specific ranges ONLY IF "all" is not selected
-    if (!selectedPrice.includes("all")) {
-      list = list.filter((p: any) => {
-        const priceValue = Number(p.price);
-        return selectedPrice.some(range => {
-          if (range === "0-99") return priceValue >= 0 && priceValue <= 99;
-          if (range === "100-199") return priceValue >= 100 && priceValue <= 199;
-          if (range === "200-299") return priceValue >= 200 && priceValue <= 299;
-          if (range === "300-399") return priceValue >= 300 && priceValue <= 399;
-          if (range === "400+") return priceValue >= 400;
-          return false;
-        });
-      });
-    }
-
-    if (sort === "low") list.sort((a: any, b: any) => a.price - b.price);
-    if (sort === "high") list.sort((a: any, b: any) => b.price - a.price);
-
-    return list;
-  }, [items, selectedCategory, selectedPrice, sort]);
-
   const uniqueProducts = useMemo(() => {
     const seen = new Set();
-    return filteredProducts.filter((p: any) => {
+    return items.filter((p: any) => {
       const key = `${p.id}-${p.variant_id || 0}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
-  }, [filteredProducts]);
+  }, [items]);
 
   const displayedProducts = useMemo(() => {
     return uniqueProducts.slice(0, visibleCount);
@@ -398,6 +509,12 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
 
           <Products products={displayedProducts} grid={grid} isLoading={isLoading} />
 
+          {isFetchingMore && (
+            <div className="mt-6">
+              <ProductGridSkeleton count={INCREMENT_LIMIT} />
+            </div>
+          )}
+
           {!isLoading && displayedProducts.length === 0 && (
             <div className="flex flex-col items-center justify-center py-20 px-4 text-center bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
               <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-4">
@@ -423,8 +540,7 @@ export default function ProductPageContent({ initialProducts = [] }: { initialPr
               <button
                 onClick={handleLoadMore}
                 disabled={isFetchingMore}
-                className={`border rounded-full px-6 min-[375px]:px-10 py-2 min-[375px]:py-3 transition text-sm min-[375px]:text-base font-medium ${isFetchingMore ? "bg-gray-100 cursor-not-allowed text-gray-400" : "hover:bg-gray-100 active:scale-[0.98]"
-                  }`}
+                className={`border rounded-full px-6 min-[375px]:px-10 py-2 min-[375px]:py-3 transition text-sm min-[375px]:text-base font-medium ${isFetchingMore ? "bg-gray-100 cursor-not-allowed text-gray-400" : "hover:bg-gray-100 active:scale-[0.98]"}`}
               >
                 {isFetchingMore ? "Loading..." : "Show More"}
               </button>

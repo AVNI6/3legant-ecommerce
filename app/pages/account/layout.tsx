@@ -7,6 +7,7 @@ import { AccountLayoutSkeleton } from "@/components/ui/skeleton";
 import Avatar from "./Avatar";
 import { useAppSelector } from "@/store/hooks";
 import Modal from "@/components/ui/Modal";
+import { useClickOutside } from "@/hooks/use-click-outside";
 
 export default function AccountLayout({ children }: { children: React.ReactNode }) {
 
@@ -20,6 +21,10 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
 	const { user, loading } = useAppSelector(state => state.auth);
 	const [dropdownOpen, setDropdownOpen] = useState(false);
 	const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+	const dropdownRef = useClickOutside(() => {
+		if (dropdownOpen) setDropdownOpen(false);
+	});
 
 	const router = useRouter();
 	const pathname = usePathname();
@@ -35,7 +40,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
 	if (loading || !user) return <AccountLayoutSkeleton />;
 
 	const active = "font-semibold text-black border-b-2 border-black";
-	const inactive = "text-gray-600";
+	const inactive = "text-gray-600 hover:text-black";
 
 	const currentLinkName = links.find(l => l.path === pathname)?.name || "Menu";
 
@@ -94,7 +99,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
 						<p className="font-bold text-xl mt-4">{user?.user_metadata?.name || user.email?.split('@')[0]}</p>
 					</div>
 
-					<div className="relative w-full">
+					<div className="relative w-full" ref={dropdownRef}>
 						<button
 							onClick={() => setDropdownOpen(!dropdownOpen)}
 							className="w-full border-2 border-[#6C7275] px-4 py-3.5 rounded-lg flex justify-between items-center text-sm font-semibold text-gray-900 bg-white"

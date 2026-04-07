@@ -43,6 +43,19 @@ const Address = () => {
     setDefaultAddressId(def?.id || null);
   }, [addresses]);
 
+  // Prevent background scrolling when any modal/form is active
+  useEffect(() => {
+    const isAnyModalOpen = !!editingAddress || !!showAddForm || !!addressToRemove;
+    if (isAnyModalOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [editingAddress, showAddForm, addressToRemove]);
+
   const setDefaultAddress = (addressId: string) => {
     if (!user?.id) return;
     // ⚡ Optimistic update for instant UI response
@@ -211,8 +224,8 @@ const Address = () => {
       />
 
       {editingAddress && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center px-4" onClick={() => setEditingAddress(null)}>
-          <div className="w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto" onClick={() => setEditingAddress(null)}>
+          <div className="w-full max-w-md my-auto" onClick={e => e.stopPropagation()}>
             <AddressForm
               address={mapToForm(editingAddress)}
               submitLabel="Save Changes"
@@ -225,8 +238,8 @@ const Address = () => {
       )}
 
       {showAddForm && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center px-4" onClick={() => setShowAddForm(false)}>
-          <div className="w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto" onClick={() => setShowAddForm(false)}>
+          <div className="w-full max-w-md my-auto" onClick={e => e.stopPropagation()}>
             <AddressForm
               address={{ isDefault: addresses.length === 0 }}
               submitLabel="Add Address"

@@ -1,27 +1,75 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { CartItem } from "@/types";
 import QuantityInput from "@/components/QuantityInput";
 import { formatCurrency } from "@/constants/Data";
 import { RxCross2 } from "react-icons/rx";
 import { RiCoupon4Line, RiDiscountPercentLine } from "react-icons/ri";
-import { useAppDispatch } from "@/store/hooks";
 import { removeFromCart } from "@/store/slices/cartSlice";
-import { validateCoupon, removeCoupon } from "@/store/slices/couponSlice";
+import { validateCoupon } from "@/store/slices/couponSlice";
 import Link from "next/link";
 import { APP_ROUTE } from "@/constants/AppRoutes";
+import { useAppDispatch } from "@/store/hooks";
+import { useClickOutside } from "@/hooks/use-click-outside";
+
+type Coupon = {
+  code: string;
+  discount: number;
+} | null;
+
+type OfferSuggestion = {
+  id: string | number;
+  code: string;
+  discount_type: "percentage" | "fixed";
+  discount_value: number;
+  min_order?: number;
+};
+
+type AddressOption = {
+  id?: string;
+  firstName?: string;
+  lastName?: string;
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  street?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
+  address_label?: string;
+  is_default?: boolean;
+};
 
 interface CheckoutOrderSummaryProps {
   cartItems: CartItem[];
   subtotal: number;
   shippingCost: number;
   total: number;
-  coupon: any;
+  shippingMethods: Array<{ id: number; name: string; type: "fixed" | "percentage"; price: number | null; percentage: number | null }>;
+  selectedShipping: { name: string; cost: number } | null;
+  addresses: AddressOption[];
+  shippingAddress: {
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    street?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    country?: string;
+  };
+  selectedAddressId?: string;
+  onShippingMethodChange: (method: { id: number; name: string; type: "fixed" | "percentage"; price: number | null; percentage: number | null }) => void;
+  onShippingAddressChange: (address: AddressOption) => void;
+  coupon: Coupon;
   couponMessage: string;
-  suggestions: any[];
+  suggestions: OfferSuggestion[];
   code: string;
   setCode: (code: string) => void;
   handleApplyCoupon: () => void;
+  handleRemoveCoupon: () => void;
   isOffersOpen: boolean;
   setIsOffersOpen: (open: boolean) => void;
 }
@@ -31,32 +79,67 @@ export default function CheckoutOrderSummary({
   subtotal,
   shippingCost,
   total,
+  shippingMethods,
+  selectedShipping,
+  addresses,
+  shippingAddress,
+  selectedAddressId,
+  onShippingMethodChange,
+  onShippingAddressChange,
   coupon,
   couponMessage,
   suggestions,
   code,
   setCode,
   handleApplyCoupon,
+  handleRemoveCoupon,
   isOffersOpen,
   setIsOffersOpen,
 }: CheckoutOrderSummaryProps) {
   const dispatch = useAppDispatch();
+  const [isShippingOpen, setIsShippingOpen] = useState(false);
+  const [isAddressOpen, setIsAddressOpen] = useState(false);
+  const shippingDropdownRef = useClickOutside(() => setIsShippingOpen(false));
+  const addressDropdownRef = useClickOutside(() => setIsAddressOpen(false));
 
   const handleRemoveItem = (variantId: number) => dispatch(removeFromCart(variantId));
-  const handleRemoveCoupon = () => dispatch(removeCoupon());
+  const currentShipping = useMemo(() => {
+    if (selectedShipping) return selectedShipping;
+    const fallback = shippingMethods[0];
+    return fallback ? { name: fallback.name, cost: shippingCost } : null;
+  }, [selectedShipping, shippingCost, shippingMethods]);
+
+  const shippingAddressLabel = shippingAddress.firstName || shippingAddress.lastName
+    ? `${shippingAddress.firstName || ""} ${shippingAddress.lastName || ""}`.trim()
+    : "Use the shipping form";
+
+  const renderShippingCost = (method: { type: "fixed" | "percentage"; price: number | null; percentage: number | null }) => {
+    if (method.type === "percentage") {
+      return `${Number(method.percentage ?? 0)}% of subtotal`;
+    }
+
+    return formatCurrency(Number(method.price ?? 0));
+  };
+
+  const renderAddressLine = (address: (typeof addresses)[number]) => {
+    const name = `${address.firstName || address.first_name || ""} ${address.lastName || address.last_name || ""}`.trim();
+    const label = address.address_label ? ` · ${address.address_label}` : "";
+
+    return `${name || "Saved address"}${label}`;
+  };
 
   return (
-    <div className="mt-4 min-[375px]:mt-8 lg:mt-0 w-full lg:w-1/3">
-      <aside className="border rounded-lg p-3 min-[375px]:p-4 sm:p-5 sticky top-[110px] lg:top-10 bg-white shadow-sm">
+    <div className="mt-4 min-[375px]:mt-8 lg:mt-0 w-full lg:w-1/3 self-start">
+      <aside className="border rounded-lg p-3 min-[375px]:p-4 sm:p-5 sticky top-6 bg-white shadow-sm">
         <h1 className="pb-2 min-[375px]:pb-4 font-semibold text-sm min-[375px]:text-base sm:text-lg lg:text-lg border-b mb-2 min-[375px]:mb-4">Order Summary</h1>
 
-        <div className="space-y-2 min-[375px]:space-y-4 max-h-[60vh] overflow-y-auto pr-1 no-scrollbar">
+        <div className="space-y-2 min-[375px]:space-y-4">
           {cartItems.map((item: CartItem) => (
             <div key={item.variant_id} className="flex max-[342px]:justify-between items-center gap-2 min-[375px]:gap-4 py-2 min-[375px]:py-3 group">
-              <Link href={`${APP_ROUTE.product}/${item.id}?variantId=${item.variant_id}`} className="shrink-0">
+              <Link href={`${APP_ROUTE.product}/${item.id}?variantId=${item.variant_id}`} className="shrink-0 bg-[#F3F5F7] rounded overflow-hidden flex items-center justify-center">
                 <img
                   src={item.image}
-                  className="w-12 h-12 min-[343px]:w-14 min-[343px]:h-14 sm:min-[343px]:w-20 sm:min-[343px]:h-20 object-cover rounded shadow-sm transition-transform group-hover:scale-105"
+                  className="w-12 h-12 min-[343px]:w-14 min-[343px]:h-14 sm:min-[343px]:w-20 sm:min-[343px]:h-20 object-contain shadow-sm transition-transform group-hover:scale-105 mix-blend-multiply"
                   alt={item.name}
                 />
               </Link>
@@ -76,7 +159,7 @@ export default function CheckoutOrderSummary({
                 <p className="text-gray-400 text-[9px] min-[375px]:text-[11px] sm:text-xs max-[342px]:hidden mt-0.5 mb-1">Color: {item.color}</p>
 
                 <div className="flex items-center justify-between mt-1 min-[375px]:mt-2 max-[342px]:hidden">
-                  <QuantityInput quantity={item.quantity} variant_id={item.variant_id} stock={item.stock} maxWidth="w-[60px] min-[375px]:w-20 sm:w-24" />
+                  <QuantityInput quantity={item.quantity} variant_id={item.variant_id} stock={item.stock} allowZero={true} maxWidth="w-[60px] min-[375px]:w-20 sm:w-24" />
 
                   <button
                     type="button"
@@ -138,14 +221,13 @@ export default function CheckoutOrderSummary({
               <div className={`mt-3 ${isOffersOpen ? "block" : "hidden md:block"} animate-in fade-in duration-300`}>
                 <div
                   className={`
-                      ${
-                        suggestions.length > 2
-                          ? "flex gap-3 overflow-x-auto pb-4 no-scrollbar -mx-1 px-1"
-                          : "grid grid-cols-1 gap-3"
-                      }
+                      ${suggestions.length > 2
+                      ? "flex gap-3 overflow-x-auto pb-4 no-scrollbar -mx-1 px-1"
+                      : "grid grid-cols-1 gap-3"
+                    }
                     `}
                 >
-                  {suggestions.map((s: any) => {
+                  {suggestions.map((s) => {
                     const isValid = subtotal >= (s.min_order || 0);
                     return (
                       <div
@@ -210,6 +292,120 @@ export default function CheckoutOrderSummary({
           )}
         </div>
 
+        <div
+          ref={shippingDropdownRef}
+          className="mt-5 rounded-2xl border border-gray-100 bg-white shadow-sm p-4 transition-all duration-300 min-h-[96px] flex flex-col justify-center overflow-visible"
+        >
+          {isShippingOpen ? (
+            <div className="space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Select Shipping</span>
+                <button type="button" onClick={() => setIsShippingOpen(false)} className="text-[10px] font-black uppercase text-black hover:underline underline-offset-4">Cancel</button>
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                {shippingMethods.slice(0, 3).map((method) => {
+                  const isSelected = selectedShipping?.name === method.name;
+                  return (
+                    <button
+                      key={method.id}
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        onShippingMethodChange(method);
+                        setIsShippingOpen(false);
+                      }}
+                      className={`flex items-center justify-between p-3 rounded-xl border text-left transition-all group ${isSelected ? "border-black bg-gray-50 shadow-sm" : "border-gray-50 bg-white hover:border-gray-200"}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`h-4 w-4 rounded-full border flex items-center justify-center shrink-0 transition-colors ${isSelected ? "border-black bg-black" : "border-gray-300 group-hover:border-gray-400"}`}>
+                          {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-white transition-transform duration-200 scale-100" />}
+                        </div>
+                        <span className="text-[12px] font-bold text-gray-900 leading-tight">{method.name}</span>
+                      </div>
+                      <span className="text-[11px] font-black text-gray-900">{renderShippingCost(method)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-4 animate-in fade-in duration-200">
+              <div className="flex-1 min-w-0">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 block mb-1.5">Shipping Method</span>
+                <p className="text-[13px] font-bold text-gray-900 truncate leading-none mb-1">{currentShipping?.name || "Select shipping"}</p>
+                <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">{currentShipping ? formatCurrency(currentShipping.cost) : "No method selected"}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setIsShippingOpen(true); setIsAddressOpen(false); }}
+                className="rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-[10px] font-black uppercase tracking-wider text-gray-600 hover:border-black hover:text-black transition-all hover:shadow-md"
+              >
+                Change
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* <div
+          ref={addressDropdownRef}
+          className="mt-4 rounded-2xl border border-gray-100 bg-white shadow-sm p-4 transition-all duration-300 min-h-[96px] flex flex-col justify-center overflow-visible"
+        >
+          {isAddressOpen ? (
+            <div className="space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Select Address</span>
+                <button type="button" onClick={() => setIsAddressOpen(false)} className="text-[10px] font-black uppercase text-black hover:underline underline-offset-4">Cancel</button>
+              </div>
+              <div className="max-h-[220px] overflow-y-auto pr-1 custom-scrollbar space-y-2">
+                {addresses.length > 0 ? (
+                  addresses.map((address) => {
+                    const isSelected = address.id ? address.id === selectedAddressId : false;
+                    return (
+                      <button
+                        key={address.id || `${address.street}-${address.zip}`}
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          onShippingAddressChange(address);
+                          setIsAddressOpen(false);
+                        }}
+                        className={`w-full p-3 rounded-xl border text-left transition-all group ${isSelected ? "border-black bg-gray-50 shadow-sm" : "border-gray-50 bg-white hover:border-gray-200"}`}
+                      >
+                        <div className="flex items-center gap-3 mb-1.5">
+                          <div className={`h-4 w-4 rounded-full border flex items-center justify-center shrink-0 transition-colors ${isSelected ? "border-black bg-black" : "border-gray-300 group-hover:border-gray-400"}`}>
+                            {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-white transition-transform duration-200 scale-100" />}
+                          </div>
+                          <span className="text-[12px] font-bold text-gray-900 truncate leading-tight">{renderAddressLine(address)}</span>
+                        </div>
+                        <p className="text-[10px] text-gray-400 pl-7 line-clamp-1 leading-relaxed">{address.street}, {address.city}</p>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <p className="text-[10px] font-medium text-gray-400 p-2 text-center italic">No saved addresses found.</p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-4 animate-in fade-in duration-200">
+              <div className="flex-1 min-w-0">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 block mb-1.5">Shipping Address</span>
+                <p className="text-[13px] font-bold text-gray-900 truncate leading-none mb-1">{shippingAddressLabel}</p>
+                <p className="text-[11px] font-medium text-gray-500 mt-0.5 truncate uppercase tracking-wide">{shippingAddress.street || "Add in the form"}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setIsAddressOpen(true); setIsShippingOpen(false); }}
+                className="rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-[10px] font-black uppercase tracking-wider text-gray-600 hover:border-black hover:text-black transition-all hover:shadow-md"
+              >
+                Change
+              </button>
+            </div>
+          )}
+        </div> */}
+
+
+
         <hr className="my-3 min-[375px]:my-5 border-gray-100" />
 
         <div className="space-y-2 min-[375px]:space-y-3">
@@ -226,6 +422,7 @@ export default function CheckoutOrderSummary({
             <span>{formatCurrency(total)}</span>
           </div>
         </div>
+
       </aside>
     </div>
   );

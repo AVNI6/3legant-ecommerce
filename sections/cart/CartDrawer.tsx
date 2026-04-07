@@ -5,6 +5,7 @@ import { RxCross2 } from "react-icons/rx"
 import { useEffect } from "react"
 import { APP_ROUTE } from "@/constants/AppRoutes"
 import { useRequireLogin } from "@/lib/supabase/context/useRequireLogin"
+import { toast } from "react-toastify"
 import Link from "next/link"
 
 type Props = {
@@ -62,11 +63,11 @@ export default function CartDrawer({ isOpen, onClose }: Props) {
           ) : (
             cartItems?.map(item => (
               <div key={item.variant_id} className="flex gap-2 min-[375px]:gap-4 mb-4 min-[375px]:mb-6">
-                <Link href={`${APP_ROUTE.product}/${item.id}?variantId=${item.variant_id}`} onClick={onClose} className="shrink-0">
+                <Link href={`${APP_ROUTE.product}/${item.id}?variantId=${item.variant_id}`} onClick={onClose} className="shrink-0 bg-[#F3F5F7] rounded-md overflow-hidden flex items-center justify-center">
                   <img
                     src={item.image}
                     alt={item.name}
-                    className="w-14 h-14 min-[375px]:w-16 min-[375px]:h-16 sm:w-20 sm:h-20 object-cover hover:scale-105 transition-transform rounded-md bg-gray-50 border border-gray-100"
+                    className="w-14 h-14 min-[375px]:w-16 min-[375px]:h-16 sm:w-20 sm:h-20 object-contain hover:scale-105 transition-transform mix-blend-multiply"
                   />
                 </Link>
 
@@ -92,6 +93,7 @@ export default function CartDrawer({ isOpen, onClose }: Props) {
                       variant_id={item.variant_id}
                       stock={item.stock}
                       maxWidth="w-[60px] min-[375px]:w-20 sm:w-24"
+                      allowZero={true}
                     />
 
                     <span className="ml-auto font-medium text-[10px] min-[375px]:text-sm sm:text-base">
@@ -120,6 +122,10 @@ export default function CartDrawer({ isOpen, onClose }: Props) {
           <button
             className="bg-black text-white w-full py-2 min-[375px]:py-3 mb-2 min-[375px]:mb-3 rounded-md min-[375px]:rounded-lg text-[10px] min-[375px]:text-sm sm:text-base font-semibold hover:bg-gray-800 active:scale-[0.98] transition-all"
             onClick={() => {
+              if (cartItems.length === 0) {
+                toast.error("Your cart is empty. Please add items before checking out.")
+                return
+              }
               requireLogin(() => {
                 onClose()
                 router.push(`${APP_ROUTE.cart}?step=2`)
@@ -132,10 +138,11 @@ export default function CartDrawer({ isOpen, onClose }: Props) {
           <button
             className="w-full text-center text-[10px] min-[375px]:text-sm sm:text-base font-medium text-gray-500 hover:text-black transition-colors"
             onClick={() => {
-               requireLogin(() => {
-              onClose()
-              router.push(APP_ROUTE.cart)
-             }, user, "Please sign in to proceed to checkout.")
+              requireLogin(() => {
+
+                onClose()
+                router.push(APP_ROUTE.cart)
+              }, user, "Please sign in to proceed to checkout.")
             }}
           >
             View Cart

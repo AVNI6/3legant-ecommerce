@@ -81,7 +81,6 @@ export default function AccountDetails() {
 
       // 3. Update Auth User (Metadata + optional local email/password change)
       const { error: authError } = await supabase.auth.updateUser({
-        email: formData.email !== currentUser.email ? formData.email : undefined,
         password: formData.newPassword || undefined,
         data: {
           name: nameToSave
@@ -172,20 +171,15 @@ export default function AccountDetails() {
             <input
               id="account-email"
               autoComplete="email"
-              {...register("email", { 
-                required: "Email required",
-                pattern: {
-                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                  message: "Invalid email"
-                }
-              })}
-              className="border border-gray-200 py-3 px-4 text-black focus:outline-none focus:ring-2 focus:ring-black/5 rounded-xl transition-all"
+              readOnly
+              {...register("email")}
+              className="border border-gray-200 py-3 px-4 text-gray-500 bg-gray-50 focus:outline-none rounded-xl transition-all cursor-not-allowed"
+              title="Email cannot be changed directly"
             />
-            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
           </div>
         </div>
 
-        <div className="border-t border-gray-100 pt-8 mt-8 space-y-6">
+        <div className="border-t border-gray-100 pt-3 md:pt-8 mt-8 space-y-6">
           <h2 className="text-2xl font-semibold text-black">Password Change</h2>
 
           <div className="flex flex-col">
@@ -250,11 +244,11 @@ export default function AccountDetails() {
 
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col sm:flex-row gap-4 pt-4">
           <button
             type="submit"
             disabled={isSubmitting}
-            className="bg-black text-white px-9 py-3 rounded-xl shadow-lg hover:shadow-2xl hover:-translate-y-1 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:translate-y-0"
+            className="flex-1 sm:flex-none bg-black text-white px-8 py-3.5 rounded-xl shadow-lg hover:shadow-2xl hover:-translate-y-1 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:translate-y-0 text-sm font-bold"
           >
             {isSubmitting ? "Saving..." : "Save Changes"}
           </button>
@@ -262,7 +256,7 @@ export default function AccountDetails() {
             type="button"
             onClick={() => reset()}
             disabled={isSubmitting}
-            className="border border-gray-200 px-10 py-4 rounded-xl font-bold hover:bg-gray-50 transition-all active:scale-95 disabled:opacity-50"
+            className="flex-1 sm:flex-none border border-gray-200 px-8 py-3.5 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all active:scale-95 disabled:opacity-50"
           >
             Cancel
           </button>

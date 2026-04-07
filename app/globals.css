@@ -90,11 +90,11 @@ body {
 }
 
 /* Global Pointer Cursor */
-a, 
-button, 
-[role="button"], 
-input[type="button"], 
-input[type="submit"], 
+a,
+button,
+[role="button"],
+input[type="button"],
+input[type="submit"],
 input[type="reset"],
 a *,
 button *,

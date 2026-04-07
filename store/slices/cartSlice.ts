@@ -242,7 +242,8 @@ export const addToCart = createAsyncThunk(
         if (error) throw error
       }
 
-      return { items: [], cartId, addedItem: { ...item, quantity: finalAddedQty, stock: availableStock }, limitReached, stock: availableStock }
+      const isExisting = !!existing;
+      return { items: [], cartId, addedItem: { ...item, quantity: finalAddedQty, stock: availableStock }, limitReached, stock: availableStock, alreadyInCart: isExisting }
     } catch (error: any) {
       return rejectWithValue(error.message || error)
     }
@@ -297,7 +298,21 @@ export const updateQuantity = createAsyncThunk(
 
       const newQuantity = type === 'inc'
         ? Math.min(availableStock, item.quantity + 1)
-        : Math.max(1, item.quantity - 1)
+        : item.quantity - 1
+
+      if (newQuantity <= 0) {
+        if (!user) {
+          const items = readGuestCart()
+          const newItems = items.filter(i => i.variant_id !== variant_id)
+          writeGuestCart(newItems)
+          return { variant_id, quantity: 0, removed: true }
+        }
+
+        const cartId = (state.cart as CartState).cartId
+        const { error } = await supabase.from("cart_items").delete().eq("cart_id", cartId).eq("variant_id", variant_id)
+        if (error) throw error
+        return { variant_id, quantity: 0, removed: true }
+      }
 
       if (!user) {
         const items = readGuestCart()
@@ -333,11 +348,24 @@ export const setQuantity = createAsyncThunk(
       if (stockErr) throw stockErr
       const availableStock = variant?.stock ?? 0
 
-      let newQuantity = isNaN(quantity) || !isFinite(quantity) ? 1 : Math.max(1, quantity)
+      let newQuantity = isNaN(quantity) || !isFinite(quantity) ? 0 : Math.max(0, quantity)
       let limitReached = false
       if (newQuantity > availableStock) {
         newQuantity = availableStock
         limitReached = true
+      }
+
+      if (newQuantity <= 0) {
+        if (!user) {
+          const items = readGuestCart()
+          const newItems = items.filter(i => i.variant_id !== variant_id)
+          writeGuestCart(newItems)
+          return { variant_id, quantity: 0, removed: true, updated: true }
+        }
+        const cartId = (state.cart as CartState).cartId
+        const { error } = await supabase.from("cart_items").delete().eq("cart_id", cartId).eq("variant_id", variant_id)
+        if (error) throw error
+        return { variant_id, quantity: 0, removed: true, updated: true, stock: availableStock }
       }
 
       if (!user) {
@@ -417,9 +445,13 @@ const cartSlice = createSlice({
       state.items = state.items.filter((item) => item.id !== action.payload)
     },
     updateCartItemQuantity: (state, action: PayloadAction<{ variant_id: number; quantity: number }>) => {
-      const item = state.items.find((i) => i.variant_id === action.payload.variant_id)
-      if (item) {
-        item.quantity = action.payload.quantity
+      if (action.payload.quantity <= 0) {
+        state.items = state.items.filter((i) => Number(i.variant_id) !== Number(action.payload.variant_id));
+      } else {
+        const item = state.items.find((i) => Number(i.variant_id) === Number(action.payload.variant_id));
+        if (item) {
+          item.quantity = action.payload.quantity;
+        }
       }
     },
   },
@@ -446,9 +478,12 @@ const cartSlice = createSlice({
         // 2. Handle Logged-in Cart (single addedItem)
         else if (action.payload.addedItem) {
           const item = action.payload.addedItem;
-          const existing = state.items.find(i => Number(i.variant_id) === Number(item.variant_id));
-          if (existing) {
-            existing.quantity += item.quantity;
+          const existingIndex = state.items.findIndex(i => Number(i.variant_id) === Number(item.variant_id));
+          if (existingIndex !== -1) {
+            // Create a new reference to ensure reactivity
+            const updatedItem = { ...state.items[existingIndex] };
+            updatedItem.quantity += item.quantity;
+            state.items[existingIndex] = updatedItem;
           } else {
             state.items.push(item);
           }
@@ -468,6 +503,10 @@ const cartSlice = createSlice({
       })
       .addCase(updateQuantity.fulfilled, (state, action: any) => {
         state.loading = false;
+        if (action.payload.removed) {
+          state.items = state.items.filter(i => Number(i.variant_id) !== Number(action.payload.variant_id));
+          return;
+        }
         const item = state.items.find(i => Number(i.variant_id) === Number(action.payload.variant_id));
         if (item) {
           item.quantity = action.payload.quantity;
@@ -476,6 +515,10 @@ const cartSlice = createSlice({
       })
       .addCase(setQuantity.fulfilled, (state, action: any) => {
         state.loading = false;
+        if (action.payload.removed) {
+          state.items = state.items.filter(i => Number(i.variant_id) !== Number(action.payload.variant_id));
+          return;
+        }
         const item = state.items.find(i => Number(i.variant_id) === Number(action.payload.variant_id));
         if (item) {
           item.quantity = action.payload.quantity;

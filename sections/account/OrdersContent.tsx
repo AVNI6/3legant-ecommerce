@@ -429,85 +429,102 @@ export default function OrdersContent({ userId, currentPage, refundWindowDays }:
 
               {/* EXPANDED CONTENT */}
               {isExpanded && (
-                <div className="px-5 md:px-8 md:py-4 bg-white rounded-b-2xl animate-in slide-in-from-top-2 duration-300">
+                <div className="px-5 pb-3 md:px-8 md:py-4 bg-white rounded-b-2xl animate-in slide-in-from-top-2 duration-300">
                   {/* Order Items Section */}
                   <div className="mb-6 pb-6 border-b border-gray-100">
                     <h4 className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-4">Items ({itemsCount})</h4>
                     <div className="space-y-3">
-                      {itemsFromSnapshot.map((item: any, idx: number) => (
-                        <div key={`item-${order.id}-${idx}`} className="flex flex-col sm:flex-row gap-4 items-start sm:items-center bg-gray-50 p-4 rounded-xl border border-gray-100/50 hover:border-gray-200 transition-colors">
-                          {/* Product Image & Core Info */}
-                          <div className="flex gap-4 items-start flex-1 w-full min-w-0">
-                            <img
-                              src={item.image || item.color_image?.[0] || '/placeholder.png'}
-                              alt={item.name || 'Product'}
-                              className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg flex-shrink-0 shadow-sm"
-                            />
+                      {itemsFromSnapshot.map((item: any, idx: number) => {
+                        const targetVariantId = item.variant_id || item.id;
+                        const liveProduct = allProducts.find((p: any) => Number(p.variant_id) === Number(targetVariantId));
+                        const isProductDeleted = productsInitialized && !liveProduct;
 
-                            <div className="flex-1 min-w-0 py-0.5">
-                              <Link href={`${APP_ROUTE.product}/${item.product_id || item.id}?variantId=${item.variant_id || ''}`} className="hover:underline group">
-                                <h5 className="font-bold text-sm sm:text-base text-black line-clamp-2 mb-1 group-hover:text-gray-600 transition-colors">
-                                  {item.name || `Product #${item.product_id || item.id}`}
-                                </h5>
-                              </Link>
-                              <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] sm:text-xs text-gray-500 mb-2">
-                                <span>Color: <strong className="text-gray-700">{item.color || 'N/A'}</strong></span>
-                                {item.size && <span>Size: <strong className="text-gray-700">{item.size}</strong></span>}
-                                <span>Qty: <strong className="text-gray-700">{item.quantity}</strong></span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-black text-sm sm:text-base text-black">
-                                  {formatCurrency(item.price * item.quantity)}
-                                </span>
+                        return (
+                          <div key={`item-${order.id}-${idx}`} className="flex flex-col sm:flex-row gap-4 items-start sm:items-center bg-gray-50 p-4 rounded-xl border border-gray-100/50 hover:border-gray-200 transition-colors">
+                            {/* Product Image & Core Info */}
+                            <div className="flex gap-4 items-start flex-1 w-full min-w-0">
+                              <img
+                                src={item.image || item.color_image?.[0] || '/placeholder.png'}
+                                alt={item.name || 'Product'}
+                                className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg flex-shrink-0 shadow-sm"
+                              />
+
+                              <div className="flex-1 min-w-0 py-0.5">
+                                {!isProductDeleted ? (
+                                  <Link href={`${APP_ROUTE.product}/${item.product_id || item.id}?variantId=${item.variant_id || ''}`} className="hover:underline group">
+                                    <h5 className="font-bold text-sm sm:text-base text-black line-clamp-2 mb-1 group-hover:text-gray-600 transition-colors">
+                                      {item.name || `Product #${item.product_id || item.id}`}
+                                    </h5>
+                                  </Link>
+                                ) : (
+                                  <div className="space-y-1">
+                                    <h5 className="font-bold text-sm sm:text-base text-gray-400 line-clamp-2 mb-1 cursor-not-allowed">
+                                      {item.name || `Product #${item.product_id || item.id}`}
+                                    </h5>
+                                    <span className="text-[10px] bg-red-50 text-red-500 border border-red-100 px-2 py-0.5 rounded-full font-black uppercase tracking-tighter inline-block">
+                                      Discontinued
+                                    </span>
+                                  </div>
+                                )}
+                                <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] sm:text-xs text-gray-500 mb-2">
+                                  <span>Color: <strong className="text-gray-700">{item.color || 'N/A'}</strong></span>
+                                  {item.size && <span>Size: <strong className="text-gray-700">{item.size}</strong></span>}
+                                  <span>Qty: <strong className="text-gray-700">{item.quantity}</strong></span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-black text-sm sm:text-base text-black">
+                                    {formatCurrency(item.price * item.quantity)}
+                                  </span>
+                                </div>
                               </div>
                             </div>
+
+                            {/* Amazon-style Actions Section */}
+                            <div className="flex flex-col gap-2 w-full sm:w-auto pt-2 sm:pt-0">
+                              {order.status.toLowerCase() === "delivered" && !isProductDeleted && (
+                                <button
+                                  onClick={() => setReviewModalState({ isOpen: true, productId: item.product_id || item.id })}
+                                  className="flex items-center justify-center gap-2 py-2 px-4 bg-white border border-gray-200 rounded-lg text-[11px] font-bold text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm active:scale-[0.98] w-full sm:min-w-[160px]"
+                                >
+                                  <span>Write a product review</span>
+                                </button>
+                              )}
+
+                              {!isProductDeleted && (
+                                <button
+                                  onClick={() => {
+                                    // Cross-check stock: Use live data if available, else fallback to snapshot
+                                    const currentStock = liveProduct ? Number(liveProduct.stock) : Number(item.stock || 0);
+
+                                    if (currentStock <= 0) {
+                                      toast.error("Sorry, this product is currently out of stock.");
+                                      return;
+                                    }
+
+                                    dispatch(addToCart({
+                                      userId: userId,
+                                      item: {
+                                        id: item.product_id || item.id,
+                                        variant_id: targetVariantId,
+                                        name: item.name || "Product",
+                                        price: Number(item.price),
+                                        image: item.image || item.color_image?.[0] || "",
+                                        color: item.color || "Default",
+                                        quantity: 1,
+                                        stock: currentStock
+                                      } as any
+                                    }));
+                                    toast.success("Added to cart");
+                                  }}
+                                  className="flex items-center justify-center gap-2 py-2 px-4 bg-gray-900 text-white rounded-lg text-[11px] font-bold hover:bg-black transition-all shadow-sm active:scale-[0.98] w-full sm:min-w-[160px]"
+                                >
+                                  <span>Buy it again</span>
+                                </button>
+                              )}
+                            </div>
                           </div>
-
-                          {/* Amazon-style Actions Section */}
-                          <div className="flex flex-col gap-2 w-full sm:w-auto pt-2 sm:pt-0">
-                            {order.status.toLowerCase() === "delivered" && (
-                              <button
-                                onClick={() => setReviewModalState({ isOpen: true, productId: item.product_id || item.id })}
-                                className="flex items-center justify-center gap-2 py-2 px-4 bg-white border border-gray-200 rounded-lg text-[11px] font-bold text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm active:scale-[0.98] w-full sm:min-w-[160px]"
-                              >
-                                <span>Write a product review</span>
-                              </button>
-                            )}
-                            <button
-                              onClick={() => {
-                                const targetVariantId = item.variant_id || item.id;
-                                const liveProduct = allProducts.find((p: any) => Number(p.variant_id) === Number(targetVariantId));
-
-                                // Cross-check stock: Use live data if available, else fallback to snapshot
-                                const currentStock = liveProduct ? Number(liveProduct.stock) : Number(item.stock || 0);
-
-                                if (currentStock <= 0) {
-                                  toast.error("Sorry, this product is currently out of stock.");
-                                  return;
-                                }
-
-                                dispatch(addToCart({
-                                  userId: userId,
-                                  item: {
-                                    id: item.product_id || item.id,
-                                    variant_id: targetVariantId,
-                                    name: item.name || "Product",
-                                    price: Number(item.price),
-                                    image: item.image || item.color_image?.[0] || "",
-                                    color: item.color || "Default",
-                                    quantity: 1,
-                                    stock: currentStock
-                                  } as any
-                                }));
-                                toast.success("Added to cart");
-                              }}
-                              className="flex items-center justify-center gap-2 py-2 px-4 bg-gray-900 text-white rounded-lg text-[11px] font-bold hover:bg-black transition-all shadow-sm active:scale-[0.98] w-full sm:min-w-[160px]"
-                            >
-                              <span>Buy it again</span>
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
 

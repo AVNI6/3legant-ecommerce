@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import Navbar from "../components/Navbar";
-import Footer from "../components/footer";
 import NotificationWrapper from "../client/NotificationWrapper";
 import { APP_ROUTE } from "@/constants/AppRoutes";
+import dynamic from "next/dynamic";
+
+const Navbar = dynamic(() => import("../components/Navbar"), { ssr: false });
+const Footer = dynamic(() => import("../components/footer"), { ssr: false });
 
 interface Props {
     children: React.ReactNode;

@@ -2,7 +2,7 @@ import { features } from "@/constants/Data";
 
 const Features = () => {
   return (
-    <section className="w-full px-4 sm:px-10 md:px-10 lg:px-30 py-8 sm:py-10 md:py-12 overflow-hidden">
+    <section className="w-full px-4 sm:px-10 md:px-10 lg:px-30 py-5 sm:py-10 md:py-12 overflow-hidden">
       
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 md:gap-6">
         {features.map((item, index) => (

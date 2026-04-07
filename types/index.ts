@@ -1,7 +1,3 @@
-// ============================================================================
-// BASE TYPES
-// ============================================================================
-
 export interface Product {
   id: number
   name: string
@@ -304,6 +300,7 @@ export type ProductType = {
   measurements: string
   thumbnails?: string[]
   product_variant?: any[]
+  is_deleted?: boolean
   created_at: string
 }
 

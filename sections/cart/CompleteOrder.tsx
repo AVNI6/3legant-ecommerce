@@ -354,13 +354,13 @@ export default function CompleteOrder() {
           const id = item.variant_id || item.id;
 
           return (
-            <div key={id} className="relative inline-block transition-transform hover:scale-105">
+            <div key={id} className="relative inline-block transition-transform hover:scale-105 bg-[#F3F5F7] rounded overflow-visible">
               <img
                 src={image}
                 alt={name}
-                className="w-14 h-14 min-[375px]:w-16 min-[375px]:h-16 sm:w-20 sm:h-20 object-cover rounded shadow-sm border border-gray-100"
+                className="w-14 h-14 min-[375px]:w-16 min-[375px]:h-16 sm:w-20 sm:h-20 object-contain shadow-sm mix-blend-multiply"
               />
-              <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 bg-black text-white text-[9px] min-[375px]:text-[10px] sm:text-xs font-semibold w-4 h-4 min-[375px]:w-5 min-[375px]:h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full shadow-md leading-none pb-[1px]">
+              <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 bg-black text-white text-[9px] min-[375px]:text-[10px] sm:text-xs font-semibold w-4 h-4 min-[375px]:w-5 min-[375px]:h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full shadow-md leading-none pb-[1px] z-10">
                 {quantity}
               </div>
             </div>

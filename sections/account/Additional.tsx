@@ -76,13 +76,13 @@ const Additional = ({ product }: Props) => {
 
       <div className="my-10 mr-0">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="w-1/2 font-poppins font-medium text-[13px] sm:text-[16px] md:text-[20px] lg:text-[28px]">
+          <h1 className="w-1/2 font-poppins font-medium text-[15px] sm:text-[16px] md:text-[20px] lg:text-[28px]">
             You might also like
           </h1>
 
           <BlackShopButton
             content="More Products"
-            className="text-[10px] sm:text-[12px] md:text-[16px]"
+            className="text-[12px] sm:text-[14px] md:text-[16px]"
           />
         </div>
 

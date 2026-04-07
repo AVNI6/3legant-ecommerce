@@ -167,7 +167,7 @@ export default function ReviewsPage() {
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value)}
-          className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-black"  >
+          className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-black cursor-pointer"  >
           <option value="newest">Newest First</option>
           <option value="oldest">Oldest First</option>
           <option value="rating-high">Highest Rating</option>

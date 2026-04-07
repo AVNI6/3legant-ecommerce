@@ -1,6 +1,6 @@
 "use client"
 import { supabase } from "@/lib/supabase/client"
-import CartDrawer from "@/sections/cart/CartDrawer"
+import dynamic from "next/dynamic"
 import Link from "next/link"
 import Image from "next/image"
 import { RiAccountCircleLine } from "react-icons/ri"
@@ -11,7 +11,8 @@ import { APP_ROUTE } from "@/constants/AppRoutes"
 import { LuSearch } from "react-icons/lu"
 import { GoHeart } from "react-icons/go"
 import { IoLogoFacebook, IoLogoInstagram, IoLogoYoutube } from "react-icons/io"
-import ProductSearch from "./ProductSearch"
+const ProductSearch = dynamic(() => import("./ProductSearch"), { ssr: false })
+const CartDrawer = dynamic(() => import("@/sections/cart/CartDrawer"), { ssr: false })
 import { useState, useEffect } from "react"
 import { useAppSelector, useAppDispatch } from "@/store/hooks"
 import { fetchProducts } from "@/store/slices/productSlice"
@@ -35,13 +36,26 @@ const Navbar = () => {
 
   // Prevent body scroll when drawer is open
   useEffect(() => {
+    // 🧺 Catch the 'toggle-cart' event (e.g. from AddToCartButton)
+    const handleToggleCart = (e: any) => {
+      setIsCartOpen(e.detail?.open ?? true)
+    }
+
+    window.addEventListener('toggle-cart', handleToggleCart)
+
+    // Cleanup on unmount
+    return () => {
+      window.removeEventListener('toggle-cart', handleToggleCart)
+    }
+  }, []) // 👈 Run once on mount to keep it listening always
+
+  useEffect(() => {
     if (open) {
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = 'unset'
     }
 
-    // Cleanup on unmount
     return () => {
       document.body.style.overflow = 'unset'
     }

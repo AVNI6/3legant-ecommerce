@@ -86,7 +86,7 @@ export default function SearchContent() {
             id="sort"
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/10"
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/10 cursor-pointer"
           >
             <option value="relevance">Relevance</option>
             <option value="name">Name</option>

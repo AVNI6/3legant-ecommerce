@@ -54,7 +54,7 @@ const NewArrival = ({ initialProducts = [] }: { initialProducts?: ProductType[] 
 
     return (
         <div>
-            <div className="mx-6 sm:mx-12 md:mx-10 lg:mx-30 my-10 flex justify-between">
+            <div className="mx-6 sm:mx-12 md:mx-10 lg:mx-30 my-5 md:my-10 flex justify-between">
                 <h1 className="font-bold text-xl lg:text-3xl w-20">New Arrivals</h1>
                 <div className="self-end" ><BlackShopButton className="text-[16px]" href={APP_ROUTE.product} /></div>
             </div>

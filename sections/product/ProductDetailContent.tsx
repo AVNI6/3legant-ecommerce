@@ -49,8 +49,6 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
     }, [id]);
 
     const productVariants = useMemo(() => {
-        if (!mounted) return initialVariants;
-
         return initialVariants.map((variant: any) => {
             let updatedVariant = { ...variant };
             const liveMatch = reduxProducts.find((item: any) => Number(item.variant_id) === Number(variant.variant_id));
@@ -59,7 +57,7 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
             }
             return updatedVariant;
         });
-    }, [initialVariants, reduxProducts, id, mounted]);
+    }, [initialVariants, reduxProducts, id]);
 
     const uniqueProductVariants = useMemo(() => Array.from(
         new Map(productVariants.map((variant: any) => [variant.variant_id, variant])).values()
@@ -73,19 +71,22 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
     const [tab, setTabState] = useState("reviews");
     const [quantity, setQuantity] = useState(1);
     const [currentIndex, setCurrentIndex] = useState(0);
-    const [selectedVariantId, setSelectedVariantId] = useState<number | null>(null);
+    const [selectedVariantId, setSelectedVariantId] = useState<number | null>(queryVariantId || (initialVariants[0] as any)?.variant_id || null);
 
     useEffect(() => {
         if (!mounted) return;
         if (queryTab) setTabState(queryTab);
-        const initialId = queryVariantId || (uniqueProductVariants[0] as any)?.variant_id || null;
-        setSelectedVariantId(initialId);
     }, [mounted]);
 
     const handleTabChange = (newTab: string) => {
-        setTabState(newTab);
+        const nextTab = tab === newTab ? "" : newTab;
+        setTabState(nextTab);
         const params = new URLSearchParams(window.location.search);
-        params.set("tab", newTab);
+        if (nextTab) {
+            params.set("tab", nextTab);
+        } else {
+            params.delete("tab");
+        }
         window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
     };
 
@@ -145,27 +146,20 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
     });
 
     const mainImage = allGalleryImages[currentIndex] ?? product.image ?? "/placeholder.png";
-    const cartItem = cartItems.find((item: any) => Number(item.variant_id) === Number(activeVariantId));
     const isInWishlist = wishlistItems.some((item: any) => Number(item.variant_id) === Number(activeVariantId));
 
     useEffect(() => {
         if (!product) return;
-        // If item is already in cart, sync our local quantity state with it
-        // This ensures drawer updates reflect here instantly
-        if (cartItem) {
-            setQuantity(cartItem.quantity);
-        } else {
-            setQuantity(1);
-        }
-    }, [selectedVariantId, product?.variant_id, cartItem?.quantity]);
+        // Always default to 1 on the detail page as requested
+        setQuantity(1);
+    }, [selectedVariantId, product?.variant_id]);
 
     useEffect(() => {
         if (!product) return;
-        const initialId = queryVariantId ?? (uniqueProductVariants[0] as any)?.variant_id ?? null;
-        setSelectedVariantId(initialId);
+        const currentId = selectedVariantId;
 
-        if (initialId) {
-            const variant = uniqueProductVariants.find((v: any) => v.variant_id === initialId) as any;
+        if (currentId) {
+            const variant = uniqueProductVariants.find((v: any) => v.variant_id === currentId) as any;
             const variantImg = variant?.color_image?.[0] || product.image;
             if (variantImg) {
                 const idx = galleryImagesForSync.indexOf(variantImg);
@@ -173,8 +167,6 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
                     setCurrentIndex(idx);
                 }
             }
-        } else {
-            setCurrentIndex(0);
         }
     }, [product?.id, queryVariantId]);
 
@@ -310,10 +302,9 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
                             }}
                         />
 
-                        <div className="flex flex-col-2 gap-3 sm:gap-4 items-stretch sm:items-center">
+                        <div className="flex flex-row gap-3 sm:gap-4 items-stretch sm:items-center">
                             <QuantityInput
-                                quantity={cartItem?.quantity ?? quantity}
-                                variant_id={cartItem?.variant_id}
+                                quantity={quantity}
                                 stock={selectedVariant.stock}
                                 onQuantityChange={(val) => setQuantity(val)}
                                 maxWidth="w-full sm:w-32"
@@ -340,6 +331,7 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
                                 stock: selectedVariant.stock,
                                 rating: reviewStats.rating
                             }}
+                            onSuccess={() => setQuantity(1)}
                             className="bg-black text-white py-2 sm:py-3 rounded-lg w-full transition hover:bg-gray-800 text-sm sm:text-base font-medium"
                         />
                         <hr className="text-gray-300 my-3" />
@@ -357,12 +349,12 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
                     </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-2 sm:gap-6 lg:gap-8 mt-8 sm:mt-12 md:border-b-2 md:border-gray-300 overflow-x-auto">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-6 lg:gap-8 mt-8 sm:mt-12 sm:border-b-2 sm:border-gray-300 overflow-x-auto">
                     {["additional", "questions", "reviews"].map((t) => (
                         <button
                             key={t}
                             onClick={() => handleTabChange(t)}
-                            className={`pb-3 capitalize whitespace-nowrap text-sm sm:text-base flex items-center justify-between sm:justify-start gap-2 ${tab === t ? "border-b-2 border-black font-semibold sm:border-b-2" : "border-b border-gray-300 md:border-none "}`}
+                            className={`pb-3 capitalize whitespace-nowrap text-sm sm:text-base flex items-center justify-between sm:justify-start gap-2 ${tab === t ? "border-b-2 border-black font-semibold sm:border-b-2" : "border-b border-gray-300 sm:border-none "}`}
                         >
                             {t}
                             <IoIosArrowDown

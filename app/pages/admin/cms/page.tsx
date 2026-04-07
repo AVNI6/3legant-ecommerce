@@ -233,7 +233,7 @@ export default function CMSPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Category</label>
-                      <select value={editBlog.category || "Blog"} onChange={e => setEditBlog({ ...editBlog, category: e.target.value })} className="w-full p-3.5 bg-white border border-gray-100 rounded-2xl text-[10px] font-black uppercase tracking-widest outline-none">
+                      <select value={editBlog.category || "Blog"} onChange={e => setEditBlog({ ...editBlog, category: e.target.value })} className="w-full p-3.5 bg-white border border-gray-100 rounded-2xl text-[10px] font-black uppercase tracking-widest outline-none cursor-pointer">
                         <option value="Blog">General</option>
                         <option value="Featured">Featured</option>
                         <option value="Tutorial">Tutorial</option>
@@ -241,7 +241,7 @@ export default function CMSPage() {
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Status</label>
-                      <select value={editBlog.status || "draft"} onChange={e => setEditBlog({ ...editBlog, status: e.target.value as any })} className="w-full p-3.5 bg-white border border-gray-100 rounded-2xl text-[10px] font-black uppercase tracking-widest outline-none">
+                      <select value={editBlog.status || "draft"} onChange={e => setEditBlog({ ...editBlog, status: e.target.value as any })} className="w-full p-3.5 bg-white border border-gray-100 rounded-2xl text-[10px] font-black uppercase tracking-widest outline-none cursor-pointer">
                         <option value="draft">Draft</option>
                         <option value="published">Live</option>
                       </select>

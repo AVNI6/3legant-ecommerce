@@ -101,7 +101,7 @@ export default function ReviewItem({ review, onDelete, onUpdate }: any) {
         <div className="flex-1 space-y-3">
           <div className="flex justify-between items-start relative">
             <div className="flex flex-col sm:flex-row items-center gap-3">
-              <h4 className="font-semibold text-lg text-[#141718]">{review.profiles?.name || review.name}</h4>
+              <h4 className="font-semibold text-xs sm:text-lg text-[#141718]">{review.profiles?.name || review.name}</h4>
               {user?.id === review.user_id && <div className="flex items-center gap-3"><span className="bg-gray-100 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase text-gray-500">You</span>
                 {!state.isEditing && <div className="flex items-center gap-2 border-l pl-3 ml-1 border-gray-200">
                   <button onClick={() => setState(s => ({ ...s, isEditing: true }))} className="text-gray-400 hover:text-blue-500 p-1"><FaPencil size={12} /></button>

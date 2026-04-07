@@ -1,25 +1,23 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import Controls from "./Controls"
 import BlogArticle from "./BlogArticle"
 import { SortOrder, TabType, GridType } from "@/constants/Data"
 import { supabase } from "@/lib/supabase/client"
 import { BlogGridSkeleton } from "@/components/ui/skeleton"
-import { buildPaginatedQuery, usePagination } from "@/lib/hooks/usePagination"
+import { buildPaginatedQuery } from "@/lib/hooks/usePagination"
 import { useAppDispatch, useAppSelector } from "@/store/hooks"
 import { setInitialBlogs, setBlogs, setPage, setLoading } from "@/store/slices/blogSlice"
 
 export default function BlogCards({ initialArticles = [], totalCount = 0 }: { initialArticles?: any[], totalCount?: number }) {
     const dispatch = useAppDispatch()
-    const { items: articles, page, totalCount: reduxTotalCount, hasMore, loading, initialized } = useAppSelector((state: any) => state.blog)
+    const { items: articles, page, hasMore, loading, initialized } = useAppSelector((state: any) => state.blog)
+    const initialSeedApplied = useRef(false)
 
     const [activeTab, setActiveTab] = useState<TabType>("all")
     const [sortOrder, setSortOrder] = useState<SortOrder>("default")
     const [gridType, setGridType] = useState<GridType>("three")
-
-    // Use the existing logic hook for pagination helpers (matching the design style)
-    const { totalPages } = usePagination(reduxTotalCount, { pageSize: 6, initialPage: page })
 
     // Initialize Redux state from initialArticles on first load
     useEffect(() => {
@@ -61,6 +59,11 @@ export default function BlogCards({ initialArticles = [], totalCount = 0 }: { in
     // Trigger fetch on initialization or tab/sort change
     useEffect(() => {
         if (initialized) {
+            if (!initialSeedApplied.current) {
+                initialSeedApplied.current = true
+                return
+            }
+
             fetchBlogs(1, activeTab, sortOrder, true)
             dispatch(setPage(1))
         }

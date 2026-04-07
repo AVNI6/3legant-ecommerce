@@ -10,6 +10,7 @@ interface Props {
   stock?: number;
   onQuantityChange?: (val: number) => void;
   maxWidth?: string;
+  allowZero?: boolean; // True for Cart/Checkout/Drawer, False for Detail Page
 }
 
 const QuantityInput = ({
@@ -18,6 +19,7 @@ const QuantityInput = ({
   stock = 100,
   onQuantityChange,
   maxWidth = "w-20 sm:w-24 lg:w-32",
+  allowZero = false,
 }: Props) => {
   const dispatch = useAppDispatch();
   const [inputValue, setInputValue] = useState(String(quantity));
@@ -30,22 +32,22 @@ const QuantityInput = ({
     }
   }, [quantity]);
 
-  const handleUpdate = async (type: "inc" | "dec") => {
+  const handleUpdate = (type: "inc" | "dec") => {
+    const minLimit = allowZero ? 0 : 1;
     const nextVal = type === "inc" ? quantity + 1 : quantity - 1;
 
-    // Boundary check using prop stock (now reliably fetched)
     if (type === "inc" && quantity >= stock) {
-      toast.warning("Item out of stock");
+      toast.warning(`Total stock limit of ${stock} reached`);
       return;
     }
 
-    if (nextVal >= 1) {
-      // 1. Immediate UI update (Optimistic)
+    if (nextVal >= minLimit) {
       if (variant_id) {
+        // Mode: Cart Item Update
         dispatch(updateCartItemQuantity({ variant_id, quantity: nextVal }));
-        // 2. Trigger async DB update using absolute value to avoid race conditions
         dispatch(setQuantity({ variant_id, quantity: nextVal }));
       } else if (onQuantityChange) {
+        // Mode: Local Selection (Detail Page)
         onQuantityChange(nextVal);
       }
     }
@@ -62,23 +64,23 @@ const QuantityInput = ({
     setInputValue(value);
 
     const numValue = parseInt(value, 10);
-    if (!isNaN(numValue) && numValue > 0) {
+    const minLimit = allowZero ? 0 : 1;
+
+    if (!isNaN(numValue) && numValue >= minLimit) {
       if (numValue > stock) {
-        toast.warning("Item out of stock");
+        toast.warning(`Quantity capped at available stock (${stock})`);
       }
       const finalValue = Math.min(numValue, stock);
 
-      // 1. Immediate UI update via synchronous Redux action
       if (variant_id) {
         dispatch(updateCartItemQuantity({ variant_id, quantity: finalValue }));
       }
 
-      // 2. Parent callback (if any)
       if (onQuantityChange) {
         onQuantityChange(finalValue);
       }
 
-      // 3. Debounced Database/GuestCart update
+      // Debounced persistence for cart items
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
         syncToDatabase(finalValue);
@@ -89,17 +91,17 @@ const QuantityInput = ({
 
   const handleBlur = () => {
     const numValue = parseInt(inputValue, 10);
+    const minLimit = allowZero ? 0 : 1;
     let finalValue = numValue;
 
-    if (isNaN(numValue) || numValue < 1) {
-      finalValue = 1;
+    if (isNaN(numValue) || numValue < minLimit) {
+      finalValue = minLimit;
     } else if (numValue > stock) {
       finalValue = stock;
     }
 
     setInputValue(String(finalValue));
 
-    // Force sync on blur if different
     if (finalValue !== quantity) {
       if (variant_id) {
         dispatch(updateCartItemQuantity({ variant_id, quantity: finalValue }));
@@ -110,18 +112,20 @@ const QuantityInput = ({
     }
   };
 
-  const maxReached = quantity >= stock;
+  const isAtMin = quantity <= (allowZero ? 0 : 1);
+  const isAtMax = quantity >= stock;
 
   return (
     <div
-      className={`flex items-center justify-between border border-gray-300 rounded-lg px-2 sm:px-4 py-2 ${maxWidth} transition-all`}
+      className={`flex items-center justify-between border border-gray-300 rounded-lg px-1 py-1 sm:px-4 sm:py-2 ${maxWidth} transition-all`}
     >
       <button
         type="button"
         onClick={() => handleUpdate("dec")}
-        className={`text-lg sm:text-xl font-medium focus:outline-none transition-colors ${quantity <= 1 ? "text-gray-300 !cursor-not-allowed" : "text-black hover:text-gray-600"
-          }`}
-        disabled={quantity <= 1}
+        className={`text-lg sm:text-xl font-medium focus:outline-none transition-colors ${
+          isAtMin ? "text-gray-300 cursor-not-allowed" : "text-black hover:text-gray-600"
+        }`}
+        disabled={isAtMin}
       >
         -
       </button>
@@ -130,13 +134,15 @@ const QuantityInput = ({
         value={inputValue}
         onChange={handleInputChange}
         onBlur={handleBlur}
-        className="text-sm sm:text-base font-semibold w-8 sm:w-12 text-center bg-transparent border-none focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        className="text-xs sm:text-base font-semibold w-8 sm:w-12 text-center bg-transparent border-none focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       />
       <button
         type="button"
         onClick={() => handleUpdate("inc")}
-        className={`text-lg sm:text-xl font-medium focus:outline-none transition-colors ${maxReached ? "text-gray-300 !cursor-not-allowed" : "text-black hover:text-gray-600"
-          }`}
+        className={`text-lg sm:text-xl font-medium focus:outline-none transition-colors ${
+          isAtMax ? "text-gray-300 cursor-not-allowed" : "text-black hover:text-gray-600"
+        }`}
+        disabled={isAtMax}
       >
         +
       </button>

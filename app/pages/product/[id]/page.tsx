@@ -1,24 +1,32 @@
-import { createClient } from "@/lib/supabase/server";
-import { cookies } from "next/headers";
 import ProductDetailContent from "@/sections/product/ProductDetailContent";
 import { Suspense } from "react";
 import { GallerySkeleton } from "@/components/ui/skeleton";
 import { mapProducts } from "@/store/slices/productSlice";
+import { publicSupabase } from "@/lib/supabase/public";
+
+export const revalidate = 60;
 
 export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
     const { id: idStr } = await params;
     const id = Number(idStr);
-    const cookieStore = cookies();
-    const supabase = createClient(cookieStore);
 
-    const { data: rawData, error: productError } = await supabase
-        .from("products")
-        .select(`
-            *,
-            product_variant (*)
-        `)
-        .eq("id", id)
-        .or("is_deleted.is.null,is_deleted.eq.false");
+    const [productRes, reviewRes] = await Promise.all([
+        publicSupabase
+            .from("products")
+            .select(`
+                *,
+                product_variant (*)
+            `)
+            .eq("id", id)
+            .or("is_deleted.is.null,is_deleted.eq.false"),
+        publicSupabase
+            .from("reviews")
+            .select("rating")
+            .eq("product_id", id)
+            .or("status.neq.spam,status.is.null")
+    ]);
+
+    const { data: rawData, error: productError } = productRes;
 
     if (productError || !rawData || rawData.length === 0) {
         return (
@@ -35,11 +43,8 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     const initialVariants = mapProducts(rawData);
     const initialProduct = initialVariants[0];
 
-    const { data: reviewData, error: reviewError } = await supabase
-        .from("reviews")
-        .select("rating")
-        .eq("product_id", id)
-        .or("status.neq.spam,status.is.null");
+    const reviewData = reviewRes.data;
+    const reviewError = reviewRes.error;
 
     const reviewRows = reviewData ?? [];
     const count = reviewRows.length;

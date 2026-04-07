@@ -67,17 +67,17 @@ const AddressForm = ({ address, submitLabel, isSaving, onSave, onCancel }: Addre
   ];
 
   return (
-    <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-lg mx-auto border border-gray-100 animate-in zoom-in-95 duration-200">
+    <div className="bg-white p-4 sm:p-8 rounded-2xl shadow-xl w-full max-w-lg mx-auto border border-gray-100 animate-in zoom-in-95 duration-200">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold tracking-tight">{submitLabel}</h2>
-        <button onClick={onCancel} className="text-gray-400 hover:text-black transition-colors">&times;</button>
+        <h2 className="text-lg sm:text-2xl font-bold tracking-tight">{submitLabel}</h2>
+        <button onClick={onCancel} className="text-gray-400 hover:text-black transition-colors text-2xl">&times;</button>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <div className="space-y-1.5">
           <label className="text-[10px] font-black uppercase text-gray-400 tracking-wider">Address Type</label>
           <select
-            className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:border-black focus:ring-1 focus:ring-black transition-all outline-none bg-gray-50/50"
+            className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:border-black focus:ring-1 focus:ring-black transition-all outline-none bg-gray-50/50 cursor-pointer"
             value={localAddress.addressType}
             onChange={(e) => setLocalAddress(prev => ({ ...prev, addressType: e.target.value as AddressKind }))}
           >
@@ -89,7 +89,7 @@ const AddressForm = ({ address, submitLabel, isSaving, onSave, onCancel }: Addre
         <div className="space-y-1.5">
           <label className="text-[10px] font-black uppercase text-gray-400 tracking-wider">Label</label>
           <select
-            className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:border-black focus:ring-1 focus:ring-black transition-all outline-none bg-gray-50/50"
+            className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:border-black focus:ring-1 focus:ring-black transition-all outline-none bg-gray-50/50 cursor-pointer"
             value={localAddress.addressLabel}
             onChange={(e) => setLocalAddress(prev => ({ ...prev, addressLabel: e.target.value as AddressLabel }))}
           >
@@ -98,7 +98,7 @@ const AddressForm = ({ address, submitLabel, isSaving, onSave, onCancel }: Addre
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs sm:text-sm">
         {fields.map((f) => (
           <div key={f.key} className={`space-y-1.5 ${f.fullWidth ? 'md:col-span-2' : ''}`}>
             <label className="text-[10px] font-black uppercase text-gray-400 tracking-wider">{f.label}</label>
@@ -121,20 +121,20 @@ const AddressForm = ({ address, submitLabel, isSaving, onSave, onCancel }: Addre
             checked={!!localAddress.isDefault}
             onChange={(e) => setLocalAddress(prev => ({ ...prev, isDefault: e.target.checked }))}
           />
-          <span className="text-sm font-semibold text-gray-600 group-hover:text-black transition-colors">Set as default address</span>
+          <span className="text-[11px] sm:text-sm font-semibold text-gray-600 group-hover:text-black transition-colors">Set as default address</span>
         </label>
       </div>
 
-      <div className="flex gap-3 mt-8">
+      <div className="flex flex-col sm:flex-row gap-3 mt-8">
         <button
-          className="flex-1 px-6 py-3 border border-gray-200 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all"
+          className="flex-1 px-6 py-3 border border-gray-200 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all sm:order-1"
           onClick={onCancel}
         >
           Cancel
         </button>
         <button
           disabled={isSaving}
-          className="flex-1 px-6 py-3 bg-black text-white rounded-xl font-bold text-sm hover:bg-gray-800 disabled:opacity-50 transition-all shadow-lg active:scale-95"
+          className="flex-1 px-6 py-3 bg-black text-white rounded-xl font-bold text-sm hover:bg-gray-800 disabled:opacity-50 transition-all shadow-lg active:scale-95 sm:order-2"
           onClick={() => onSave(localAddress)}
         >
           {isSaving ? "Saving..." : submitLabel.includes("Save") ? "Save Changes" : "Save Address"}

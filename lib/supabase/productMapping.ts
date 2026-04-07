@@ -1,5 +1,6 @@
 import { type ProductType } from '@/types/index'
 import { toStringArray, resolveVariantColor as toSingleColor } from '@/lib/utils/variantUtils'
+import { getEffectivePrice } from '@/constants/Data'
 
 export const isWithin7Days = (dateString?: string) => {
     if (!dateString) return false;
@@ -31,14 +32,20 @@ export const buildProductObject = (
 
     const variantIdFromDB = isVariant ? Number(v.id) : productId
 
-    return {
-        id: productId,
-        variant_id: variantIdFromDB,
-        name: String(p.name ?? "Unnamed Product"),
+    const { price: effectivePrice, oldPrice: effectiveOldPrice } = getEffectivePrice({
         price: isVariant ? Number(v.price ?? p.price ?? 0) : Number(p.price ?? 0),
         old_price: isVariant
             ? Number(v.old_price ?? p.old_price ?? p.oldPrice ?? 0)
             : Number(p.oldPrice ?? p.old_price ?? 0),
+        validationTill: String(p.validation_till ?? p.validationTill ?? "")
+    });
+
+    return {
+        id: productId,
+        variant_id: variantIdFromDB,
+        name: String(p.name ?? "Unnamed Product"),
+        price: effectivePrice,
+        old_price: effectiveOldPrice || 0,
         image: variantMainImage,
         validation_till: String(p.validation_till ?? p.validationTill ?? ""),
         description: String(p.description ?? ""),
@@ -52,6 +59,7 @@ export const buildProductObject = (
         size: String(p.size ?? ""),
         created_at: String(p.created_at ?? ""),
         is_new: isWithin7Days(p.created_at),
+        is_deleted: !!p.is_deleted,
         ...(isVariant && productVariants.length > 0 && { product_variant: productVariants }),
         thumbnails: variantThumbs,
     }

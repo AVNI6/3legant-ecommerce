@@ -50,7 +50,9 @@ export default function Wishlist() {
               <RxCross2 size={20} />
             </button>
             <Link href={`${APP_ROUTE.product}/${item.id}?variantId=${item.variant_id}`} className="flex items-center gap-4 text-left">
-              <img src={item.image} alt={item.name} className="w-16 h-16 object-cover rounded hover:scale-105" />
+              <div className="shrink-0 bg-[#F3F5F7] rounded overflow-hidden flex items-center justify-center">
+                <img src={item.image} alt={item.name} className="w-16 h-16 object-contain hover:scale-105 transition-transform mix-blend-multiply" />
+              </div>
               <div>
                 <p className="font-semibold hover:underline line-clamp-1">{item.name}</p>
                 <p className="text-gray-400 text-sm">Color: {item.color}</p>

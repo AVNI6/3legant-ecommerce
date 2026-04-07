@@ -8,19 +8,9 @@ import { contact } from "@/constants/Data"
 import ContactFeature from "@/components/contactFeature";
 import MapPage from "@/components/MapPage";
 import BlackShopButton from "@/components/blackbutton";
-import link from "next/link";
 import { APP_ROUTE } from "@/constants/AppRoutes";
 
 const ContactUs = async () => {
-    const cookieStore = cookies();
-    const supabase = createClient(cookieStore);
-
-    const { data: hundredsBanner } = await supabase
-        .from("banners")
-        .select("*")
-        .eq("key", "home_hundreds")
-        .eq("is_active", true)
-        .single();
 
     return (
         <div>
@@ -74,7 +64,7 @@ const ContactUs = async () => {
 
                     <section className="w-full py-6 min-[375px]:py-8 sm:py-12">
                         <div className="">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 min-[375px]:gap-4 sm:gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 min-[375px]:gap-4 sm:gap-6">
                                 {contact.map((item, index) => (
                                     <div key={index} className="h-auto sm:h-[156px] bg-gray-100 rounded-lg flex flex-col gap-1 min-[375px]:gap-2 items-center justify-center text-center px-3 min-[375px]:px-4 sm:px-6 py-4 min-[375px]:py-6 sm:py-0">
                                         <div className="text-xl min-[375px]:text-2xl sm:text-3xl mb-1 min-[375px]:mb-3 text-gray-800">

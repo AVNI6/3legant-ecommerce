@@ -121,6 +121,14 @@ export async function POST(request: Request) {
       variant_id: item.variant_id || item.variantId || null
     }));
 
+    const orderSnapshot = {
+      items: resolvedCartSnapshot,
+      shipping_method: shippingMethod,
+      shipping_cost: shippingAmount,
+      shipping_address: shippingAddress || {},
+      billing_address: billingAddress || null,
+    };
+
     if (!items || items.length === 0 || !successUrl || !cancelUrl || !resolvedCartSnapshot.length) {
       return NextResponse.json({ error: "Missing checkout payload" }, { status: 400 });
     }
@@ -218,6 +226,27 @@ export async function POST(request: Request) {
     let effectiveDiscountMinor = Math.max(0, Math.round(discountAmount * 100));
 
     if (couponCode) {
+      const { data: alreadyUsedOrders, error: alreadyUsedError } = await supabase
+        .from("orders")
+        .select("id")
+        .eq("user_id", metadata.userId)
+        .eq("coupon_code", couponCode.toUpperCase())
+        .in("status", [
+          OrderStatus.CONFIRMED,
+          OrderStatus.PROCESSING,
+          OrderStatus.SHIPPED,
+          OrderStatus.DELIVERED,
+        ])
+        .limit(1);
+
+      if (alreadyUsedError) {
+        return NextResponse.json({ error: "Failed to validate coupon history" }, { status: 500 });
+      }
+
+      if (alreadyUsedOrders && alreadyUsedOrders.length > 0) {
+        return NextResponse.json({ error: "You have already used this coupon" }, { status: 400 });
+      }
+
       const { data: couponRow, error: couponError } = await supabase
         .from("coupons")
         .select("code, active, discount_type, discount_value, min_order, expires_at, usage_limit, usage_count")
@@ -309,6 +338,22 @@ export async function POST(request: Request) {
       0
     );
 
+    if (stripeTotal <= 0) {
+      return NextResponse.json(
+        { error: "Payable amount must be greater than zero after discounts." },
+        { status: 400 }
+      );
+    }
+
+    // Stripe requires at least ~USD 0.50 equivalent. For INR this is roughly Rs 50.
+    // stripeTotal is in minor units, so Rs 50 == 5000 paise.
+    if (paymentMethod === "upi" && stripeTotal < 5000) {
+      return NextResponse.json(
+        { error: "UPI checkout requires a minimum payable amount of Rs 50. Please increase cart total or reduce discount." },
+        { status: 400 }
+      );
+    }
+
     if (typeof totalAmount === "number") {
       const expectedTotal = Math.max(0, Math.round(totalAmount * 100));
 
@@ -346,11 +391,7 @@ export async function POST(request: Request) {
         .from("orders")
         .update({
           total_price: finalTotalPrice,
-          items_snapshot: {
-            items: resolvedCartSnapshot,
-            shipping_method: shippingMethod,
-            shipping_cost: shippingAmount,
-          },
+          items_snapshot: orderSnapshot,
           shipping_address: shippingAddress || {},
           billing_address: billingAddress || null,
           payment_method: paymentMethod,
@@ -372,11 +413,7 @@ export async function POST(request: Request) {
           user_id: metadata.userId,
           total_price: finalTotalPrice,
           status: OrderStatus.PENDING,
-          items_snapshot: {
-            items: resolvedCartSnapshot,
-            shipping_method: shippingMethod,
-            shipping_cost: shippingAmount,
-          },
+          items_snapshot: orderSnapshot,
           shipping_address: shippingAddress || {},
           billing_address: billingAddress || null,
           payment_method: paymentMethod,
@@ -444,6 +481,7 @@ export async function POST(request: Request) {
         billingAddress,
         couponCode,
         shippingMethod,
+        orderSnapshot,
       },
     });
 
@@ -458,10 +496,11 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("Stripe checkout error:", error);
+    const message = error instanceof Error ? error.message : "Stripe checkout failed";
 
     if (
       error instanceof Stripe.errors.StripeInvalidRequestError &&
-      error.message.toLowerCase().includes("upi")
+      message.toLowerCase().includes("upi")
     ) {
       return NextResponse.json(
         { error: "UPI is not enabled in your Stripe account. Enable it in Stripe Dashboard > Payment methods." },
@@ -469,8 +508,15 @@ export async function POST(request: Request) {
       );
     }
 
+    if (message.toLowerCase().includes("upi")) {
+      return NextResponse.json(
+        { error: `UPI checkout failed: ${message}` },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
-      { error: "Stripe checkout failed" },
+      { error: `Stripe checkout failed: ${message}` },
       { status: 500 }
     );
   }

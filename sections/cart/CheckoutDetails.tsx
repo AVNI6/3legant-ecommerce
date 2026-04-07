@@ -1,21 +1,17 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState, useMemo, useRef } from "react"
 import { useForm } from "react-hook-form"
 import { APP_ROUTE } from "@/constants/AppRoutes"
-import { formatCurrency } from "@/constants/Data"
-import { RxCross2 } from "react-icons/rx"
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { removeFromCart, setActiveStep, setShipping } from "@/store/slices/cartSlice";
+import { setShipping } from "@/store/slices/cartSlice";
 import { fetchAddresses, selectAddresses } from "@/store/slices/addressSlice";
 import { CheckoutDetailSkeleton } from "@/components/ui/skeleton";
 import { Address, CartItem } from "@/types";
-import QuantityInput from "@/components/QuantityInput";
 import { validateCoupon, removeCoupon, fetchAvailableCoupons } from "@/store/slices/couponSlice";
 import { supabase } from "@/lib/supabase/client"
-import { RiCoupon4Line, RiDiscountPercentLine } from "react-icons/ri"
+import Link from "next/link";
 import { toast } from "react-toastify"
-import { AddressType } from "@/types/enums";
 import { useSessionStorage } from "@/lib/hooks/useSessionStorage";
 
 import CheckoutForm from "./CheckoutForm";
@@ -58,16 +54,63 @@ const LOCATION_OPTIONS = {
 
 type CountryKey = keyof typeof LOCATION_OPTIONS;
 
+type ShippingMethod = {
+  id: number;
+  name: string;
+  type: "fixed" | "percentage";
+  price: number | null;
+  percentage: number | null;
+};
+
+const SHIPPING_METHODS_CACHE_KEY = "shipping-methods-cache-v1";
+const SHIPPING_METHODS_CACHE_TTL_MS = 1000 * 60 * 10;
+
+const readShippingMethodsCache = (): ShippingMethod[] => {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(SHIPPING_METHODS_CACHE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as { ts?: number; methods?: ShippingMethod[] };
+    if (!parsed?.ts || !Array.isArray(parsed.methods)) return [];
+    if (Date.now() - parsed.ts > SHIPPING_METHODS_CACHE_TTL_MS) return [];
+    return parsed.methods;
+  } catch {
+    return [];
+  }
+};
+
+const writeShippingMethodsCache = (methods: ShippingMethod[]) => {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(
+      SHIPPING_METHODS_CACHE_KEY,
+      JSON.stringify({ ts: Date.now(), methods })
+    );
+  } catch {
+    // Non-critical cache write failure.
+  }
+};
+
+type SavedCheckoutAddress = {
+  id?: string;
+  firstName?: string;
+  lastName?: string;
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  street?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
+  address_label?: string;
+  address_type?: string;
+  is_default?: boolean;
+};
+
 const getStateOptions = (country?: string) => {
   const normalizedCountry = (country || "").toLowerCase() as CountryKey;
   return LOCATION_OPTIONS[normalizedCountry]?.states ?? [];
-};
-
-const getCityOptions = (country?: string, state?: string) => {
-  const normalizedCountry = (country || "").toLowerCase() as CountryKey;
-  const citiesByState = LOCATION_OPTIONS[normalizedCountry]?.cities;
-  if (!citiesByState || !state) return [];
-  return citiesByState[state as keyof typeof citiesByState] ?? [];
 };
 
 function CheckoutDetail() {
@@ -76,6 +119,11 @@ function CheckoutDetail() {
   const cartItems = useAppSelector((state: any) => state.cart.items);
   const shippingCost = useAppSelector((state: any) => state.cart.shippingCost);
   const selectedShipping = useAppSelector((state: any) => state.cart.selectedShipping);
+  const [shippingMethods, setShippingMethods] = useState<ShippingMethod[]>(() => {
+    const cached = readShippingMethodsCache();
+    if (cached.length > 0) return cached;
+    return [{ id: 1, name: "Free Shipping", type: "fixed", price: 0, percentage: null }];
+  });
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -104,8 +152,10 @@ function CheckoutDetail() {
   const discountAmount = coupon ? coupon.discount : 0;
   const total = subtotal + shippingCost - discountAmount;
 
-  const handleRemoveItem = (variantId: number) => dispatch(removeFromCart(variantId));
-  const handleRemoveCoupon = () => dispatch(removeCoupon());
+  const computeShippingCost = (method: ShippingMethod, baseSubtotal: number) => {
+    if (method.type === "fixed") return Number(method.price ?? 0);
+    return Number(baseSubtotal) * Number(method.percentage ?? 0);
+  };
 
   const revalidateAppliedCoupon = async () => {
     if (coupon) {
@@ -132,7 +182,7 @@ function CheckoutDetail() {
     register,
     handleSubmit,
     watch,
-    setValue,
+    getValues,
     reset,
     formState: { errors },
   } = useForm<CheckoutFormData>()
@@ -141,21 +191,92 @@ function CheckoutDetail() {
   const [loading, setLoading] = useState(false);
   const [draftHydrated, setDraftHydrated] = useState(false);
   const [checkoutDraft, setCheckoutDraft] = useSessionStorage<Partial<CheckoutFormData>>("checkout-form-draft", {});
-  const differentBilling = watch("differentBilling");
   const [code, setCode] = useState("")
+  const lastCouponValidationKeyRef = useRef<string | null>(null);
   const shippingCountry = watch("country");
-  const shippingState = watch("state");
   const billingCountry = watch("billingCountry") || shippingCountry;
-  const billingState = watch("billingState");
 
   const shippingStateOptions = getStateOptions(shippingCountry);
-  const shippingCityOptions = getCityOptions(shippingCountry, shippingState);
   const billingStateOptions = getStateOptions(billingCountry);
-  const billingCityOptions = getCityOptions(billingCountry, billingState);
+  const shippingAddressPreview = {
+    firstName: watch("firstName"),
+    lastName: watch("lastName"),
+    phone: watch("phone"),
+    street: watch("street"),
+    city: watch("city"),
+    state: watch("state"),
+    zip: watch("zip"),
+    country: watch("country"),
+  };
+
+  const hydrationRef = useRef(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadShippingMethods = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("shipping_methods")
+          .select("id, name, type, price, percentage")
+          .order("id", { ascending: true });
+
+        if (error) throw error;
+
+        if (mounted && data && data.length > 0) {
+          const methods = data as ShippingMethod[];
+
+          if (selectedShipping && !methods.some((method) => method.name === selectedShipping.name)) {
+            methods.push({
+              id: -1,
+              name: selectedShipping.name,
+              type: "fixed",
+              price: selectedShipping.cost,
+              percentage: null,
+            });
+          }
+
+          setShippingMethods(methods);
+          writeShippingMethodsCache(methods);
+        }
+      } catch (err) {
+        console.error("[CHECKOUT] Failed to load shipping methods:", err);
+      }
+    };
+
+    void loadShippingMethods();
+
+    return () => {
+      mounted = false;
+    };
+  }, [selectedShipping]);
+
+  useEffect(() => {
+    if (!shippingMethods.length) return;
+
+    const selectedName = selectedShipping?.name;
+    const selectedMethod = selectedName
+      ? shippingMethods.find((method) => method.name === selectedName)
+      : shippingMethods[0];
+
+    // Keep user's cart-selected method until full method list arrives.
+    if (selectedName && !selectedMethod) return;
+
+    if (!selectedMethod) return;
+
+    const nextShippingCost = computeShippingCost(selectedMethod, subtotal);
+    if (
+      !selectedShipping ||
+      selectedShipping.name !== selectedMethod.name ||
+      selectedShipping.cost !== nextShippingCost
+    ) {
+      dispatch(setShipping({ name: selectedMethod.name, cost: nextShippingCost }));
+    }
+  }, [dispatch, selectedShipping, shippingMethods, subtotal]);
 
   // SMART CONSOLIDATED INITIALIZATION: Syncs with Account changes and detects ID switches
   useEffect(() => {
-    if (!isMounted || addressLoading || authLoading) return;
+    if (!isMounted || addressLoading || authLoading || hydrationRef.current) return;
 
     const draftHasData = hasPendingCheckoutData(checkoutDraft);
 
@@ -177,6 +298,7 @@ function CheckoutDetail() {
       if (!draftHydrated) {
         reset(checkoutDraft as CheckoutFormData, { keepDefaultValues: true });
         setDraftHydrated(true);
+        hydrationRef.current = true; // 🛡️ LOCK: Only hydrate once
       }
       return;
     }
@@ -201,14 +323,16 @@ function CheckoutDetail() {
       // Update session storage immediately to reflect the new source ID
       setCheckoutDraft(finalData);
       setDraftHydrated(true);
+      hydrationRef.current = true; // 🛡️ LOCK: Only hydrate once
     } else {
       if (!draftHydrated) {
         setDraftHydrated(true);
+        hydrationRef.current = true;
       }
     }
   }, [isMounted, addressLoading, authLoading, addresses, checkoutDraft, user?.email, reset, draftHydrated]);
 
-  // Save progress only AFTER initialization is complete
+  // 💾 SAVE PROGRESS (Debounced for performance)
   useEffect(() => {
     if (!draftHydrated) return;
 
@@ -216,7 +340,9 @@ function CheckoutDetail() {
       setCheckoutDraft(value as Partial<CheckoutFormData>);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [watch, setCheckoutDraft, draftHydrated]);
 
   // Always dispatch - let the thunk decide if it should actually fetch based on cache
@@ -230,16 +356,55 @@ function CheckoutDetail() {
     dispatch(fetchAvailableCoupons());
   }, [dispatch]);
 
-  // Revalidate coupon on subtotal change
+  // Revalidate coupon only when coupon code + subtotal pair changes.
   useEffect(() => {
-    if (coupon) {
-      dispatch(validateCoupon({ code: coupon.code, subtotal }));
+    if (!coupon?.code) {
+      lastCouponValidationKeyRef.current = null;
+      return;
     }
-  }, [subtotal, dispatch]);
+
+    const nextValidationKey = `${coupon.code}:${subtotal}`;
+    if (lastCouponValidationKeyRef.current === nextValidationKey) {
+      return;
+    }
+
+    lastCouponValidationKeyRef.current = nextValidationKey;
+    void dispatch(validateCoupon({ code: coupon.code, subtotal }));
+  }, [coupon?.code, subtotal, dispatch]);
 
   const handleApplyCoupon = async () => {
     if (!code) return;
     await dispatch(validateCoupon({ code, subtotal }));
+  };
+
+  const handleRemoveCoupon = () => {
+    dispatch(removeCoupon());
+    setCode("");
+    lastCouponValidationKeyRef.current = null;
+  };
+
+  const handleShippingMethodChange = (method: ShippingMethod) => {
+    dispatch(setShipping({ name: method.name, cost: computeShippingCost(method, subtotal) }));
+  };
+
+  const handleShippingAddressChange = (address: SavedCheckoutAddress) => {
+    const currentValues = getValues();
+    const nextValues: CheckoutFormData = {
+      ...currentValues,
+      firstName: address.firstName || address.first_name || currentValues.firstName || "",
+      lastName: address.lastName || address.last_name || currentValues.lastName || "",
+      phone: address.phone || currentValues.phone || "",
+      street: address.street || currentValues.street || "",
+      city: address.city || currentValues.city || "",
+      state: address.state || currentValues.state || "",
+      zip: address.zip || currentValues.zip || "",
+      country: (address.country || currentValues.country || "").toLowerCase(),
+      sourceAddressId: address.id,
+      email: currentValues.email || user?.email || checkoutDraft.email || "",
+    };
+
+    reset(nextValues, { keepDefaultValues: true });
+    setCheckoutDraft(nextValues);
   };
 
   const buildBillingAddress = (data: CheckoutFormData) => ({
@@ -269,6 +434,9 @@ function CheckoutDetail() {
     if (!user?.id) return toast.error("You must be logged in to continue");
     if (payment === "upi" && data.country?.toLowerCase() !== "india") {
       return toast.error("UPI is only available for India");
+    }
+    if (payment === "upi" && total < 50) {
+      return toast.error("UPI checkout requires a minimum payable amount of Rs 50");
     }
 
     if (coupon) {
@@ -368,37 +536,62 @@ function CheckoutDetail() {
   };
   const [isOffersOpen, setIsOffersOpen] = useState(false);
 
-  if (!isMounted) {
+  if (!isMounted || authLoading || (cartLoading && cartItems.length === 0)) {
     return <CheckoutDetailSkeleton />;
   }
 
   return (
     <form onSubmit={handleSubmit(handleCheckout)} onKeyDown={handleFormKeyDown}>
-      <div className="flex flex-col lg:flex-row gap-4 min-[375px]:gap-6 lg:gap-6 xl:gap-10 px-3 min-[375px]:px-5 sm:px-10 lg:px-10 xl:px-30 items-start my-4 min-[375px]:my-6 sm:my-10">
-        <CheckoutForm
-          register={register}
-          errors={errors}
-          watch={watch}
-          shippingStateOptions={shippingStateOptions}
-          billingStateOptions={billingStateOptions}
-          loading={loading}
-          isSyncing={isSyncing}
-        />
-        <CheckoutOrderSummary
-          cartItems={cartItems}
-          subtotal={subtotal}
-          shippingCost={shippingCost}
-          total={total}
-          coupon={coupon}
-          couponMessage={couponMessage}
-          suggestions={suggestions}
-          code={code}
-          setCode={setCode}
-          handleApplyCoupon={handleApplyCoupon}
-          isOffersOpen={isOffersOpen}
-          setIsOffersOpen={setIsOffersOpen}
-        />
-      </div>
+      {cartItems.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 w-full text-center space-y-6">
+          <div className="space-y-2">
+            <h2 className="text-3xl font-bold text-gray-900 line-clamp-1">No products added</h2>
+            <p className="text-gray-500 max-w-md mx-auto">
+              Your checkout list is currently empty. Please add some items to your cart before proceeding to payment.
+            </p>
+          </div>
+          <Link
+            href="/pages/product"
+            className="bg-black text-white px-10 py-4 rounded-xl font-bold hover:bg-gray-800 transition shadow-lg hover:scale-105 active:scale-95"
+          >
+            Go to Shop
+          </Link>
+        </div>
+      ) : (
+        <div className="flex flex-col lg:flex-row gap-4 min-[375px]:gap-6 lg:gap-6 xl:gap-10 px-3 min-[375px]:px-5 sm:px-10 lg:px-10 xl:px-30 items-start my-4 min-[375px]:my-6 sm:my-10">
+          <CheckoutForm
+            register={register}
+            errors={errors}
+            watch={watch}
+            shippingStateOptions={shippingStateOptions}
+            billingStateOptions={billingStateOptions}
+            loading={loading}
+            isSyncing={isSyncing}
+          />
+          <CheckoutOrderSummary
+            cartItems={cartItems}
+            subtotal={subtotal}
+            shippingCost={shippingCost}
+            total={total}
+            shippingMethods={shippingMethods}
+            selectedShipping={selectedShipping}
+            addresses={addresses as SavedCheckoutAddress[]}
+            shippingAddress={shippingAddressPreview}
+            selectedAddressId={checkoutDraft.sourceAddressId}
+            onShippingMethodChange={handleShippingMethodChange}
+            onShippingAddressChange={handleShippingAddressChange}
+            coupon={coupon}
+            couponMessage={couponMessage}
+            suggestions={suggestions}
+            code={code}
+            setCode={setCode}
+            handleApplyCoupon={handleApplyCoupon}
+            handleRemoveCoupon={handleRemoveCoupon}
+            isOffersOpen={isOffersOpen}
+            setIsOffersOpen={setIsOffersOpen}
+          />
+        </div>
+      )}
     </form>
   );
 }

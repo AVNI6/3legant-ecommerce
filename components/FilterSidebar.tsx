@@ -1,6 +1,5 @@
 "use client"
 import { APP_ROUTE } from "@/constants/AppRoutes"
-import { useRouter } from "next/navigation"
 import React from "react"
 
 type FilterBarProps = {
@@ -28,8 +27,6 @@ const FilterSidebar: React.FC<FilterBarProps> = ({
     selectedPrice,
     setSelectedPrice,
 }) => {
-    const router = useRouter();
-
     return (
         <div className="sticky top-22 flex flex-col gap-8 ">
             <div className="overflow-y-auto h-50">
@@ -42,7 +39,7 @@ const FilterSidebar: React.FC<FilterBarProps> = ({
                                 setSelectedCategory(cat);
                                 const params = new URLSearchParams(window.location.search);
                                 params.set("category", cat);
-                                router.push(`${APP_ROUTE.product}?${params.toString()}`);
+                                window.history.replaceState({}, "", `${APP_ROUTE.product}?${params.toString()}`);
                             }}
 
 

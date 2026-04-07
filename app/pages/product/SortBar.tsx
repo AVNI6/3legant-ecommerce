@@ -6,7 +6,7 @@ import { IoGridSharp } from "react-icons/io5";
 import { PiColumnsFill, PiRowsFill } from "react-icons/pi";
 import { IoIosArrowDown, IoIosArrowUp } from "react-icons/io";
 import { formatCurrency } from "@/constants/Data";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { APP_ROUTE } from "@/constants/AppRoutes";
 
 type Props = {
@@ -55,7 +55,6 @@ const SortBar = ({
     setMounted(true);
   }, []);
   const searchParams = useSearchParams();
-  const router = useRouter();
 
   useEffect(() => {
     const categoryFromURL = searchParams.get("category");
@@ -68,7 +67,7 @@ const SortBar = ({
     setSelectedCategory(value);
     const params = new URLSearchParams(window.location.search);
     params.set("category", value);
-    router.push(`${APP_ROUTE.product}?${params.toString()}`);
+    window.history.replaceState({}, "", `${APP_ROUTE.product}?${params.toString()}`);
   };
 
 
@@ -88,7 +87,7 @@ const SortBar = ({
               <select
                 value={selectedCategory}
                 onChange={(e) => handleCategoryChange(e.target.value)}
-                className="w-full border border-gray-300 px-4 py-2.5 rounded-lg appearance-none focus:outline-none focus:border-black text-sm font-semibold"
+                className="w-full border border-gray-300 px-4 py-2.5 rounded-lg appearance-none focus:outline-none focus:border-black text-sm font-semibold cursor-pointer"
               >
                 {categories.map((category) => (
                   <option key={category} value={category}>
@@ -110,7 +109,7 @@ const SortBar = ({
               <select
                 value={selectedPrice.length === 1 ? selectedPrice[0] : selectedPrice.includes("all") ? "all" : "multiple"}
                 onChange={(e) => setSelectedPrice(e.target.value)}
-                className="w-full border border-gray-300 px-4 py-2.5 rounded-lg appearance-none focus:outline-none focus:border-black text-sm font-semibold"
+                className="w-full border border-gray-300 px-4 py-2.5 rounded-lg appearance-none focus:outline-none focus:border-black text-sm font-semibold cursor-pointer"
               >
                 <option value="all">All Price</option>
                 {selectedPrice.length > 1 && !selectedPrice.includes("all") && (
@@ -132,10 +131,9 @@ const SortBar = ({
         </div>
       )}
 
-      {/* Right Section: Sort and Grid */}
       <div className="flex flex-col min-[347px]:flex-row items-start min-[347px]:items-center justify-between lg:justify-end gap-4 min-[347px]:gap-8 w-full lg:w-auto mt-2 min-[347px]:h-[42px]">
         <div className="relative flex items-center gap-2">
-          <span className="text-sm font-bold text-black whitespace-nowrap">Sort by</span>
+
           <div className="relative">
             <select
               value={sort}
@@ -144,7 +142,7 @@ const SortBar = ({
               onBlur={() => setIsSortOpen(false)}
               className="appearance-none cursor-pointer focus:outline-none pr-6 pl-1 py-1 text-sm font-bold bg-transparent"
             >
-              <option value="default">Default</option>
+              <option value="default">Sort by</option>
               <option value="newest">Newest</option>
               <option value="low">Price: Low to High</option>
               <option value="high">Price: High to Low</option>
@@ -170,9 +168,6 @@ const SortBar = ({
             className={`p-2 flex-1 min-[347px]:flex-none transition-colors hidden lg:flex items-center justify-center ${grid === "two" ? "bg-gray-100 text-black" : "text-gray-400 hover:text-black"}`}
             title="4 Columns"
           >
-            {/* 
-                 className={`p-2 transition-colors hidden lg:block ${grid === "one" ? "bg-gray-100 text-black" : "text-gray-400 hover:text-black"}`}
-               className={`p-2 transition-colors hidden lg:block ${grid === "two" ?  */}
             <IoGridSharp className="text-xl mx-auto" />
           </button>
           <button

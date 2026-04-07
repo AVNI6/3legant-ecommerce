@@ -23,6 +23,32 @@ type ShippingMethod = {
 	percentage: number | null
 }
 
+const SHIPPING_METHODS_CACHE_KEY = "shipping-methods-cache-v1"
+const SHIPPING_METHODS_CACHE_TTL_MS = 1000 * 60 * 10
+
+const readShippingMethodsCache = (): ShippingMethod[] => {
+	if (typeof window === "undefined") return []
+	try {
+		const raw = localStorage.getItem(SHIPPING_METHODS_CACHE_KEY)
+		if (!raw) return []
+		const parsed = JSON.parse(raw) as { ts?: number; methods?: ShippingMethod[] }
+		if (!parsed?.ts || !Array.isArray(parsed.methods)) return []
+		if (Date.now() - parsed.ts > SHIPPING_METHODS_CACHE_TTL_MS) return []
+		return parsed.methods
+	} catch {
+		return []
+	}
+}
+
+const writeShippingMethodsCache = (methods: ShippingMethod[]) => {
+	if (typeof window === "undefined") return
+	try {
+		localStorage.setItem(SHIPPING_METHODS_CACHE_KEY, JSON.stringify({ ts: Date.now(), methods }))
+	} catch {
+		// Non-critical cache write failure.
+	}
+}
+
 export default function ShoppingCart() {
 	const dispatch = useAppDispatch()
 	const { items: cartItems, loading } = useAppSelector((state: any) => state.cart)
@@ -31,10 +57,14 @@ export default function ShoppingCart() {
 	const selectedShipping = useAppSelector((state: any) => state.cart.selectedShipping)
 
 	// Shipping Methods State with fallback defaults
-	const [shippingMethods, setShippingMethods] = useState<ShippingMethod[]>([
-		{ id: 1, name: "Free Shipping", type: "fixed", price: 0, percentage: null },
-		{ id: 2, name: "Express Shipping", type: "fixed", price: 15, percentage: null },
-	])
+	const [shippingMethods, setShippingMethods] = useState<ShippingMethod[]>(() => {
+		const cached = readShippingMethodsCache()
+		if (cached.length > 0) return cached
+		return [
+			{ id: 1, name: "Free Shipping", type: "fixed", price: 0, percentage: null },
+			{ id: 2, name: "Express Shipping", type: "fixed", price: 15, percentage: null },
+		]
+	})
 
 	const [isMounted, setIsMounted] = useState(false)
 	const [code, setCode] = useState("")
@@ -57,6 +87,7 @@ export default function ShoppingCart() {
 				if (mounted && data && data.length > 0) {
 					const methods = data as ShippingMethod[];
 					setShippingMethods(methods);
+					writeShippingMethodsCache(methods);
 
 					// 🚀 FORCED DEFAULT: Ensure 'Free Shipping' is always the first choice for a fresh user
 					if (!selectedShipping) {
@@ -160,14 +191,11 @@ export default function ShoppingCart() {
 								key={item.variant_id}>
 								<div className="flex flex-col min-[196px]:flex-row lg:grid lg:grid-cols-[2.5fr_1.2fr_1fr_1fr] xl:grid-cols-[3fr_1fr_1fr_1fr] items-center gap-2 min-[375px]:gap-4 py-3 min-[375px]:py-4 md:py-6 lg:py-6 w-full border-b border-gray-100 last:border-b-0">
 									<div className="flex max-[195px]:flex-col flex-row lg:col-span-1 items-center gap-3 min-[375px]:gap-4 w-full lg:w-auto">
-										<Link
-											href={`${APP_ROUTE.product}/${item.id}?variantId=${item.variant_id}`}
-											className="shrink-0 max-[195px]:w-full"
-										>
+										<Link href={`${APP_ROUTE.product}/${item.id}?variantId=${item.variant_id}`} className="shrink-0 bg-[#F3F5F7] rounded overflow-hidden flex items-center justify-center">
 											<img
 												src={item.image}
 												alt={item.name}
-												className="w-14 h-14 min-[196px]:w-16 min-[196px]:h-16 sm:w-24 sm:h-24 lg:w-20 lg:h-20 object-cover rounded max-[195px]:w-full"
+												className="w-14 h-14 min-[196px]:w-16 min-[196px]:h-16 sm:w-24 sm:h-24 lg:w-20 lg:h-20 object-contain max-[195px]:w-full mix-blend-multiply"
 											/>
 										</Link>
 										<div className="flex flex-col flex-1 gap-1 min-w-0 max-[195px]:hidden">
@@ -191,6 +219,7 @@ export default function ShoppingCart() {
 													quantity={item.quantity}
 													variant_id={item.variant_id}
 													stock={item.stock}
+													allowZero={true}
 													maxWidth="w-[70px] min-[375px]:w-20 sm:w-24"
 												/>
 												<button

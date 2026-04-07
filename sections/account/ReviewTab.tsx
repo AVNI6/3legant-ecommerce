@@ -219,7 +219,7 @@ export default function ReviewTab({
   if (loading) return <ReviewSkeleton />;
 
   return (
-    <div className="mt-6 sm:mt-10 md:mt-12 lg:mt-14 px-3 sm:px-4 md:px-6 lg:px-0">
+    <div className="mt-6 sm:mt-10 md:mt-12 lg:mt-14">
       <div className="flex flex-col gap-3 sm:gap-4 mb-6 sm:mb-8">
         <h1 className="font-poppins font-medium text-xl sm:text-2xl md:text-3xl lg:text-[32px] text-[#141718] tracking-tight">
           Customer Reviews
