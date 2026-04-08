@@ -39,12 +39,38 @@ const renderer = ({
 };
 
 const OfferCountdown: React.FC<Props> = ({ validationTill }) => {
+  const [mounted, setMounted] = React.useState(false);
   const endDate = new Date(validationTill).getTime();
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <div suppressHydrationWarning className="w-full">
       <p className="text-sm sm:text-base text-gray-700 font-medium mb-1">Offer expires in:</p>
-      <Countdown date={endDate} renderer={renderer} />
+      {mounted ? (
+        <Countdown date={endDate} renderer={renderer} />
+      ) : (
+        <div className="flex flex-wrap gap-2 sm:gap-3 md:gap-4 mt-2 sm:mt-3" suppressHydrationWarning>
+          <div className="flex flex-col items-center">
+            <div className="bg-[#F3F5F7] rounded-md px-2 py-2 sm:px-3 sm:py-2 md:px-4 md:py-3 min-w-[44px] sm:min-w-[52px] md:min-w-[64px] text-center font-semibold text-base sm:text-xl md:text-2xl">--</div>
+            <div className="text-center mt-1 sm:mt-1.5 text-[0.65rem] sm:text-xs md:text-sm text-[#6C7275]">Days</div>
+          </div>
+          <div className="flex flex-col items-center">
+            <div className="bg-[#F3F5F7] rounded-md px-2 py-2 sm:px-3 sm:py-2 md:px-4 md:py-3 min-w-[44px] sm:min-w-[52px] md:min-w-[64px] text-center font-semibold text-base sm:text-xl md:text-2xl">--</div>
+            <div className="text-center mt-1 sm:mt-1.5 text-[0.65rem] sm:text-xs md:text-sm text-[#6C7275]">Hours</div>
+          </div>
+          <div className="flex flex-col items-center">
+            <div className="bg-[#F3F5F7] rounded-md px-2 py-2 sm:px-3 sm:py-2 md:px-4 md:py-3 min-w-[44px] sm:min-w-[52px] md:min-w-[64px] text-center font-semibold text-base sm:text-xl md:text-2xl">--</div>
+            <div className="text-center mt-1 sm:mt-1.5 text-[0.65rem] sm:text-xs md:text-sm text-[#6C7275]">Minutes</div>
+          </div>
+          <div className="flex flex-col items-center">
+            <div className="bg-[#F3F5F7] rounded-md px-2 py-2 sm:px-3 sm:py-2 md:px-4 md:py-3 min-w-[44px] sm:min-w-[52px] md:min-w-[64px] text-center font-semibold text-base sm:text-xl md:text-2xl">--</div>
+            <div className="text-center mt-1 sm:mt-1.5 text-[0.65rem] sm:text-xs md:text-sm text-[#6C7275]">Seconds</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -17,6 +17,26 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
     }
 
     const currentPage = parseInt(sp.page || "1", 10)
+    const PAGE_SIZE = 10
+    const from = (currentPage - 1) * PAGE_SIZE
+    const to = from + PAGE_SIZE - 1
+
+    const { data: ordersData, error: ordersError, count } = await supabase
+        .from("orders")
+        .select(`
+            id, user_id, total_price, status, order_date, shipping_address,
+            payment_method, billing_address, items_snapshot, invoice_url,
+            invoice_sent_at, refund_status, refund_amount, refund_reason,
+            discount_amount, coupon_code, admin_note,
+            order_items ( id, product_id, price, quantity, color, variant_id )
+        `, { count: "exact" })
+        .eq("user_id", user.id)
+        .order("order_date", { ascending: false })
+        .range(from, to)
+
+    if (ordersError) {
+        console.error("Failed to fetch server-side orders:", ordersError)
+    }
 
     let refundWindowDays = DEFAULT_REFUND_WINDOW_DAYS
     try {
@@ -40,6 +60,8 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
             userId={user.id}
             currentPage={currentPage}
             refundWindowDays={refundWindowDays}
+            initialOrders={(ordersData as any[]) || []}
+            initialTotalCount={count || 0}
         />
     )
 }

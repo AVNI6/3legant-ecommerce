@@ -220,7 +220,7 @@ export default function ShoppingCart() {
 													variant_id={item.variant_id}
 													stock={item.stock}
 													allowZero={true}
-													maxWidth="w-[70px] min-[375px]:w-20 sm:w-24"
+													maxWidth="w-20 sm:w-24"
 												/>
 												<button
 													onClick={() => dispatch(removeFromCart(item.variant_id))}
@@ -258,6 +258,7 @@ export default function ShoppingCart() {
 											quantity={item.quantity}
 											variant_id={item.variant_id}
 											stock={item.stock}
+											allowZero={true}
 											maxWidth="w-[85px] xl:w-28"
 										/>
 									</div>

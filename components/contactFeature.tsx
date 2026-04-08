@@ -7,7 +7,7 @@ const ContactFeature = () => {
         <div className="grid grid-cols-1 min-[300px]:grid-cols-2 md:grid-cols-4 gap-6 min-[300px]:gap-12">
 
           {features.map((item, index) => (
-            <div key={index} className="flex flex-col gap-1 min-[300px]:gap-2 items-center min-[300px]:items-start text-center min-[375px]:text-left" >
+            <div key={index} className="flex flex-col gap-1 min-[300px]:gap-2 items-center min-[300px]:items-start text-center min-[375px]:text-left cursor-pointer transition-colors hover:text-black" >
               <div className="text-xl min-[375px]:text-2xl">
                 {item.icon}
               </div>

@@ -36,6 +36,7 @@ const Products = ({ products, grid = "4", variant = "grid", isLoading }: Props) 
   const [mounted, setMounted] = useState(false);
   const [wishlistOptimistic, setWishlistOptimistic] = useState<Record<number, boolean>>({});
   const [pendingAdd, setPendingAdd] = useState<Record<number, boolean>>({});
+  const wishlistPendingRef = useRef<Record<number, boolean>>({});
   const addDebounceTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
 
   useEffect(() => {
@@ -124,7 +125,12 @@ const Products = ({ products, grid = "4", variant = "grid", isLoading }: Props) 
       }
 
       const variantId = Number(product.variant_id);
+      if (wishlistPendingRef.current[variantId]) {
+        return;
+      }
+
       const current = isInWishlist(variantId);
+      wishlistPendingRef.current[variantId] = true;
 
       setWishlistOptimistic((prev) => ({
         ...prev,
@@ -148,6 +154,8 @@ const Products = ({ products, grid = "4", variant = "grid", isLoading }: Props) 
           [variantId]: current,
         }));
         toast.error("Failed to update wishlist");
+      } finally {
+        wishlistPendingRef.current[variantId] = false;
       }
     },
     [dispatch, user, requireLogin, isInWishlist]

@@ -92,7 +92,7 @@ export default function CartDrawer({ isOpen, onClose }: Props) {
                       quantity={item.quantity}
                       variant_id={item.variant_id}
                       stock={item.stock}
-                      maxWidth="w-[60px] min-[375px]:w-20 sm:w-24"
+                      maxWidth="w-20 sm:w-24"
                       allowZero={true}
                     />
 

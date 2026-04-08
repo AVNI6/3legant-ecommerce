@@ -11,6 +11,8 @@ import { useEffect, useRef } from "react"
 import { setActiveStep, clearCartItems, setShipping, clearCart } from "@/store/slices/cartSlice"
 import { toast } from "react-toastify"
 
+const CART_ACTIVE_STEP_STORAGE_KEY = "cart-active-step"
+
 export default function CartFlowContent() {
 	const dispatch = useAppDispatch()
 	const searchParams = useSearchParams()
@@ -33,6 +35,10 @@ export default function CartFlowContent() {
 			}
 
 			if (typeof window !== "undefined") {
+				sessionStorage.setItem(CART_ACTIVE_STEP_STORAGE_KEY, "3")
+			}
+
+			if (typeof window !== "undefined") {
 				sessionStorage.removeItem("checkout-form-draft")
 			}
 			return
@@ -42,6 +48,9 @@ export default function CartFlowContent() {
 			dispatch(setActiveStep(2))
 			toast.info("Payment was cancelled. You can try again or use a different method.")
 			handledCancelSessionRef.current = sessionId
+			if (typeof window !== "undefined") {
+				sessionStorage.setItem(CART_ACTIVE_STEP_STORAGE_KEY, "2")
+			}
 			return
 		}
 
@@ -49,14 +58,27 @@ export default function CartFlowContent() {
 			const s = parseInt(step)
 			if (s === 1 || s === 2 || s === 3) {
 				dispatch(setActiveStep(s as 1 | 2 | 3))
+				if (typeof window !== "undefined") {
+					sessionStorage.setItem(CART_ACTIVE_STEP_STORAGE_KEY, String(s))
+				}
 				return
 			}
 		}
 
-		if (!checkoutState) {
-			dispatch(setActiveStep(1))
+		if (!checkoutState && !step && typeof window !== "undefined") {
+			const savedStep = sessionStorage.getItem(CART_ACTIVE_STEP_STORAGE_KEY)
+			const parsed = Number(savedStep)
+			if (parsed === 1 || parsed === 2 || parsed === 3) {
+				dispatch(setActiveStep(parsed as 1 | 2 | 3))
+			}
 		}
 	}, [dispatch, searchParams])
+
+	useEffect(() => {
+		if (typeof window !== "undefined") {
+			sessionStorage.setItem(CART_ACTIVE_STEP_STORAGE_KEY, String(activeStep))
+		}
+	}, [activeStep])
 
 	return (
 		<div>

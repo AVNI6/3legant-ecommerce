@@ -51,6 +51,7 @@ export default function CompleteOrder() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get("orderId");
   const sessionId = searchParams.get("session_id");
+  const checkoutState = searchParams.get("checkout");
   const dispatch = useAppDispatch();
   const currentStep = useAppSelector(state => state.cart.activeStep);
 
@@ -164,9 +165,9 @@ export default function CompleteOrder() {
         if (!paymentError && payment && !payment.order_id) {
           try {
 
-            // Poll for up to 10 seconds (5 attempts, every 2 seconds)
-            for (let i = 0; i < 5; i++) {
-              await new Promise(r => setTimeout(r, 2000));
+            // Poll quickly so success page details appear sooner after payment webhook processing.
+            for (let i = 0; i < 10; i++) {
+              await new Promise(r => setTimeout(r, 700));
 
               const { data: retryPayment } = await supabase
                 .from("payments")
@@ -340,7 +341,7 @@ export default function CompleteOrder() {
   }
 
   return (
-    <div className="max-w-xl mx-auto text-center my-10 min-[375px]:my-20 px-3 min-[375px]:px-4">
+    <div className="max-w-4xl mx-auto text-center my-10 min-[375px]:my-20 px-3 min-[375px]:px-4">
       <h1 className="text-green-600 text-[16px] min-[375px]:text-xl sm:text-2xl mb-1 min-[375px]:mb-2">Thank you</h1>
 
       <h2 className="text-xl min-[375px]:text-3xl sm:text-4xl font-semibold mb-4 min-[375px]:mb-6">Order Received</h2>

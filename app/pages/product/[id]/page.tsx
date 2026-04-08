@@ -21,7 +21,12 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
             .or("is_deleted.is.null,is_deleted.eq.false"),
         publicSupabase
             .from("reviews")
-            .select("rating")
+            .select(`
+                *,
+                profiles(name, avatar_url),
+                review_likes(user_id),
+                review_replies(*, profiles(name, avatar_url))
+            `)
             .eq("product_id", id)
             .or("status.neq.spam,status.is.null")
     ]);
@@ -43,16 +48,14 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     const initialVariants = mapProducts(rawData);
     const initialProduct = initialVariants[0];
 
-    const reviewData = reviewRes.data;
-    const reviewError = reviewRes.error;
-
-    const reviewRows = reviewData ?? [];
+    const reviewRows = reviewRes.data ?? [];
     const count = reviewRows.length;
     const rating = count > 0
         ? reviewRows.reduce((sum, row) => sum + Number(row.rating ?? 0), 0) / count
         : 0;
 
     const initialReviewStats = { rating, count };
+    const initialReviewData = { reviews: reviewRows, likes: {}, replies: {} };
 
     return (
         <div suppressHydrationWarning>
@@ -76,6 +79,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                     initialProduct={initialProduct}
                     initialVariants={initialVariants}
                     initialReviewStats={initialReviewStats}
+                    initialReviewData={initialReviewData}
                 />
             </Suspense>
         </div>

@@ -8,9 +8,10 @@ type ModalProps = {
   onClose: () => void;
   title: string;
   children: ReactNode;
+  disableClose?: boolean;
 };
 
-export default function Modal({ isOpen, onClose, title, children }: ModalProps) {
+export default function Modal({ isOpen, onClose, title, children, disableClose = false }: ModalProps) {
   // Prevent scrolling when modal is open
   useEffect(() => {
     if (isOpen) {
@@ -29,8 +30,10 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 min-[375px]:p-6 sm:p-10">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
+        className="absolute inset-0 bg-black/25 transition-opacity"
+        onClick={() => {
+          if (!disableClose) onClose();
+        }}
       />
 
       {/* Modal Container */}
@@ -41,7 +44,8 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
           <h3 className="text-xl font-semibold text-black">{title}</h3>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-gray-100 rounded-full transition-colors group"
+            disabled={disableClose}
+            className="p-1 hover:bg-gray-100 rounded-full transition-colors group disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <IoCloseOutline className="text-2xl text-gray-400 group-hover:text-black" />
           </button>

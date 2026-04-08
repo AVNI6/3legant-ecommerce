@@ -28,11 +28,13 @@ type Review = {
 export default function ReviewTab({
   productId,
   onReviewStatsChange,
+  initialReviews,
 }: {
   productId: number;
   onReviewStatsChange?: (stats: { rating: number; count: number }) => void;
+  initialReviews?: Review[];
 }) {
-  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviews, setReviews] = useState<Review[]>(initialReviews ?? []);
   const { user } = useAppSelector((state: any) => state.auth);
   const [comment, setComment] = useState("");
   const [rating, setRating] = useState(5);
@@ -51,13 +53,21 @@ export default function ReviewTab({
   useEffect(() => {
     let channel: any;
     if (productId) {
-      loadData();
+      if (initialReviews?.length) {
+        setLoading(false);
+        const avgRating = initialReviews.length > 0
+          ? initialReviews.reduce((s, r) => s + r.rating, 0) / initialReviews.length
+          : 0;
+        onReviewStatsChange?.({ rating: avgRating, count: initialReviews.length });
+      } else {
+        loadData();
+      }
       channel = setupRealtime();
     }
     return () => {
       if (channel) channel.unsubscribe();
     };
-  }, [productId]);
+  }, [productId, initialReviews]);
 
   useEffect(() => {
     if (user && productId) {
@@ -150,7 +160,7 @@ export default function ReviewTab({
       .select(`
         *, 
         profiles(name, avatar_url),
-        review_likes(count),
+        review_likes(user_id),
         review_replies(*, profiles(name, avatar_url))
       `)
       .eq("product_id", productId)
@@ -219,7 +229,7 @@ export default function ReviewTab({
   if (loading) return <ReviewSkeleton />;
 
   return (
-    <div className="mt-6 sm:mt-10 md:mt-12 lg:mt-14">
+    <div className="mt-6 sm:mt-10 md:mt-12 lg:mt-14 w-full mx-auto max-w-[1120px] min-w-[300px]">
       <div className="flex flex-col gap-3 sm:gap-4 mb-6 sm:mb-8">
         <h1 className="font-poppins font-medium text-xl sm:text-2xl md:text-3xl lg:text-[32px] text-[#141718] tracking-tight">
           Customer Reviews
@@ -245,7 +255,7 @@ export default function ReviewTab({
               </p>
             </div>
           ) : (
-            <div className="flex flex-col md:flex-row gap-3 sm:gap-4 items-stretch md:items-center bg-white border-2 border-gray-100 rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-6 transition-shadow hover:shadow-md">
+            <div className="flex flex-col md:flex-row gap-3 sm:gap-4 items-stretch md:items-center bg-white border-2 border-gray-100 rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-6 transition-shadow hover:shadow-md w-full min-w-[300px]">
 
               <textarea
                 value={comment}
@@ -297,7 +307,7 @@ export default function ReviewTab({
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as any)}
-            className="w-full md:w-auto border border-gray-200 rounded-lg px-3 sm:px-4 py-2 text-xs sm:text-sm font-bold bg-white outline-none"
+            className="w-full md:w-auto border border-gray-200 rounded-lg px-3 sm:px-4 py-2 text-xs sm:text-sm font-bold bg-white outline-none cursor-pointer"
           >
             <option value="newest">Newest</option>
             <option value="oldest">Oldest</option>

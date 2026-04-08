@@ -8,10 +8,9 @@ import { REFUND_REASONS, isWithinRefundWindow, getDaysRemainingForRefund } from 
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { FiChevronDown, FiChevronRight, FiInfo } from "react-icons/fi";
 import { setOrders, cancelOrder, submitRefund, cancelRefundRequest } from "@/store/slices/orderSlice";
+import type { Order } from "@/store/slices/orderSlice";
 import { addToCart } from "@/store/slices/cartSlice";
 import { fetchProducts } from "@/store/slices/productSlice";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
 import { DEFAULT_REFUND_WINDOW_DAYS } from "@/constants/RefundConfig";
 import Pagination from "@/components/common/Pagination";
 import Modal from "@/components/ui/Modal";
@@ -27,42 +26,21 @@ type OrderItem = {
   variant_id?: number;
 };
 
-type Order = {
-  id: number;
-  user_id: string;
-  order_date: string;
-  total_price: number;
-  status: string;
-  invoice_url?: string | null;
-  invoice_sent_at?: string | null;
-  refund_status?: string | null;
-  refund_amount?: number | null;
-  refund_reason?: string | null;
-  discount_amount?: number | null;
-  coupon_code?: string | null;
-  items_snapshot?: any[] | { items: any[] | null, shipping_method?: string } | null;
-  order_items: OrderItem[];
-  shipping_address?: any;
-  billing_address?: any;
-  payment_method?: string;
-  admin_note?: string | null;
-};
-
 interface Props {
   userId: string;
   currentPage: number;
   refundWindowDays: number;
+  initialOrders: Order[];
+  initialTotalCount: number;
 }
 
-export default function OrdersContent({ userId, currentPage, refundWindowDays }: Props) {
+export default function OrdersContent({ userId, currentPage, refundWindowDays, initialOrders, initialTotalCount }: Props) {
   const dispatch = useAppDispatch();
-  const searchParams = useSearchParams();
-  const pathname = usePathname();
   const { orders: reduxOrders } = useAppSelector(state => state.orders);
   const { items: allProducts, initialized: productsInitialized, loading: productsLoading } = useAppSelector((state: any) => state.products);
 
   const [totalCount, setTotalCount] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
   const [refundModal, setRefundModal] = useState<{ orderid: number | null; visible: boolean }>({ orderid: null, visible: false });
 
@@ -91,75 +69,15 @@ export default function OrdersContent({ userId, currentPage, refundWindowDays }:
     productId: null
   });
 
-  // Fetch Orders on the client side
+  // Hydrate orders from server payload for fast first render
   useEffect(() => {
-    const fetchData = async (signal: AbortSignal) => {
-      setLoading(true);
-      try {
-        // Fetch Paginated Orders
-        const PAGE_SIZE = 10;
-        const from = (currentPage - 1) * PAGE_SIZE;
-        const to = from + PAGE_SIZE - 1;
-
-        const { data: ordersData, error: ordersError, count } = await supabase
-          .from("orders")
-          .select(`
-            id, user_id, total_price, status, order_date, shipping_address, 
-            payment_method, billing_address, items_snapshot, invoice_url, 
-            invoice_sent_at, refund_status, refund_amount, refund_reason, 
-            discount_amount, coupon_code, admin_note,
-            order_items ( id, product_id, price, quantity, color, variant_id )
-          `, { count: 'exact' })
-          .eq("user_id", userId)
-          .order("order_date", { ascending: false })
-          .range(from, to)
-          .abortSignal(signal);
-
-        if (ordersError) {
-          const isAbort =
-            ordersError.message?.includes('Fetch is aborted') ||
-            ordersError.message?.includes('AbortError') ||
-            signal.aborted;
-
-          if (isAbort) return;
-          throw ordersError;
-        }
-
-        dispatch(setOrders(ordersData as any[]));
-        setTotalCount(count || 0);
-
-      } catch (err: any) {
-        // Suppress all forms of abort errors (standard DOMException or Supabase wrapped errors)
-        const isAbort =
-          err.name === 'AbortError' ||
-          err.message?.includes('AbortError') ||
-          err.message?.includes('Fetch is aborted') ||
-          err.code === '20' || // Some environments use code 20 for abort
-          signal.aborted;
-
-        if (isAbort) return;
-
-        console.error("Failed to fetch client-side order data:", err);
-      } finally {
-        if (!signal.aborted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    const controller = new AbortController();
-    if (userId) {
-      fetchData(controller.signal);
-    }
-
-    return () => {
-      controller.abort();
-    };
-  }, [userId, currentPage, dispatch]);
+    dispatch(setOrders(initialOrders || []));
+    setTotalCount(initialTotalCount || 0);
+    setLoading(false);
+  }, [dispatch, initialOrders, initialTotalCount]);
 
   const orders = reduxOrders;
   const totalPages = Math.ceil(totalCount / 10);
-  const page = currentPage;
 
 
   const toggleExpand = (orderId: number) => {
@@ -651,8 +569,13 @@ export default function OrdersContent({ userId, currentPage, refundWindowDays }:
 
       <Modal
         isOpen={actionModal.isOpen}
-        onClose={() => setActionModal(prev => ({ ...prev, isOpen: false }))}
+        onClose={() => {
+          if (!submitting) {
+            setActionModal(prev => ({ ...prev, isOpen: false }));
+          }
+        }}
         title={actionModal.title}
+        disableClose={submitting}
       >
         <div className="space-y-6">
           <p className="text-gray-600 font-medium leading-relaxed">{actionModal.message}</p>
@@ -660,15 +583,17 @@ export default function OrdersContent({ userId, currentPage, refundWindowDays }:
             <div className="flex gap-3 pt-4 justify-end">
               <button
                 onClick={() => setActionModal(prev => ({ ...prev, isOpen: false }))}
-                className="px-6 py-2.5 border border-gray-200 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all text-gray-500"
+                disabled={submitting}
+                className="px-6 py-2.5 border border-gray-200 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all text-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 No, Keep it
               </button>
               <button
                 onClick={actionModal.onConfirm}
-                className="px-6 py-2.5 bg-black text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition-all shadow-lg active:scale-95"
+                disabled={submitting}
+                className="px-6 py-2.5 bg-black text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition-all shadow-lg active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                Yes, Proceed
+                {submitting ? "Processing..." : "Yes, Proceed"}
               </button>
             </div>
           )}

@@ -9,7 +9,7 @@ import QuantityInput from "@/components/QuantityInput";
 import ReviewSummary from "@/components/review-summary";
 import { APP_ROUTE } from "@/constants/AppRoutes";
 import Link from "next/link";
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import ProductGallery from "@/components/ProductGallery";
 import OfferCountdown from "@/components/OfferCountdown";
 import ColorSelector from "@/sections/ColorSelector";
@@ -42,6 +42,7 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
     const { user } = useAppSelector((state: any) => state.auth);
     const { items: reduxProducts } = useAppSelector((state: any) => state.products);
     const [mounted, setMounted] = useState(false);
+    const wishlistPendingRef = useRef<Record<number, boolean>>({});
 
     useEffect(() => {
         setMounted(true);
@@ -69,9 +70,10 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
     const queryTab = searchParams.get("tab");
 
     const [tab, setTabState] = useState("reviews");
-    const [quantity, setQuantity] = useState(1);
+    const [localQuantity, setLocalQuantity] = useState(1);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [selectedVariantId, setSelectedVariantId] = useState<number | null>(queryVariantId || (initialVariants[0] as any)?.variant_id || null);
+    const [hasUserModifiedQuantity, setHasUserModifiedQuantity] = useState(false);
 
     useEffect(() => {
         if (!mounted) return;
@@ -121,6 +123,8 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
     ), [selectedVariantForSync, product?.image, uniqueProductVariants]);
 
     const selectedVariant = selectedVariantForSync;
+    const selectedCartItem = cartItems.find((item: any) => Number(item.variant_id) === Number(selectedVariant?.variant_id));
+    const displayQuantity = selectedCartItem && !hasUserModifiedQuantity ? Number(selectedCartItem.quantity || 1) : localQuantity;
     const allGalleryImages = galleryImagesForSync;
 
     const colorImages = uniqueProductVariants.map((variant: any) => ({
@@ -150,8 +154,9 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
 
     useEffect(() => {
         if (!product) return;
-        // Always default to 1 on the detail page as requested
-        setQuantity(1);
+        // For variants not in cart, start with 1. In-cart variants read quantity from store.
+        setLocalQuantity(1);
+        setHasUserModifiedQuantity(false);
     }, [selectedVariantId, product?.variant_id]);
 
     useEffect(() => {
@@ -182,6 +187,13 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
         }
     }, [selectedVariantId, selectedVariantForSync, product?.image, galleryImagesForSync]);
 
+    // Sync localQuantity with updated cart quantity after successful add
+    useEffect(() => {
+        if (selectedCartItem) {
+            setLocalQuantity(selectedCartItem.quantity);
+        }
+    }, [selectedCartItem?.quantity]);
+
     if (!product) return <div className="p-10 text-center text-gray-400">Product not found</div>;
 
     const thumbnailPool = Array.from(
@@ -199,7 +211,13 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
             setShowModal(true);
             return;
         }
+
+        if (wishlistPendingRef.current[Number(activeVariantId)]) {
+            return;
+        }
+
         const cartImage = mainImage || selectedVariant.color_image?.[0] || product.image || "";
+        wishlistPendingRef.current[Number(activeVariantId)] = true;
         dispatch(toggleWishlist({
             userId: user.id,
             product: {
@@ -212,7 +230,9 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
                 rating: 0,
                 stock: selectedVariant.stock
             }
-        }));
+        })).finally(() => {
+            wishlistPendingRef.current[Number(activeVariantId)] = false;
+        });
     };
 
     return (
@@ -298,15 +318,22 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
                                 if (imgIndex !== -1) {
                                     setCurrentIndex(imgIndex);
                                 }
-                                setQuantity(1);
+                                setLocalQuantity(1);
                             }}
                         />
 
                         <div className="flex flex-row gap-3 sm:gap-4 items-stretch sm:items-center">
                             <QuantityInput
-                                quantity={quantity}
+                                quantity={displayQuantity}
+                                variant_id={undefined}
                                 stock={selectedVariant.stock}
-                                onQuantityChange={(val) => setQuantity(val)}
+                                onQuantityChange={(val) => {
+                                    setLocalQuantity(val);
+                                    // Mark that user has explicitly changed the quantity
+                                    if (!selectedCartItem || val !== selectedCartItem.quantity) {
+                                        setHasUserModifiedQuantity(true);
+                                    }
+                                }}
                                 maxWidth="w-full sm:w-32"
                             />
 
@@ -327,11 +354,13 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
                                 price: effectivePrice,
                                 color: actionColor,
                                 image: mainImage,
-                                quantity,
+                                    quantity: displayQuantity,
                                 stock: selectedVariant.stock,
                                 rating: reviewStats.rating
                             }}
-                            onSuccess={() => setQuantity(1)}
+                            onSuccess={() => {
+                                setHasUserModifiedQuantity(false);
+                            }}
                             className="bg-black text-white py-2 sm:py-3 rounded-lg w-full transition hover:bg-gray-800 text-sm sm:text-base font-medium"
                         />
                         <hr className="text-gray-300 my-3" />
@@ -371,7 +400,11 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
                     <Question productId={product.id} />
                 </div>
                 <div className={tab === "reviews" ? "block" : "hidden"}>
-                    <ReviewTab productId={product.id} onReviewStatsChange={handleReviewChange} />
+                    <ReviewTab
+                        productId={product.id}
+                        onReviewStatsChange={handleReviewChange}
+                        initialReviews={(initialReviewData?.reviews ?? []) as any[]}
+                    />
                 </div>
 
             </div>

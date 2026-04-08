@@ -11,12 +11,30 @@ export async function POST(request: Request) {
   try {
     const { userId, name, email } = await request.json();
 
-    if (!userId || !email) {
+    if (!email) {
       console.error("Missing required fields:", { userId, email });
-      return NextResponse.json({ error: "Missing userId or email" }, { status: 400 });
+      return NextResponse.json({ error: "Missing email" }, { status: 400 });
     }
 
     const supabase = getSupabase();
+
+    if (!userId) {
+      const { data: existingProfile, error: lookupError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("email", email)
+        .maybeSingle();
+
+      if (lookupError) {
+        return NextResponse.json({ error: lookupError.message }, { status: 500 });
+      }
+
+      if (existingProfile?.id) {
+        return NextResponse.json({ error: "User already exists" }, { status: 409 });
+      }
+
+      return NextResponse.json({ ok: true });
+    }
 
     const { data, error } = await supabase.from("profiles").insert({
       id: userId,
@@ -30,7 +48,7 @@ export async function POST(request: Request) {
 
       // If profile already exists (duplicate key), treat as success
       if (error.code === "23505") {
-        return NextResponse.json({ ok: true, message: "Profile already exists" });
+        return NextResponse.json({ error: "User already exists" }, { status: 409 });
       }
 
       // Log the full error details for debugging

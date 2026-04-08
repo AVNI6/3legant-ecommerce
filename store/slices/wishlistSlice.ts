@@ -115,6 +115,13 @@ const wishlistSlice = createSlice({
     setWishlistItems: (state, action: PayloadAction<CartItem[]>) => {
       state.items = action.payload
     },
+    hydrateWishlist: (state, action: PayloadAction<{ items: CartItem[]; totalCount: number }>) => {
+      state.items = action.payload.items
+      state.totalCount = action.payload.totalCount
+      state.loading = false
+      state.initialized = true
+      state.error = null
+    },
     clearWishlist: (state) => {
       state.items = []
     },
@@ -151,5 +158,5 @@ const wishlistSlice = createSlice({
   },
 })
 
-export const { setWishlistItems, clearWishlist, removeProductFromWishlistStore } = wishlistSlice.actions
+export const { setWishlistItems, hydrateWishlist, clearWishlist, removeProductFromWishlistStore } = wishlistSlice.actions
 export default wishlistSlice.reducer

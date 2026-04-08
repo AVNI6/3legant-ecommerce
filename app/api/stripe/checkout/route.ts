@@ -181,26 +181,32 @@ export async function POST(request: Request) {
 
       const productName = (variant.products as any)?.name ?? `Product #${item.productId}`;
 
-      // Calculate effective price server-side
+      // Calculate effective price server-side using the same rules as UI pricing.
       const basePrice = Number(variant.price ?? 0);
       const oldPrice = Number(variant.old_price ?? 0);
       const validationTill = (variant.products as any)?.validation_till;
 
-      let effectivePrice = basePrice;
-      if (validationTill) {
-        let cleanDate = validationTill;
-        if (typeof cleanDate === "string" && /^\d{2}-\d{2}-\d{4}$/.test(cleanDate)) {
-          const [d, m, y] = cleanDate.split("-");
-          cleanDate = `${y}-${m}-${d}`;
-        }
-        const offerEndTs = new Date(cleanDate).getTime();
-        const isOfferActive = Number.isFinite(offerEndTs) && offerEndTs > Date.now();
-        const hasDiscount = oldPrice > basePrice && basePrice > 0;
+      const hasPotentialDiscount = oldPrice > basePrice && basePrice > 0;
+      let isOfferExpired = false;
 
-        if (!isOfferActive && hasDiscount) {
-          effectivePrice = oldPrice;
+      if (validationTill && validationTill !== "" && validationTill !== "null") {
+        let cleanDate = validationTill;
+
+        const dmyMatch = String(validationTill).match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+        if (dmyMatch) {
+          const [, d, m, y] = dmyMatch;
+          cleanDate = `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+        }
+
+        const offerEndTs = new Date(cleanDate).getTime();
+        if (Number.isFinite(offerEndTs)) {
+          isOfferExpired = offerEndTs <= Date.now();
         }
       }
+
+      const effectivePrice = hasPotentialDiscount
+        ? (isOfferExpired ? oldPrice : basePrice)
+        : (oldPrice || basePrice);
 
       const unitAmount = Math.round(effectivePrice * 100);
 

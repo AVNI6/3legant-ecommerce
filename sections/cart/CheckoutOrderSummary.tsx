@@ -6,6 +6,7 @@ import QuantityInput from "@/components/QuantityInput";
 import { formatCurrency } from "@/constants/Data";
 import { RxCross2 } from "react-icons/rx";
 import { RiCoupon4Line, RiDiscountPercentLine } from "react-icons/ri";
+import { IoIosArrowDown } from "react-icons/io";
 import { removeFromCart } from "@/store/slices/cartSlice";
 import { validateCoupon } from "@/store/slices/couponSlice";
 import Link from "next/link";
@@ -133,7 +134,7 @@ export default function CheckoutOrderSummary({
       <aside className="border rounded-lg p-3 min-[375px]:p-4 sm:p-5 sticky top-6 bg-white shadow-sm">
         <h1 className="pb-2 min-[375px]:pb-4 font-semibold text-sm min-[375px]:text-base sm:text-lg lg:text-lg border-b mb-2 min-[375px]:mb-4">Order Summary</h1>
 
-        <div className="space-y-2 min-[375px]:space-y-4">
+        <div className={`space-y-2 min-[375px]:space-y-4 ${cartItems.length > 3 ? "max-h-[360px] overflow-y-auto pr-1" : ""}`}>
           {cartItems.map((item: CartItem) => (
             <div key={item.variant_id} className="flex max-[342px]:justify-between items-center gap-2 min-[375px]:gap-4 py-2 min-[375px]:py-3 group">
               <Link href={`${APP_ROUTE.product}/${item.id}?variantId=${item.variant_id}`} className="shrink-0 bg-[#F3F5F7] rounded overflow-hidden flex items-center justify-center">
@@ -147,19 +148,19 @@ export default function CheckoutOrderSummary({
               <div className="flex flex-col flex-1 min-w-0">
                 <div className="flex justify-between items-start gap-1 min-[375px]:gap-2">
                   <Link href={`${APP_ROUTE.product}/${item.id}?variantId=${item.variant_id}`}>
-                    <p className="font-semibold text-[10px] min-[375px]:text-xs sm:text-sm md:text-base truncate min-[343px]:line-clamp-1 group-hover:underline leading-tight mt-0.5">
+                    <p className="font-semibold text-[10px] min-[375px]:text-xs sm:text-sm md:text-base line-clamp-2 sm:line-clamp-1 group-hover:underline leading-tight mt-0.5">
                       {item.name}
                     </p>
                   </Link>
                   <p className="font-bold text-[10px] min-[375px]:text-xs sm:text-sm md:text-base shrink-0 mt-0.5">
-                    {formatCurrency(item.price)}
+                    {formatCurrency(item.price * item.quantity)}
                   </p>
                 </div>
 
-                <p className="text-gray-400 text-[9px] min-[375px]:text-[11px] sm:text-xs max-[342px]:hidden mt-0.5 mb-1">Color: {item.color}</p>
+                <p className="text-gray-400 text-[9px] min-[375px]:text-[11px] sm:text-xs mt-0.5 mb-1">Color: {item.color}</p>
 
-                <div className="flex items-center justify-between mt-1 min-[375px]:mt-2 max-[342px]:hidden">
-                  <QuantityInput quantity={item.quantity} variant_id={item.variant_id} stock={item.stock} allowZero={true} maxWidth="w-[60px] min-[375px]:w-20 sm:w-24" />
+                <div className="flex items-center justify-between mt-1 min-[375px]:mt-2">
+                  <QuantityInput quantity={item.quantity} variant_id={item.variant_id} stock={item.stock} allowZero={true} maxWidth="w-20 sm:w-24" />
 
                   <button
                     type="button"
@@ -210,12 +211,10 @@ export default function CheckoutOrderSummary({
                   <RiDiscountPercentLine className="text-black" />
                   Available Offers
                 </span>
-                <span
-                  className="md:hidden text-lg transition-transform"
-                  style={{ transform: isOffersOpen ? "rotate(180deg)" : "none" }}
-                >
-                  ▼
-                </span>
+                <IoIosArrowDown
+                  className={`md:hidden transition-transform duration-300 ${isOffersOpen ? "rotate-180" : ""}`}
+                  size={20}
+                />
               </button>
 
               <div className={`mt-3 ${isOffersOpen ? "block" : "hidden md:block"} animate-in fade-in duration-300`}>

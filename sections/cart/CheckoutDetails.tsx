@@ -590,6 +590,27 @@ function CheckoutDetail() {
             isOffersOpen={isOffersOpen}
             setIsOffersOpen={setIsOffersOpen}
           />
+
+          {/* Mobile/Tablet Only Button: Appears after Order Summary */}
+          <button
+            type="submit"
+            disabled={loading || isSyncing}
+            className="lg:hidden bg-black text-white py-3.5 mt-4 w-full rounded-lg disabled:opacity-50 font-semibold text-sm shadow-sm active:scale-[0.98] transition-all"
+          >
+            {loading ? (
+              <div className="flex items-center justify-center gap-2">
+                <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                <span>Processing...</span>
+              </div>
+            ) : isSyncing ? (
+              <div className="flex items-center justify-center gap-2">
+                <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                <span>Syncing Price...</span>
+              </div>
+            ) : (
+              "Continue to Payment"
+            )}
+          </button>
         </div>
       )}
     </form>

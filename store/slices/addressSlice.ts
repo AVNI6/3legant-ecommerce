@@ -228,6 +228,14 @@ const addressSlice = createSlice({
   name: 'addresses',
   initialState,
   reducers: {
+    hydrateAddresses(state, action: PayloadAction<{ addresses: (Address & { id?: string })[]; totalCount: number; userId: string }>) {
+      state.addresses = action.payload.addresses
+      state.totalCount = action.payload.totalCount
+      state.cachedUserId = action.payload.userId
+      state.lastFetchedAt = Date.now()
+      state.loading = false
+      state.error = null
+    },
     // Add a new address to the cache
     addAddressToCache(state, action: PayloadAction<Address & { id?: string }>) {
       state.addresses.unshift(action.payload)
@@ -319,7 +327,7 @@ const addressSlice = createSlice({
   },
 })
 
-export const { addAddressToCache, removeAddressFromCache, invalidateAddressCache } = addressSlice.actions
+export const { hydrateAddresses, addAddressToCache, removeAddressFromCache, invalidateAddressCache } = addressSlice.actions
 export default addressSlice.reducer
 
 // Selector to check if cache is still valid

@@ -76,14 +76,14 @@ const Navbar = () => {
     <>
       <header className="w-full sticky top-0 z-30 bg-white px-3 min-[428px]:px-4 sm:px-10 lg:px-30 py-3 sm:py-5 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-1.5 min-[428px]:gap-2 sm:gap-3">
-          <button className="sm:hidden text-lg min-[428px]:text-xl" onClick={() => setOpen(true)}>
+          <button className="md:hidden text-lg min-[428px]:text-xl" onClick={() => setOpen(true)}>
             <GiHamburgerMenu />
           </button>
 
           <Image src="/3legoot.png" width={90} height={32} alt="Logo" priority loading="eager" className="h-auto w-[75px] min-[428px]:w-[90px] sm:w-[110px]" />
         </div>
 
-        <nav className="hidden sm:flex sm:gap-3 md:gap-6 lg:gap-8 sm:text-[13px] md:text-sm lg:text-base font-medium transition-all">
+        <nav className="hidden md:flex sm:gap-3 md:gap-6 lg:gap-8 sm:text-[13px] md:text-sm lg:text-base font-medium transition-all">
           {navLinks.map(link => (
             <Link key={link.name} href={link.href}>
               {link.name}

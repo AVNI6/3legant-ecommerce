@@ -14,7 +14,7 @@ export interface Order {
   refund_reason?: string | null
   discount_amount?: number | null
   coupon_code?: string | null
-  items_snapshot?: any[] | null
+  items_snapshot?: any[] | { items: any[] | null; shipping_method?: string; shipping_cost?: number } | null
   order_items: any[]
   shipping_address?: any
   billing_address?: any

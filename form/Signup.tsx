@@ -52,8 +52,8 @@ const Signup = () => {
       });
 
       if (error) {
-        if (error.message.includes("already registered") || error.message.includes("User already registered")) {
-          toast.error("Account already exists! Please sign in instead.");
+        if (error.message.toLowerCase().includes("already registered") || error.message.toLowerCase().includes("already exists")) {
+          toast.info("User already exists. Redirecting to sign in...");
           router.push(APP_ROUTE.signin);
           return;
         }

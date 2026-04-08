@@ -72,3 +72,18 @@ CREATE POLICY "auth insert replies" ON "public"."review_replies" FOR INSERT TO "
 CREATE POLICY "auth update reviews" ON "public"."reviews" FOR UPDATE TO "authenticated" USING (auth.uid() = user_id);
 CREATE POLICY "auth delete reviews" ON "public"."reviews" FOR DELETE TO "authenticated" USING (auth.uid() = user_id);
 CREATE POLICY "owner delete likes" ON "public"."review_likes" FOR DELETE TO "authenticated" USING (auth.uid() = user_id);
+
+-- Allow users to delete their own replies
+CREATE POLICY "Users can delete their own replies" 
+ON "public"."review_replies" 
+FOR DELETE 
+TO authenticated 
+USING (auth.uid() = user_id);
+
+-- Allow users to update their own replies
+CREATE POLICY "Users can update their own replies" 
+ON "public"."review_replies" 
+FOR UPDATE 
+TO authenticated 
+USING (auth.uid() = user_id)
+WITH CHECK (auth.uid() = user_id);

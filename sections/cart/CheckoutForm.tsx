@@ -72,7 +72,7 @@ export default function CheckoutForm({
           <input
             id="phone"
             autoComplete="tel"
-            {...register("phone", { 
+            {...register("phone", {
               required: "Phone required",
               minLength: { value: 10, message: "Phone must be exactly 10 digits" },
               maxLength: { value: 10, message: "Phone must be exactly 10 digits" },
@@ -355,7 +355,7 @@ export default function CheckoutForm({
         <button
           type="submit"
           disabled={loading || isSyncing}
-          className="bg-black text-white py-3 min-[375px]:py-3.5 sm:py-4 mt-4 min-[375px]:mt-6 sm:mt-8 w-full rounded-md min-[375px]:rounded-lg disabled:opacity-50 font-semibold text-[13px] min-[375px]:text-sm sm:text-base shadow-sm hover:shadow-md active:scale-[0.99] transition-all"
+          className="hidden lg:block bg-black text-white py-3 min-[375px]:py-3.5 sm:py-4 mt-4 min-[375px]:mt-6 sm:mt-8 w-full rounded-md min-[375px]:rounded-lg disabled:opacity-50 font-semibold text-[13px] min-[375px]:text-sm sm:text-base shadow-sm hover:shadow-md active:scale-[0.99] transition-all"
         >
           {loading ? (
             <div className="flex items-center justify-center gap-2">
