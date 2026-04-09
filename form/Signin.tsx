@@ -79,13 +79,20 @@ const Signin = () => {
       try {
         dispatch(setAuth({ user: authData.user, session: authData.session }));
         void dispatch(fetchCart(authData.user.id));
-        const adminResult = await dispatch(checkIsAdmin(authData.user.id));
-        const isAdmin = adminResult.payload as boolean;
+        
+        // Check if user is admin - prefer metadata, only RPC call if needed
+        const metaRole = (authData.user?.app_metadata?.role || authData.user?.user_metadata?.role || "").toLowerCase();
+        let isAdmin = metaRole === "admin";
+        
+        if (!isAdmin) {
+          const adminResult = await dispatch(checkIsAdmin(authData.user.id));
+          isAdmin = adminResult.payload as boolean;
+        }
 
         router.refresh();
 
         if (isAdmin) {
-          router.push("/pages/admin/dashboard");
+          router.push(APP_ROUTE.admindashboard);
         } else {
           router.push(APP_ROUTE.home);
         }
@@ -97,13 +104,13 @@ const Signin = () => {
   };
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen overflow-hidden">
-      <div className="relative w-auto md:w-1/2 md:h-64 md:h-auto h-[430px] lg:w-[55vw] lg:h-64 lg:h-[100vh]">
+    <div className="flex flex-col md:flex-row">
+      <div className="relative w-full md:w-1/2 h-[50vh] md:h-screen">
         <Image src="/signup.png"
           alt="Signup Image"
           fill
           loading="lazy"
-          className="object-cover" />
+          className="object-contain  bg-gray-100" />
         <div className="absolute top-6 left-1/2 -translate-x-1/2">
           <h1 className="text-2xl md:text-4xl font-bold">
             <Link href="/">3legant.</Link>
@@ -112,8 +119,8 @@ const Signin = () => {
       </div>
 
 
-      <div className="w-full md:w-1/2 flex items-center justify-center p-6 md:p-12 bg-white">
-        <div className="w-full max-w-md flex flex-col font-poppins">
+      <div className="w-full md:w-1/2 flex items-center justify-center p-20 md:p-12 bg-white">
+        <div className="w-full max-w-md md:max-w-xl flex flex-col font-poppins">
 
           <h1 className="text-3xl md:text-4xl font-semibold mb-3">
             Sign In

@@ -130,7 +130,7 @@ export default function BlogCards({ initialArticles = [], totalCount = 0 }: { in
                     <BlogArticle data={articles} gridType={gridType} />
 
                     {hasMore && (
-                        <div className="flex justify-center mt-12 mb-20">
+                        <div className="flex justify-center my-7 md:my-10 lg:my-15 ">
                             <button
                                 onClick={handleLoadMore}
                                 disabled={loading}

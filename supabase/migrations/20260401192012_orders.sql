@@ -40,3 +40,6 @@ CREATE INDEX "idx_orders_status" ON "public"."orders" USING "btree" ("status");
 CREATE INDEX "idx_orders_user_id" ON "public"."orders" USING "btree" ("user_id");
 
 COMMENT ON COLUMN "public"."orders"."refund_status" IS 'Refund status: pending, approved, rejected, processed';
+
+ALTER TABLE public.orders 
+ADD COLUMN delivered_at timestamp with time zone;

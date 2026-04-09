@@ -47,7 +47,7 @@ export default function CartDrawer({ isOpen, onClose }: Props) {
         onClick={onClose}
       />
       <div
-        className={`fixed top-0 right-0 h-[100dvh] overflow-hidden w-[80%] sm:w-[70%] md:w-[413px] bg-white z-50 shadow-xl transform transition-transform duration-300 flex flex-col ${isOpen ? "translate-x-0" : "translate-x-full"
+        className={`fixed top-0 right-0 h-[100dvh] overflow-hidden w-full md:w-[413px] bg-white z-50 shadow-xl transform transition-transform duration-300 flex flex-col ${isOpen ? "translate-x-0" : "translate-x-full"
           }`}
       >
         <div className="flex justify-between items-center p-3 min-[375px]:p-4 sm:p-6 border-b shrink-0">
@@ -135,18 +135,13 @@ export default function CartDrawer({ isOpen, onClose }: Props) {
             Checkout
           </button>
 
-          <button
-            className="w-full text-center text-[10px] min-[375px]:text-sm sm:text-base font-medium text-gray-500 hover:text-black transition-colors"
-            onClick={() => {
-              requireLogin(() => {
-
-                onClose()
-                router.push(APP_ROUTE.cart)
-              }, user, "Please sign in to proceed to checkout.")
-            }}
+          <Link
+            href={APP_ROUTE.cart}
+            onClick={onClose}
+            className="w-full text-center text-[10px] min-[375px]:text-sm sm:text-base font-medium text-gray-500 hover:text-black transition-colors block py-2"
           >
             View Cart
-          </button>
+          </Link>
         </div>
       </div>
 

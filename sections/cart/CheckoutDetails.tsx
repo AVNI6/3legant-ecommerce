@@ -17,6 +17,10 @@ import { useSessionStorage } from "@/lib/hooks/useSessionStorage";
 import CheckoutForm from "./CheckoutForm";
 import CheckoutOrderSummary from "./CheckoutOrderSummary";
 
+// ============================================================
+// TYPE DEFINITIONS
+// ============================================================
+
 export type CheckoutFormData = Address & {
   email: string;
   differentBilling?: boolean;
@@ -26,8 +30,20 @@ export type CheckoutFormData = Address & {
   billingZip?: string;
   billingCountry?: string;
   payment: "card" | "upi";
-  sourceAddressId?: string; // Tracks which account address was used for auto-fill
+  sourceAddressId?: string;
 };
+
+type ShippingMethod = {
+  id: number;
+  name: string;
+  type: "fixed" | "percentage";
+  price: number | null;
+  percentage: number | null;
+};
+
+// ============================================================
+// LOCATION OPTIONS & CONSTANTS
+// ============================================================
 
 const LOCATION_OPTIONS = {
   india: {
@@ -54,16 +70,17 @@ const LOCATION_OPTIONS = {
 
 type CountryKey = keyof typeof LOCATION_OPTIONS;
 
-type ShippingMethod = {
-  id: number;
-  name: string;
-  type: "fixed" | "percentage";
-  price: number | null;
-  percentage: number | null;
-};
-
 const SHIPPING_METHODS_CACHE_KEY = "shipping-methods-cache-v1";
 const SHIPPING_METHODS_CACHE_TTL_MS = 1000 * 60 * 10;
+
+// ============================================================
+// UTILITY FUNCTIONS
+// ============================================================
+
+const getStateOptions = (country?: string) => {
+  const normalizedCountry = (country || "").toLowerCase() as CountryKey;
+  return LOCATION_OPTIONS[normalizedCountry]?.states ?? [];
+};
 
 const readShippingMethodsCache = (): ShippingMethod[] => {
   if (typeof window === "undefined") return [];
@@ -89,28 +106,6 @@ const writeShippingMethodsCache = (methods: ShippingMethod[]) => {
   } catch {
     // Non-critical cache write failure.
   }
-};
-
-type SavedCheckoutAddress = {
-  id?: string;
-  firstName?: string;
-  lastName?: string;
-  first_name?: string;
-  last_name?: string;
-  phone?: string;
-  street?: string;
-  city?: string;
-  state?: string;
-  zip?: string;
-  country?: string;
-  address_label?: string;
-  address_type?: string;
-  is_default?: boolean;
-};
-
-const getStateOptions = (country?: string) => {
-  const normalizedCountry = (country || "").toLowerCase() as CountryKey;
-  return LOCATION_OPTIONS[normalizedCountry]?.states ?? [];
 };
 
 function CheckoutDetail() {
@@ -190,6 +185,7 @@ function CheckoutDetail() {
   const payment = watch("payment");
   const [loading, setLoading] = useState(false);
   const [draftHydrated, setDraftHydrated] = useState(false);
+  const [isShippingOpen, setIsShippingOpen] = useState(false);
   const [checkoutDraft, setCheckoutDraft] = useSessionStorage<Partial<CheckoutFormData>>("checkout-form-draft", {});
   const [code, setCode] = useState("")
   const lastCouponValidationKeyRef = useRef<string | null>(null);
@@ -567,6 +563,11 @@ function CheckoutDetail() {
             billingStateOptions={billingStateOptions}
             loading={loading}
             isSyncing={isSyncing}
+            addresses={addresses}
+            selectedAddressId={checkoutDraft.sourceAddressId}
+            shippingAddress={shippingAddressPreview}
+            onShippingAddressChange={handleShippingAddressChange}
+            setIsShippingOpen={setIsShippingOpen}
           />
           <CheckoutOrderSummary
             cartItems={cartItems}
@@ -575,6 +576,8 @@ function CheckoutDetail() {
             total={total}
             shippingMethods={shippingMethods}
             selectedShipping={selectedShipping}
+            isShippingOpen={isShippingOpen}
+            setIsShippingOpen={setIsShippingOpen}
             addresses={addresses as SavedCheckoutAddress[]}
             shippingAddress={shippingAddressPreview}
             selectedAddressId={checkoutDraft.sourceAddressId}

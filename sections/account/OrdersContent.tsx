@@ -6,7 +6,7 @@ import Link from "next/link";
 import { APP_ROUTE } from "@/constants/AppRoutes";
 import { REFUND_REASONS, isWithinRefundWindow, getDaysRemainingForRefund } from "@/constants/RefundConfig";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
-import { FiChevronDown, FiChevronRight, FiInfo } from "react-icons/fi";
+import { FiChevronDown, FiChevronRight, FiInfo, FiTag } from "react-icons/fi";
 import { setOrders, cancelOrder, submitRefund, cancelRefundRequest } from "@/store/slices/orderSlice";
 import type { Order } from "@/store/slices/orderSlice";
 import { addToCart } from "@/store/slices/cartSlice";
@@ -16,6 +16,7 @@ import Pagination from "@/components/common/Pagination";
 import Modal from "@/components/ui/Modal";
 import { toast } from "react-toastify";
 import ReviewTab from "./ReviewTab";
+import { supabase } from "@/lib/supabase/client";
 
 type OrderItem = {
   id: number;
@@ -68,6 +69,19 @@ export default function OrdersContent({ userId, currentPage, refundWindowDays, i
     isOpen: false,
     productId: null
   });
+  const [reviewedProductIds, setReviewedProductIds] = useState<number[]>([]);
+
+  useEffect(() => {
+    const fetchUserReviews = async () => {
+      if (!userId) return;
+      const { data } = await supabase
+        .from("reviews")
+        .select("product_id")
+        .eq("user_id", userId);
+      if (data) setReviewedProductIds(data.map(r => r.product_id));
+    };
+    fetchUserReviews();
+  }, [userId]);
 
   // Hydrate orders from server payload for fast first render
   useEffect(() => {
@@ -85,11 +99,13 @@ export default function OrdersContent({ userId, currentPage, refundWindowDays, i
   };
 
   const canRequestRefund = (order: Order): boolean => {
-    const isDelivered = order.status === "delivered" || order.status === "shipped";
-    const withinWindow = isWithinRefundWindow(order.order_date, refundWindowDays);
+    const isDelivered = order.status === "delivered";
+    if (!isDelivered) return false;
+    const refundDate = order.delivered_at || order.order_date;
+    const withinWindow = isWithinRefundWindow(refundDate, refundWindowDays);
     const noExistingRefund = !order.refund_status || order.refund_status === "rejected";
 
-    return isDelivered && withinWindow && noExistingRefund;
+    return withinWindow && noExistingRefund;
   };
 
   const canCancelOrder = (order: Order): boolean => {
@@ -264,7 +280,6 @@ export default function OrdersContent({ userId, currentPage, refundWindowDays, i
         </div>
       )}
 
-      {/* DESKTOP TABLE HEADER */}
       <div className="hidden md:grid grid-cols-[1fr_2fr_1.5fr_1.2fr_1.5fr_1fr] text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 pb-4 mb-2 px-4">
         <p>Order ID</p>
         <p>Date Placed</p>
@@ -274,8 +289,7 @@ export default function OrdersContent({ userId, currentPage, refundWindowDays, i
         <p className="text-right">Actions</p>
       </div>
 
-      {/* ORDERS LIST */}
-      <div className="space-y-3">
+      <div className="">
         {orders.map((order) => {
           const isExpanded = expandedOrderId === order.id;
           const snapshot = order.items_snapshot as any;
@@ -287,12 +301,10 @@ export default function OrdersContent({ userId, currentPage, refundWindowDays, i
               key={order.id}
               className={`bg-white border-b transition-all duration-300 ${isExpanded ? ' shadow-md' : 'hover:border-gray-300'}`}
             >
-              {/* UNIFIED RESPONSIVE ROW */}
               <div
                 onClick={() => toggleExpand(order.id)}
                 className="flex flex-col md:grid md:grid-cols-[1fr_2fr_1.5fr_1.2fr_1.5fr_1fr] items-start md:items-center gap-2 md:gap-4 py-4 md:py-6 px-4 cursor-pointer group"
               >
-                {/* ID and Mobile/Desktop Summary */}
                 <div className="flex justify-between items-center w-full md:w-auto">
                   <p className="font-bold text-black text-base md:text-lg">#{order.id}</p>
                   <div className={`md:hidden p-1.5 rounded-full bg-gray-50 transition-transform ${isExpanded ? 'rotate-180 text-black' : 'text-gray-300'}`}>
@@ -300,27 +312,30 @@ export default function OrdersContent({ userId, currentPage, refundWindowDays, i
                   </div>
                 </div>
 
-                {/* Date */}
                 <p className="text-gray-400 md:text-gray-500 text-xs md:text-sm font-medium">
                   {formatDate(order.order_date)}
                 </p>
 
-                {/* Status - Responsive Badge */}
-                <div className="flex md:block gap-2 items-center">
-                  <span className={`text-[9px] md:text-[10px] font-bold uppercase py-0.5 md:py-1 px-2 md:px-2.5 rounded-full ring-1 ring-inset ${getStatusColor(order.status)}`}>
-                    {order.status}
-                  </span>
+                <div className="flex md:flex-col lg:flex-row gap-2 items-center lg:items-center">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[9px] md:text-[10px] font-bold uppercase py-0.5 md:py-1 px-2 md:px-2.5 rounded-full ring-1 ring-inset ${getStatusColor(order.status)}`}>
+                      {order.status}
+                    </span>
 
-                  {/* Mobile-only Price summary next to status */}
+                    {/* {order.coupon_code && (
+                      <div className="flex items-center gap-1 bg-green-50 text-green-700 px-1.5 py-0.5 rounded border border-green-100" title={`Coupon applied: ${order.coupon_code}`}>
+                        <FiTag className="w-2.5 h-2.5" />
+                        <span className="text-[8px] font-bold uppercase tracking-tighter">OFFER</span>
+                      </div>
+                    )} */}
+                  </div>
+
                   <p className="md:hidden font-bold text-black text-sm">{formatCurrency(order.total_price)}</p>
                 </div>
 
-                {/* Total Price (Desktop Only) */}
                 <p className="hidden md:block font-bold text-black text-base">{formatCurrency(order.total_price)}</p>
-
-                {/* Items Thumbnails (Desktop Only) */}
                 <div className="hidden md:flex gap-3 overflow-hidden">
-                  {itemsFromSnapshot.slice(0, 3).map((item: any, idx: number) => (
+                  {itemsFromSnapshot.slice(0, 2).map((item: any, idx: number) => (
                     <img
                       key={`img-${order.id}-${idx}`}
                       src={item.image || (item.product_variant?.color_images?.[0]) || item.products?.image}
@@ -335,7 +350,6 @@ export default function OrdersContent({ userId, currentPage, refundWindowDays, i
                   )}
                 </div>
 
-                {/* Desktop Chevron Action */}
                 <div className="hidden md:flex justify-end pr-2">
                   <div className={`p-2 rounded-full transition-all duration-300 ${isExpanded
                     ? 'rotate-180 bg-black text-white'
@@ -345,12 +359,13 @@ export default function OrdersContent({ userId, currentPage, refundWindowDays, i
                 </div>
               </div>
 
-              {/* EXPANDED CONTENT */}
               {isExpanded && (
                 <div className="px-5 pb-3 md:px-8 md:py-4 bg-white rounded-b-2xl animate-in slide-in-from-top-2 duration-300">
                   {/* Order Items Section */}
                   <div className="mb-6 pb-6 border-b border-gray-100">
-                    <h4 className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-4">Items ({itemsCount})</h4>
+                    <div className="flex justify-between items-end mb-4">
+                      <h4 className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Items ({itemsCount})</h4>
+                    </div>
                     <div className="space-y-3">
                       {itemsFromSnapshot.map((item: any, idx: number) => {
                         const targetVariantId = item.variant_id || item.id;
@@ -397,21 +412,19 @@ export default function OrdersContent({ userId, currentPage, refundWindowDays, i
                               </div>
                             </div>
 
-                            {/* Amazon-style Actions Section */}
                             <div className="flex flex-col gap-2 w-full sm:w-auto pt-2 sm:pt-0">
                               {order.status.toLowerCase() === "delivered" && !isProductDeleted && (
                                 <button
                                   onClick={() => setReviewModalState({ isOpen: true, productId: item.product_id || item.id })}
                                   className="flex items-center justify-center gap-2 py-2 px-4 bg-white border border-gray-200 rounded-lg text-[11px] font-bold text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm active:scale-[0.98] w-full sm:min-w-[160px]"
                                 >
-                                  <span>Write a product review</span>
+                                  <span>{reviewedProductIds.includes(item.product_id || item.id) ? "Your review" : "Write a product review"}</span>
                                 </button>
                               )}
 
                               {!isProductDeleted && (
                                 <button
                                   onClick={() => {
-                                    // Cross-check stock: Use live data if available, else fallback to snapshot
                                     const currentStock = liveProduct ? Number(liveProduct.stock) : Number(item.stock || 0);
 
                                     if (currentStock <= 0) {
@@ -480,16 +493,48 @@ export default function OrdersContent({ userId, currentPage, refundWindowDays, i
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 pt-2">
-                        <span className="text-[9px] font-bold text-gray-300 uppercase tracking-wider">Paid via</span>
-                        <span className="text-[9px] font-black text-black px-1.5 py-0.5 border border-black rounded uppercase italic">
-                          {order.payment_method || 'Card'}
-                        </span>
+                      <div className="flex flex-col gap-3 pt-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] font-bold text-gray-300 uppercase tracking-wider">Paid via</span>
+                          <span className="text-[9px] font-black text-black px-1.5 py-0.5 border border-black rounded uppercase italic">
+                            {order.payment_method || 'Card'}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
                     <div className="w-full md:w-64 flex flex-col gap-2.5">
+                      <div>
+                        {order.coupon_code && (
+                          <div className="flex items-center gap-3 bg-green-50/50 p-2 rounded-xl border border-green-100">
+                            <div className="hidden sm:flex h-8 w-8 items-center justify-center bg-green-100 rounded-lg text-green-600">
+                              <FiTag className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="text-[9px] font-black text-green-700 uppercase tracking-widest leading-none mb-1">Coupon Applied</p>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-black uppercase tracking-tight">{order.coupon_code}</span>
+                                <span className="text-xs font-bold text-green-600">-{formatCurrency(Number(order.discount_amount) || 0)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                       <div className="flex flex-col gap-2.5">
+                        {order.status === "cancelled" && (
+                          <div className="p-4 bg-gray-50 border border-gray-100 rounded-xl text-center">
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-tight italic">
+                              Order was successfully cancelled
+                            </p>
+                          </div>
+                        )}
+                        {order.status === "refunded" && (
+                          <div className="p-4 bg-green-50 border border-green-100 rounded-xl text-center">
+                            <p className="text-[10px] font-black text-green-600 uppercase tracking-widest leading-tight">
+                              Amount was successfully refunded
+                            </p>
+                          </div>
+                        )}
                         {canCancelOrder(order) && (
                           <button
                             onClick={(e) => {
@@ -514,7 +559,7 @@ export default function OrdersContent({ userId, currentPage, refundWindowDays, i
                           >
                             <span>Request Refund</span>
                             <span className="text-[9px] font-black opacity-60">
-                              {getDaysRemainingForRefund(order.order_date, refundWindowDays)}D
+                              {getDaysRemainingForRefund(order.delivered_at || order.order_date, refundWindowDays)}D
                             </span>
                           </button>
                         ) : order.refund_status ? (
@@ -528,6 +573,14 @@ export default function OrdersContent({ userId, currentPage, refundWindowDays, i
                             </div>
 
                             {order.refund_status === "pending" && (
+                              <div className="px-2 py-1">
+                                <p className="text-[10px] text-orange-600 font-medium italic">
+                                  Your refund request has been submitted and is under review.
+                                </p>
+                              </div>
+                            )}
+
+                            {order.refund_status === "pending" && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -539,16 +592,6 @@ export default function OrdersContent({ userId, currentPage, refundWindowDays, i
                                 Withdraw Request
                               </button>
                             )}
-
-                            {order.admin_note && (
-                              <p className="text-[9px] text-gray-400 italic px-2">
-                                Note: {order.admin_note}
-                              </p>
-                            )}
-                          </div>
-                        ) : !canCancelOrder(order) ? (
-                          <div className="text-center py-3.5 px-5 bg-gray-50 text-gray-300 rounded-xl text-[9px] font-black uppercase border border-gray-50 tracking-wider">
-                            Order Locked
                           </div>
                         ) : null}
                       </div>
@@ -561,7 +604,6 @@ export default function OrdersContent({ userId, currentPage, refundWindowDays, i
         })}
       </div>
 
-      {/* PAGINATION CONTROLS */}
       <Pagination
         currentPage={currentPage}
         totalPages={totalPages}
@@ -610,7 +652,9 @@ export default function OrdersContent({ userId, currentPage, refundWindowDays, i
             <ReviewTab
               productId={reviewModalState.productId}
               onReviewStatsChange={(stats) => {
-                // Background update if needed, normally not needed for orders page
+              }}
+              onReviewSuccess={(pid) => {
+                setReviewedProductIds(prev => Array.from(new Set([...prev, pid])));
               }}
             />
           )}

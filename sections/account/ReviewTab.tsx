@@ -28,10 +28,12 @@ type Review = {
 export default function ReviewTab({
   productId,
   onReviewStatsChange,
+  onReviewSuccess,
   initialReviews,
 }: {
   productId: number;
   onReviewStatsChange?: (stats: { rating: number; count: number }) => void;
+  onReviewSuccess?: (productId: number) => void;
   initialReviews?: Review[];
 }) {
   const [reviews, setReviews] = useState<Review[]>(initialReviews ?? []);
@@ -214,6 +216,7 @@ export default function ReviewTab({
 
       // Manually refresh data to ensure immediate UI update
       loadData();
+      onReviewSuccess?.(productId);
 
     } catch (err: any) {
       setModal({ show: true, msg: "An unexpected error occurred." });
@@ -229,7 +232,7 @@ export default function ReviewTab({
   if (loading) return <ReviewSkeleton />;
 
   return (
-    <div className="mt-6 sm:mt-10 md:mt-12 lg:mt-14 w-full mx-auto max-w-[1120px] min-w-[300px]">
+    <div className="mt-6 w-full max-w-[1120px] min-w-[300px]">
       <div className="flex flex-col gap-3 sm:gap-4 mb-6 sm:mb-8">
         <h1 className="font-poppins font-medium text-xl sm:text-2xl md:text-3xl lg:text-[32px] text-[#141718] tracking-tight">
           Customer Reviews

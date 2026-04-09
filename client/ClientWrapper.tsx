@@ -1,13 +1,10 @@
 "use client";
-
-import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import NotificationWrapper from "../client/NotificationWrapper";
 import { APP_ROUTE } from "@/constants/AppRoutes";
-import dynamic from "next/dynamic";
 
-const Navbar = dynamic(() => import("../components/Navbar"), { ssr: false });
-const Footer = dynamic(() => import("../components/footer"), { ssr: false });
+import Navbar from "../components/Navbar";
+import Footer from "../components/footer";
 
 interface Props {
     children: React.ReactNode;
@@ -33,7 +30,6 @@ export default function ClientWrapper({ children }: Props) {
         APP_ROUTE.resetPassword,
     ];
 
-    // Normalize pathname to remove trailing slash for comparison
     const normalizedPathname = pathname?.replace(/\/$/, "") || "";
     const isFullWidth = fullWidthPages.includes(normalizedPathname);
 

@@ -58,7 +58,11 @@ function StoreInitializer({ children }: { children: React.ReactNode }) {
             lastFetchedUserIdRef.current = changedUser.id
             dispatch(fetchCart(changedUser.id))
             dispatch(fetchWishlist(changedUser.id))
-            void dispatch(checkIsAdmin(changedUser.id))
+            // Only check admin via RPC if metadata doesn't have role info
+            const metaRole = (changedUser?.app_metadata?.role || changedUser?.user_metadata?.role || "").toLowerCase()
+            if (metaRole !== "admin") {
+              void dispatch(checkIsAdmin(changedUser.id))
+            }
           }
         } else {
           dispatch(loadGuestCart())

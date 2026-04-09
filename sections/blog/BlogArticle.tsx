@@ -29,7 +29,7 @@ export default function BlogArticle({ data, gridType = "three" }: ArticleProps) 
     }
 
     return (
-        <div className={`${gridClass()} my-10`}>
+        <div className={`${gridClass()} my-5 md:my-10`}>
             {data.map((article, index) => {
                 const displayImage = article.cover_image || "/placeholder.png"
                 const displayDate = new Date(article.created_at).toLocaleDateString('en-US', {
@@ -56,8 +56,8 @@ export default function BlogArticle({ data, gridType = "three" }: ArticleProps) 
                                 />
                             </div>
                             <div className={`pt-4 ${gridType === "horizontal" ? "flex-1 pt-0" : ""}`}>
-                                <h2 className="font-medium text-[20px] mb-2 hover:text-gray-600 transition-colors uppercase">{article.title}</h2>
-                                <p className="text-[#6C7275] text-sm">{displayDate}</p>
+                                <h2 className="font-medium text-[13px] sm:text-[18px] lg:text-[20px] mb-2 hover:text-gray-600 transition-colors uppercase">{article.title}</h2>
+                                <p className="text-[#6C7275] text-[10px] sm:text-sm md:text-base lg:text-lg">{displayDate}</p>
                             </div>
                         </Link>
                     </div>

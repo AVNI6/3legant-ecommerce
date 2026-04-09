@@ -52,7 +52,7 @@ export default function Modal({ isOpen, onClose, title, children, disableClose =
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto py-6 px-6 custom-scrollbar">
           {children}
         </div>
 

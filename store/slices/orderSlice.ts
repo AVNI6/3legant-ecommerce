@@ -5,6 +5,7 @@ export interface Order {
   id: number
   user_id: string
   order_date: string
+  delivered_at?: string | null
   total_price: number
   status: string
   invoice_url?: string | null
@@ -45,7 +46,7 @@ export const fetchOrderHistory = createAsyncThunk(
       let query = supabase
         .from("orders")
         .select(`
-            id, user_id, total_price, status, order_date, shipping_address, 
+            id, user_id, total_price, status, order_date, delivered_at, shipping_address, 
             payment_method, billing_address, items_snapshot, invoice_url, 
             invoice_sent_at, refund_status, refund_amount, refund_reason, 
             discount_amount, coupon_code, admin_note,
@@ -94,7 +95,7 @@ export const cancelOrder = createAsyncThunk(
       const { data, error } = await supabase
         .from("orders")
         .select(`
-            id, user_id, total_price, status, order_date, shipping_address, payment_method, billing_address, items_snapshot, invoice_url, invoice_sent_at, refund_status, refund_amount, refund_reason, discount_amount, coupon_code, admin_note,
+            id, user_id, total_price, status, order_date, delivered_at, shipping_address, payment_method, billing_address, items_snapshot, invoice_url, invoice_sent_at, refund_status, refund_amount, refund_reason, discount_amount, coupon_code, admin_note,
             order_items (id, product_id, price, quantity, color, variant_id)
         `)
         .eq("id", orderId)
@@ -125,8 +126,8 @@ export const submitRefund = createAsyncThunk(
       const { data, error: fetchError } = await supabase
         .from("orders")
         .select(`
-           id, user_id, total_price, status, order_date, shipping_address, payment_method, billing_address, items_snapshot, invoice_url, invoice_sent_at, refund_status, refund_amount, refund_reason, discount_amount, coupon_code, admin_note,
-           order_items (id, product_id, price, quantity, color, variant_id)
+            id, user_id, total_price, status, order_date, delivered_at, shipping_address, payment_method, billing_address, items_snapshot, invoice_url, invoice_sent_at, refund_status, refund_amount, refund_reason, discount_amount, coupon_code, admin_note,
+            order_items (id, product_id, price, quantity, color, variant_id)
        `)
         .eq("id", orderId)
         .single();
@@ -156,8 +157,8 @@ export const cancelRefundRequest = createAsyncThunk(
       const { data, error: fetchError } = await supabase
         .from("orders")
         .select(`
-           id, user_id, total_price, status, order_date, shipping_address, payment_method, billing_address, items_snapshot, invoice_url, invoice_sent_at, refund_status, refund_amount, refund_reason, discount_amount, coupon_code, admin_note,
-           order_items (id, product_id, price, quantity, color, variant_id)
+            id, user_id, total_price, status, order_date, delivered_at, shipping_address, payment_method, billing_address, items_snapshot, invoice_url, invoice_sent_at, refund_status, refund_amount, refund_reason, discount_amount, coupon_code, admin_note,
+            order_items (id, product_id, price, quantity, color, variant_id)
        `)
         .eq("id", orderId)
         .single();

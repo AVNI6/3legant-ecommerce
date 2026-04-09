@@ -2,8 +2,8 @@ import { features } from "@/constants/Data";
 
 const ContactFeature = () => {
   return (
-    <div className="bg-gray-100 py-6 min-[375px]:py-10 ">
-      <div className="max-w-7xl mx-auto px-4 min-[375px]:px-6 sm:px-14 lg:px-0 ">
+    <div className="bg-gray-100 py-6 min-[375px]:py-8  ">
+      <div className="max-w-7xl px-4 min-[375px]:px-6 sm:px-14 lg:px-34  ">
         <div className="grid grid-cols-1 min-[300px]:grid-cols-2 md:grid-cols-4 gap-6 min-[300px]:gap-12">
 
           {features.map((item, index) => (

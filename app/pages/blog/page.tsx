@@ -39,7 +39,7 @@ export default async function BlogPage() {
                         </h3>
                     </div>
                 </div>
-                <section className="px-4 sm:px-12 md:px-10 lg:px-30">
+                <section className="px-4 sm:px-10 lg:px-30">
                     <BlogCards initialArticles={articles || []} totalCount={count || 0} />
                 </section>
             </div>

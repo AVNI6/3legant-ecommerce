@@ -371,10 +371,6 @@ export async function POST(request: Request) {
       }
     }
 
-    const paymentMethodTypes = (
-      paymentMethod === "upi" ? ["upi"] : ["card"]
-    ) as Stripe.Checkout.SessionCreateParams.PaymentMethodType[];
-
     // 1. Check for an existing PENDING order for this user to avoid duplications
     const { data: existingOrder } = await authedSupabase
       .from("orders")
@@ -386,7 +382,8 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     let orderId: number;
-    const finalTotalPrice = typeof totalAmount === "number" ? totalAmount : stripeTotal / 100;
+    const finalDiscount = discountInMinorUnit / 100;
+    const finalTotalPrice = stripeTotal / 100;
 
     if (existingOrder) {
       // Reuse the existing order ID
@@ -402,8 +399,8 @@ export async function POST(request: Request) {
           billing_address: billingAddress || null,
           payment_method: paymentMethod,
           order_date: new Date().toISOString(),
-          coupon_code: couponCode || null,
-          discount_amount: discountAmount || 0,
+          coupon_code: couponCode ? couponCode.toUpperCase() : null,
+          discount_amount: finalDiscount,
         })
         .eq("id", orderId);
 
@@ -424,8 +421,8 @@ export async function POST(request: Request) {
           billing_address: billingAddress || null,
           payment_method: paymentMethod,
           order_date: new Date().toISOString(),
-          coupon_code: couponCode || null,
-          discount_amount: discountAmount || 0,
+          coupon_code: couponCode ? couponCode.toUpperCase() : null,
+          discount_amount: finalDiscount,
         })
         .select("id")
         .single();
@@ -437,9 +434,18 @@ export async function POST(request: Request) {
       orderId = orderRow.id;
     }
 
+    // Update metadata to use final server-calculated values
+    const finalMetadata: Record<string, string> = {
+      ...(metadata || {}),
+      orderId: String(orderId),
+      country: country || "",
+      couponCode: (couponCode || "").toUpperCase(),
+      discountAmount: String(finalDiscount),
+    };
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-      payment_method_types: paymentMethodTypes,
+      payment_method_types: (paymentMethod === "upi" ? ["upi"] : ["card"]) as any,
       line_items,
       success_url: successUrl,
       expires_at: Math.floor(Date.now() / 1000) + 60 * 30,
@@ -447,15 +453,10 @@ export async function POST(request: Request) {
       payment_intent_data: {
         metadata: {
           orderId: String(orderId),
-          userId: metadata.userId,
+          userId: finalMetadata["userId"] || "",
         },
       },
-      metadata: {
-        ...metadata,
-        orderId: String(orderId),
-        country: country || "",
-        couponCode: couponCode || "",
-      },
+      metadata: finalMetadata,
     });
 
     // Clean up any old PENDING payments to avoid confusion
@@ -463,7 +464,7 @@ export async function POST(request: Request) {
     await authedSupabase
       .from("payments")
       .update({ status: PaymentStatus.EXPIRED })
-      .eq("user_id", metadata.userId)
+      .eq("user_id", finalMetadata["userId"])
       .eq("status", PaymentStatus.PENDING)
       .neq("payment_id", session.id);
 
@@ -473,19 +474,19 @@ export async function POST(request: Request) {
       transaction_id: (session.payment_intent as string) || null,
       method: paymentMethod,
       status: PaymentStatus.PENDING,
-      user_id: metadata.userId,
-      amount: stripeTotal / 100,
+      user_id: finalMetadata["userId"],
+      amount: finalTotalPrice,
       currency: currency,
       details: {
         items,
         cartSnapshot: resolvedCartSnapshot,
         shippingAmount,
-        discountAmount,
-        totalAmount: typeof totalAmount === "number" ? totalAmount : stripeTotal / 100,
+        discountAmount: finalDiscount,
+        totalAmount: finalTotalPrice,
         country,
         shippingAddress,
         billingAddress,
-        couponCode,
+        couponCode: finalMetadata.couponCode,
         shippingMethod,
         orderSnapshot,
       },

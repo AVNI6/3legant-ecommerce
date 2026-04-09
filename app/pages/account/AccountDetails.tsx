@@ -150,16 +150,9 @@ export default function AccountDetails() {
   }
 
   return (
-    <div className="max-w-3xl">
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 text-gray-500">
+    <div className="max-w-5xl lg:mx-auto px-4 ">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 text-gray-500 ">
         <h2 className="font-inter font-semibold text-[20px] leading-[32px] tracking-normal text-black">Account Details</h2>
-
-        {updateError && (
-          <div className="p-4 bg-red-50 text-red-700 rounded-lg text-sm border border-red-100 animate-in fade-in slide-in-from-top-1">
-            {updateError}
-          </div>
-        )}
-
         <div className="space-y-6">
           <div className="flex flex-col">
             <label htmlFor="account-first-name" className="uppercase font-bold text-xs text-gray-400 mb-2">First Name</label>
@@ -177,7 +170,11 @@ export default function AccountDetails() {
             <input
               id="account-last-name"
               autoComplete="family-name"
-              {...register("lastName", { required: "Last name required" })}
+              {...register("lastName", {
+                required: "Last name is required",
+                validate: value =>
+                  value.length >= 2 || "Last name must be at least 2 characters"
+              })}
               className="border border-gray-200 py-3 px-4 text-black focus:outline-none focus:ring-2 focus:ring-black/5 rounded-xl transition-all"
             />
             {errors.lastName && <p className="text-red-500 text-xs mt-1">{errors.lastName.message}</p>}
@@ -207,10 +204,9 @@ export default function AccountDetails() {
             />
           </div>
         </div>
-
-        <div className="border-t border-gray-100 pt-3 md:pt-8 mt-8 space-y-6">
+        <div className="border-t border-gray-100 pt-3 space-y-6">
           <h2 className="text-2xl font-semibold text-black">Password Change</h2>
-
+       
           <div className="flex flex-col">
             <label htmlFor="account-old-password" title="Required to change password" className="uppercase font-bold text-xs text-gray-400 mb-2 cursor-help">Current Password *</label>
             <div className="relative group/field">
@@ -318,7 +314,7 @@ export default function AccountDetails() {
 
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-4 pt-4">
+        <div className="flex flex-col sm:flex-row gap-4 pb-4">
           <button
             type="submit"
             disabled={isSubmitting}

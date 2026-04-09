@@ -129,6 +129,37 @@ export const createAddressThunk = createAsyncThunk(
         user_id: userId,
       }
 
+      // 🔍 Case-Insensitive Check: See if this address already exists for this user in Supabase
+      const { data: allAddresses, error: checkError } = await supabase
+        .from('addresses')
+        .select('*')
+        .eq('user_id', userId)
+
+      if (checkError) {
+        console.error("[ADDRESS] Error checking for existing address:", checkError.message)
+      }
+
+      if (allAddresses && allAddresses.length > 0) {
+        const isDuplicate = allAddresses.some((addr: any) => {
+          const normalize = (val: any) => String(val || "").toLowerCase().trim();
+
+          return (
+            normalize(addr.street) === normalize(payload.street) &&
+            normalize(addr.city) === normalize(payload.city) &&
+            normalize(addr.state) === normalize(payload.state) &&
+            normalize(addr.zip) === normalize(payload.zip) &&
+            normalize(addr.country) === normalize(payload.country) &&
+            normalize(addr.first_name) === normalize(payload.first_name) &&
+            normalize(addr.last_name) === normalize(payload.last_name) &&
+            normalize(addr.phone) === normalize(payload.phone)
+          );
+        });
+
+        if (isDuplicate) {
+          return rejectWithValue('Already same exists!!Try for New')
+        }
+      }
+
       // If new address is default, clear previous defaults first.
       if (payload.is_default) {
         await supabase.from('addresses').update({ is_default: false }).eq('user_id', userId)

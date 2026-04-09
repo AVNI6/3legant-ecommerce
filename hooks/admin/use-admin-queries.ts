@@ -206,7 +206,7 @@ export function useAdminRecentOrders(limit = 8) {
     queryFn: async () => {
       const { data: orders } = await supabase
         .from("orders")
-        .select("id, user_id, total_price, status, order_date, items_snapshot")
+        .select("id, user_id, total_price, status, order_date, delivered_at, items_snapshot")
         .order("order_date", { ascending: false })
         .limit(limit)
 
@@ -235,7 +235,7 @@ export function useAdminOrders(page: number, pageSize: number, statusFilter: str
     queryFn: async () => {
       let query = supabase
         .from("orders")
-        .select("*, order_items(id, product_id, price, quantity, color)", { count: "exact" })
+        .select("*, order_items(id, product_id, price, quantity, color), payments(details)", { count: "exact" })
         .order("order_date", { ascending: false })
         .range(page * pageSize, (page + 1) * pageSize - 1)
 
@@ -248,20 +248,35 @@ export function useAdminOrders(page: number, pageSize: number, statusFilter: str
       }
 
       // 🛰 Ensure order_items is always populated with display data from snapshot
-      const mapped = (data || []).map((o: any) => ({
-        ...o,
-        order_items: Array.isArray(o.items_snapshot)
-          ? o.items_snapshot.map((item: any, i: number) => ({
-            id: item.variant_id || item.id || i,
-            product_id: item.id || 0,
-            price: item.price || 0,
-            quantity: item.quantity || 1,
-            color: item.color || "-",
-            product_name: item.name || "Product",
-            product_image: item.image || null
-          }))
-          : (o.order_items || [])
-      }))
+      // and extract shipping info from payment details or order snapshot
+      const mapped = (data || []).map((o: any) => {
+        const snapshot = o.items_snapshot as any;
+        const paymentDetails = o.payments?.[0]?.details || {};
+
+        // Favor snapshot inside payment details as it's the checkout-time final state
+        const shippingInfo = paymentDetails.snapshot || (Array.isArray(snapshot) ? {} : snapshot) || {};
+        const itemsList = Array.isArray(snapshot) ? snapshot : (snapshot?.items || []);
+
+        return {
+          ...o,
+          shipping_method: shippingInfo.shipping_method || "Standard",
+          shipping_amount: shippingInfo.shipping_cost || 0,
+          shipping_address: o.shipping_address || paymentDetails.shippingAddress || shippingInfo.shipping_address || o.shipping_address,
+          payment_status: o.payments?.[0]?.status || "pending",
+          transaction_id: o.payments?.[0]?.transaction_id || null,
+          order_items: itemsList.length > 0
+            ? itemsList.map((item: any, i: number) => ({
+              id: item.variant_id || item.id || i,
+              product_id: item.id || 0,
+              price: item.price || 0,
+              quantity: item.quantity || 1,
+              color: item.color || "-",
+              product_name: item.name || "Product",
+              product_image: item.image || null
+            }))
+            : (o.order_items || [])
+        };
+      })
 
       return { data: mapped, count: count || 0 }
     }
@@ -423,7 +438,7 @@ export function useAdminActionRequiredOrders() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("orders")
-        .select("id, status, order_date, total_price, shipping_address, items_snapshot")
+        .select("id, status, order_date, delivered_at, total_price, shipping_address, items_snapshot")
         .in("status", ["confirmed", "processing", "shipped"])
         .order("order_date", { ascending: false }) // Newest first for fulfillment dashboard
         .limit(20)
@@ -440,7 +455,7 @@ export function useAdminRefundedOrders() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("orders")
-        .select("id, status, order_date, total_price, shipping_address, items_snapshot, refund_amount, refund_reason")
+        .select("id, status, order_date, delivered_at, total_price, shipping_address, items_snapshot, refund_amount, refund_reason")
         .or("status.eq.refunded")
         .order("order_date", { ascending: false })
         .limit(30)
@@ -522,7 +537,11 @@ export function useUpdateOrderStatus() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ orderId, status }: { orderId: number, status: string }) => {
-      const { error } = await supabase.from("orders").update({ status: status as OrderStatus }).eq("id", orderId)
+      const updatePayload: Record<string, any> = { status: status as OrderStatus }
+      if (status === OrderStatus.DELIVERED) {
+        updatePayload.delivered_at = new Date().toISOString()
+      }
+      const { error } = await supabase.from("orders").update(updatePayload).eq("id", orderId)
       if (error) throw error
       return { orderId, status }
     },

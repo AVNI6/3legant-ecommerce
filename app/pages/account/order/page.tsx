@@ -24,7 +24,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
     const { data: ordersData, error: ordersError, count } = await supabase
         .from("orders")
         .select(`
-            id, user_id, total_price, status, order_date, shipping_address,
+            id, user_id, total_price, status, order_date, delivered_at, shipping_address,
             payment_method, billing_address, items_snapshot, invoice_url,
             invoice_sent_at, refund_status, refund_amount, refund_reason,
             discount_amount, coupon_code, admin_note,

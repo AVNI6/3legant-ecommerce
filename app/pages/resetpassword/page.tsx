@@ -4,7 +4,8 @@ import { supabase } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { APP_ROUTE } from "@/constants/AppRoutes";
 import { toast } from "react-toastify";
-
+import Image from "next/image";
+import Link from "next/link";
 import { HiOutlineEye, HiOutlineEyeOff } from "react-icons/hi";
 import { useState } from "react";
 
@@ -33,10 +34,29 @@ export default function ResetPassword() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <form
+
+ <div className="flex flex-col lg:flex-row min-h-[50vh]">
+
+      <div className="relative w-full h-[50vh] lg:h-screen lg:w-[55%]">
+        <Image
+          src="/signup.png"
+          alt="Signup Image"
+          fill
+          loading="lazy"
+          className="object-contain bg-gray-100"
+        />
+
+        <div className="absolute top-6 left-1/2 -translate-x-1/2">
+          <h1 className="text-2xl md:text-4xl font-bold">
+            <Link href="/">3legant.</Link>
+          </h1>
+        </div>
+      </div>
+
+      <div className="flex flex-1 items-center justify-center px-20 py-10">
+        <form
         onSubmit={handleSubmit(onSubmit)}
-        className="flex flex-col gap-5 w-full max-w-[400px] min-w-[300px] px-4"
+        className="flex flex-col gap-5 w-full max-w-md md:max-w-xl min-w-[300px] px-4"
       >
         <h1 className="text-2xl font-bold">Reset Password</h1>
 
@@ -81,7 +101,7 @@ export default function ResetPassword() {
         </button>
 
       </form>
-
+      </div>
     </div>
   );
 }

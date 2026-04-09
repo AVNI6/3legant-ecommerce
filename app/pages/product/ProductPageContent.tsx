@@ -68,6 +68,7 @@ export default function ProductPageContent({ initialItems = [] }: { initialItems
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [sourceOffset, setSourceOffset] = useState(initialItems.length);
   const [hasMoreInDB, setHasMoreInDB] = useState(initialItems.length === INITIAL_LIMIT);
+  const [forceRefreshTick, setForceRefreshTick] = useState(0);
 
   const [selectedCategory, setSelectedCategory] = useState(urlCategory);
   const [selectedPrice, setSelectedPrice] = useState<string[]>(["all", "0-99", "100-199", "200-299", "300-399", "400+"]);
@@ -199,10 +200,11 @@ export default function ProductPageContent({ initialItems = [] }: { initialItems
   useEffect(() => {
     const normalizedRanges = normalizeSelectedPrice(selectedPrice);
     const currentKey = getBatchCacheKey(selectedCategory, sort, normalizedRanges);
+    const shouldBypassCache = forceRefreshTick > 0;
     const hasCachedState = Object.prototype.hasOwnProperty.call(batchCacheRef.current, currentKey);
     const cachedState = hasCachedState ? batchCacheRef.current[currentKey] : undefined;
 
-    if (hasCachedState && cachedState) {
+    if (!shouldBypassCache && hasCachedState && cachedState) {
       setItems(cachedState.items);
       setVisibleCount(cachedState.visibleCount);
       setSourceOffset(cachedState.sourceOffset);
@@ -217,6 +219,7 @@ export default function ProductPageContent({ initialItems = [] }: { initialItems
       selectedCategory === "All Rooms" &&
       sort === "default" &&
       normalizedRanges.includes("all") &&
+      !shouldBypassCache &&
       !fetchAttemptedRef.current
     ) {
       setIsLoading(false);
@@ -240,7 +243,7 @@ export default function ProductPageContent({ initialItems = [] }: { initialItems
 
     (async () => {
       fetchAttemptedRef.current = true;
-      if (!hasCachedState) {
+      if (shouldBypassCache || !hasCachedState) {
         setIsLoading(true);
       }
 
@@ -278,6 +281,7 @@ export default function ProductPageContent({ initialItems = [] }: { initialItems
     selectedCategory,
     sort,
     selectedPrice,
+    forceRefreshTick,
     initialItems,
     initialItems.length,
     getBatchCacheKey,
@@ -387,11 +391,13 @@ export default function ProductPageContent({ initialItems = [] }: { initialItems
 
   const handleCategoryChange = useCallback((category: string) => {
     setSelectedCategory(category);
+    setForceRefreshTick((tick) => tick + 1);
   }, []);
 
   const handlePriceChange = useCallback((price: string | string[], isSingleSelect: boolean = false) => {
     if (Array.isArray(price)) {
       setSelectedPrice(price);
+      setForceRefreshTick((tick) => tick + 1);
       return;
     }
 
@@ -401,6 +407,7 @@ export default function ProductPageContent({ initialItems = [] }: { initialItems
       } else {
         setSelectedPrice([price]);
       }
+      setForceRefreshTick((tick) => tick + 1);
       return;
     }
 
@@ -411,6 +418,7 @@ export default function ProductPageContent({ initialItems = [] }: { initialItems
         // Toggle everything: if all on -> clear all; if all off -> select all
         return isCurrentlyAll ? [] : ["all", ...specificPrices];
       });
+      setForceRefreshTick((tick) => tick + 1);
     } else {
       setSelectedPrice((prev) => {
         const brands = prev.filter((p) => p !== "all");
@@ -429,11 +437,13 @@ export default function ProductPageContent({ initialItems = [] }: { initialItems
         }
         return next;
       });
+      setForceRefreshTick((tick) => tick + 1);
     }
   }, []);
 
   const handleSortChange = useCallback((sortVal: string) => {
     dispatch(setSort(sortVal));
+    setForceRefreshTick((tick) => tick + 1);
     const params = new URLSearchParams(window.location.search);
     params.set("sort", sortVal);
     window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);

@@ -17,7 +17,7 @@ const isRemoteUrl = (src: string) => /^https?:\/\//i.test(src);
 type ColorImage = {
   id: number;
   image: string;
-  color?: string; // Add color name
+  color?: string;
 };
 
 type Props = {

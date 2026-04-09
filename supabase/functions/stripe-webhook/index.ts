@@ -85,7 +85,6 @@ serve(async (req) => {
 
   const dataObject = event.data.object as any;
 
-  // Resolve session and payment intent IDs based on event type
   if (event.type.startsWith("checkout.session.")) {
     sessionId = dataObject.id;
     paymentIntentId = dataObject.payment_intent;
@@ -93,12 +92,10 @@ serve(async (req) => {
   } else if (event.type.startsWith("payment_intent.")) {
     paymentIntentId = dataObject.id;
     orderIdFromMetadata = dataObject.metadata?.orderId;
-    // We'll need to look up sessionId if it's missing (later)
   }
 
   console.log(`[STRIPE-WEBHOOK] Processing session: ${sessionId || "N/A"}, PI: ${paymentIntentId || "N/A"}, Order: ${orderIdFromMetadata || "N/A"}`);
 
-  // 1. Fetch current payment record from Supabase
   let paymentRow: any = null;
   if (sessionId) {
     const { data: pBySession } = await supabase.from("payments").select("*").eq("payment_id", sessionId).maybeSingle();
@@ -259,12 +256,17 @@ async function processSuccessfulSession(session: any, paymentRow: any, orderId: 
   const shippingAddressRow = normalizeAddress(shippingAddress);
   const billingAddressRow = normalizeAddress(billingAddress);
 
-  // 2. Update Order Status to CONFIRMED
+  // 2. Update Order Status to CONFIRMED + Sync Coupon/Discount from metadata if available
   const pi = (session.payment_intent as string) || session.id;
-  console.log(`[STRIPE-WEBHOOK] Updating Order #${targetOrderId} to CONFIRMED...`);
+  const couponCode = metadata.couponCode || null;
+  const discountAmount = metadata.discountAmount ? Number(metadata.discountAmount) : 0;
+
+  console.log(`[STRIPE-WEBHOOK] Updating Order #${targetOrderId} to CONFIRMED (Coupon: ${couponCode})...`);
   const { error: orderUpdateError } = await supabase.from("orders").update({
     status: OrderStatus.CONFIRMED,
-    payment_intent_id: pi || null
+    payment_intent_id: pi || null,
+    coupon_code: couponCode,
+    discount_amount: discountAmount
   }).eq("id", targetOrderId);
 
   if (orderUpdateError) {

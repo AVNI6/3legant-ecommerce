@@ -187,12 +187,13 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
         }
     }, [selectedVariantId, selectedVariantForSync, product?.image, galleryImagesForSync]);
 
-    // Sync localQuantity with updated cart quantity after successful add
+
+    // Sync localQuantity with updated cart quantity after successful add or cart change
     useEffect(() => {
-        if (selectedCartItem) {
-            setLocalQuantity(selectedCartItem.quantity);
+        if (!hasUserModifiedQuantity) {
+            setLocalQuantity(selectedCartItem ? selectedCartItem.quantity : 1);
         }
-    }, [selectedCartItem?.quantity]);
+    }, [selectedCartItem?.quantity, hasUserModifiedQuantity, !!selectedCartItem]);
 
     if (!product) return <div className="p-10 text-center text-gray-400">Product not found</div>;
 
@@ -318,7 +319,6 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
                                 if (imgIndex !== -1) {
                                     setCurrentIndex(imgIndex);
                                 }
-                                setLocalQuantity(1);
                             }}
                         />
 
@@ -354,7 +354,7 @@ export default function ProductDetailContent({ id, initialProduct, initialVarian
                                 price: effectivePrice,
                                 color: actionColor,
                                 image: mainImage,
-                                    quantity: displayQuantity,
+                                quantity: hasUserModifiedQuantity ? localQuantity : 1,
                                 stock: selectedVariant.stock,
                                 rating: reviewStats.rating
                             }}

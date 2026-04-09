@@ -67,8 +67,8 @@ export default function AddToCartButton({ product, className, onSuccess }: Props
         toast.warning(`Limited to stock (${payload.stock})`);
       } else {
         toast.success(payload?.alreadyInCart ? "Quantity updated" : "Item added to cart");
-        if (onSuccess) onSuccess();
       }
+      if (onSuccess) onSuccess();
     } else if (addToCart.rejected.match(resultAction)) {
       const payload = resultAction.payload as any;
       if (payload?.limitReached) {

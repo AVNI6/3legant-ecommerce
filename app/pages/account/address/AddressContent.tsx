@@ -239,7 +239,7 @@ const AddressContent = ({ initialAddresses, initialTotalCount, initialPage, user
       />
 
       {editingAddress && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto" onClick={() => setEditingAddress(null)}>
+        <div className="fixed inset-0 z-50 bg-black/20 flex items-center justify-center p-2 sm:p-4 overflow-y-auto" onClick={() => setEditingAddress(null)}>
           <div className="w-full max-w-md my-auto" onClick={e => e.stopPropagation()}>
             <AddressForm
               address={mapToForm(editingAddress)}
@@ -253,7 +253,7 @@ const AddressContent = ({ initialAddresses, initialTotalCount, initialPage, user
       )}
 
       {showAddForm && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto" onClick={() => setShowAddForm(false)}>
+        <div className="fixed inset-0 z-50 bg-black/20 flex items-center justify-center p-2 sm:p-4 overflow-y-auto" onClick={() => setShowAddForm(false)}>
           <div className="w-full max-w-md my-auto" onClick={e => e.stopPropagation()}>
             <AddressForm
               address={{ isDefault: addresses.length === 0 }}

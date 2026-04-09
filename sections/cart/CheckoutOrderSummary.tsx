@@ -73,6 +73,8 @@ interface CheckoutOrderSummaryProps {
   handleRemoveCoupon: () => void;
   isOffersOpen: boolean;
   setIsOffersOpen: (open: boolean) => void;
+  isShippingOpen: boolean;
+  setIsShippingOpen: (open: boolean) => void;
 }
 
 export default function CheckoutOrderSummary({
@@ -96,12 +98,12 @@ export default function CheckoutOrderSummary({
   handleRemoveCoupon,
   isOffersOpen,
   setIsOffersOpen,
+  isShippingOpen,
+  setIsShippingOpen,
 }: CheckoutOrderSummaryProps) {
   const dispatch = useAppDispatch();
-  const [isShippingOpen, setIsShippingOpen] = useState(false);
-  const [isAddressOpen, setIsAddressOpen] = useState(false);
   const shippingDropdownRef = useClickOutside(() => setIsShippingOpen(false));
-  const addressDropdownRef = useClickOutside(() => setIsAddressOpen(false));
+
 
   const handleRemoveItem = (variantId: number) => dispatch(removeFromCart(variantId));
   const currentShipping = useMemo(() => {
@@ -110,9 +112,6 @@ export default function CheckoutOrderSummary({
     return fallback ? { name: fallback.name, cost: shippingCost } : null;
   }, [selectedShipping, shippingCost, shippingMethods]);
 
-  const shippingAddressLabel = shippingAddress.firstName || shippingAddress.lastName
-    ? `${shippingAddress.firstName || ""} ${shippingAddress.lastName || ""}`.trim()
-    : "Use the shipping form";
 
   const renderShippingCost = (method: { type: "fixed" | "percentage"; price: number | null; percentage: number | null }) => {
     if (method.type === "percentage") {
@@ -122,15 +121,9 @@ export default function CheckoutOrderSummary({
     return formatCurrency(Number(method.price ?? 0));
   };
 
-  const renderAddressLine = (address: (typeof addresses)[number]) => {
-    const name = `${address.firstName || address.first_name || ""} ${address.lastName || address.last_name || ""}`.trim();
-    const label = address.address_label ? ` · ${address.address_label}` : "";
-
-    return `${name || "Saved address"}${label}`;
-  };
 
   return (
-    <div className="mt-4 min-[375px]:mt-8 lg:mt-0 w-full lg:w-1/3 self-start">
+    <div className="w-full lg:w-1/3 self-start">
       <aside className="border rounded-lg p-3 min-[375px]:p-4 sm:p-5 sticky top-6 bg-white shadow-sm">
         <h1 className="pb-2 min-[375px]:pb-4 font-semibold text-sm min-[375px]:text-base sm:text-lg lg:text-lg border-b mb-2 min-[375px]:mb-4">Order Summary</h1>
 
@@ -336,7 +329,7 @@ export default function CheckoutOrderSummary({
               </div>
               <button
                 type="button"
-                onClick={() => { setIsShippingOpen(true); setIsAddressOpen(false); }}
+                onClick={() => { setIsShippingOpen(true); }}
                 className="rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-[10px] font-black uppercase tracking-wider text-gray-600 hover:border-black hover:text-black transition-all hover:shadow-md"
               >
                 Change
@@ -344,66 +337,6 @@ export default function CheckoutOrderSummary({
             </div>
           )}
         </div>
-
-        {/* <div
-          ref={addressDropdownRef}
-          className="mt-4 rounded-2xl border border-gray-100 bg-white shadow-sm p-4 transition-all duration-300 min-h-[96px] flex flex-col justify-center overflow-visible"
-        >
-          {isAddressOpen ? (
-            <div className="space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Select Address</span>
-                <button type="button" onClick={() => setIsAddressOpen(false)} className="text-[10px] font-black uppercase text-black hover:underline underline-offset-4">Cancel</button>
-              </div>
-              <div className="max-h-[220px] overflow-y-auto pr-1 custom-scrollbar space-y-2">
-                {addresses.length > 0 ? (
-                  addresses.map((address) => {
-                    const isSelected = address.id ? address.id === selectedAddressId : false;
-                    return (
-                      <button
-                        key={address.id || `${address.street}-${address.zip}`}
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          onShippingAddressChange(address);
-                          setIsAddressOpen(false);
-                        }}
-                        className={`w-full p-3 rounded-xl border text-left transition-all group ${isSelected ? "border-black bg-gray-50 shadow-sm" : "border-gray-50 bg-white hover:border-gray-200"}`}
-                      >
-                        <div className="flex items-center gap-3 mb-1.5">
-                          <div className={`h-4 w-4 rounded-full border flex items-center justify-center shrink-0 transition-colors ${isSelected ? "border-black bg-black" : "border-gray-300 group-hover:border-gray-400"}`}>
-                            {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-white transition-transform duration-200 scale-100" />}
-                          </div>
-                          <span className="text-[12px] font-bold text-gray-900 truncate leading-tight">{renderAddressLine(address)}</span>
-                        </div>
-                        <p className="text-[10px] text-gray-400 pl-7 line-clamp-1 leading-relaxed">{address.street}, {address.city}</p>
-                      </button>
-                    );
-                  })
-                ) : (
-                  <p className="text-[10px] font-medium text-gray-400 p-2 text-center italic">No saved addresses found.</p>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between gap-4 animate-in fade-in duration-200">
-              <div className="flex-1 min-w-0">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 block mb-1.5">Shipping Address</span>
-                <p className="text-[13px] font-bold text-gray-900 truncate leading-none mb-1">{shippingAddressLabel}</p>
-                <p className="text-[11px] font-medium text-gray-500 mt-0.5 truncate uppercase tracking-wide">{shippingAddress.street || "Add in the form"}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => { setIsAddressOpen(true); setIsShippingOpen(false); }}
-                className="rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-[10px] font-black uppercase tracking-wider text-gray-600 hover:border-black hover:text-black transition-all hover:shadow-md"
-              >
-                Change
-              </button>
-            </div>
-          )}
-        </div> */}
-
-
 
         <hr className="my-3 min-[375px]:my-5 border-gray-100" />
 

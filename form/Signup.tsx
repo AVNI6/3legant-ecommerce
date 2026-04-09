@@ -86,10 +86,8 @@ const Signup = () => {
   };
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen overflow-hidden">
-      <div className="w-full h-[35vh] md:h-screen md:w-1/2 bg-[#F3F5F7] flex flex-col items-center justify-center p-4 md:p-8 relative">
-
-
+    <div className="flex flex-col md:flex-row">
+      <div className="w-full h-[50vh] md:h-screen md:w-1/2 bg-[#F3F5F7] p-4 md:p-8 relative">
         <Image
           src="/signup.png"
           alt="Chair"
@@ -105,8 +103,8 @@ const Signup = () => {
 
       </div>
 
-      <div className="w-full md:w-1/2 flex items-center justify-center p-6 md:p-12 bg-white">
-        <div className="w-full max-w-md flex flex-col font-poppins">
+      <div className="w-full md:w-1/2 flex items-center justify-center p-20 md:p-25 bg-white">
+        <div className="w-full max-w-sm md:max-w-xl flex flex-col font-poppins">
 
           <h1 className="text-3xl md:text-4xl font-semibold mb-3">
             Sign Up

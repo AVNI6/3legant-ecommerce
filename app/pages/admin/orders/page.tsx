@@ -472,7 +472,12 @@ function OrderExpandedContent({ order, getRefundStatusColor }: { order: any, get
                 <HiOutlineCreditCard className="w-4 h-4 text-gray-400" />
                 {order.payment_method}
               </p>
-              <p className="text-xs text-gray-400 font-medium capitalize">{order.status} payment</p>
+              <p className="text-xs text-gray-400 font-medium capitalize">{order.payment_status} payment</p>
+              {order.transaction_id && (
+                <p className="text-[9px] text-gray-400 font-mono mt-1 select-all" title="Transaction ID">
+                  TX: {order.transaction_id.slice(-12)}...
+                </p>
+              )}
             </div>
 
             {order.refund_status && (
@@ -483,6 +488,27 @@ function OrderExpandedContent({ order, getRefundStatusColor }: { order: any, get
                     {order.refund_status}
                   </span>
                 </div>
+              </div>
+            )}
+
+            {order.coupon_code && (
+              <div>
+                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Promotion</h4>
+                <div className="flex items-center gap-2">
+                  <span className="bg-green-100 text-green-700 text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-tight">
+                    {order.coupon_code}
+                  </span>
+                  <span className="text-xs font-bold text-green-600">
+                    -{formatCurrency(Number(order.discount_amount) || 0)}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {order.admin_note && (
+              <div className="col-span-full mt-4 p-3 bg-amber-50 border border-amber-100 rounded-xl">
+                <h4 className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Internal Note</h4>
+                <p className="text-xs text-amber-800 italic">{order.admin_note}</p>
               </div>
             )}
           </div>

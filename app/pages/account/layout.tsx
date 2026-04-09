@@ -52,10 +52,10 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
 				</Link>
 			</div>
 
-			<h1 className="text-3xl sm:text-4xl font-semibold mb-8 sm:mb-10 text-center">My Account</h1>
+			<h1 className="text-3xl sm:text-4xl font-semibold lg:my-8 my-5 text-center">My Account</h1>
 
-			<div className="grid grid-cols-1 lg:grid-cols-4 gap-8 lg:gap-10">
-				<div className="hidden lg:flex flex-col bg-gray-100 p-6 rounded-lg h-fit sticky top-40">
+			<div className="flex flex-col lg:flex-row w-full gap-10">
+				<div className="w-1/4 hidden lg:flex flex-col bg-gray-100 p-6 rounded-lg h-fit sticky top-40">
 					<div className="flex flex-col items-center py-4 relative">
 						<Avatar
 							uid={user.id}
@@ -137,7 +137,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
 					</div>
 				</div>
 
-				<div className="lg:col-span-3">{children}</div>
+				<div className="lg:w-3/4 w-full ">{children}</div>
 			</div>
 
 			<Modal

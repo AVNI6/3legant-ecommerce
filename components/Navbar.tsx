@@ -177,7 +177,7 @@ const Navbar = () => {
                     <div className={`overflow-hidden transition-all duration-300 ease-in-out ${shopOpen ? 'max-h-64 opacity-100 mt-2 pb-2' : 'max-h-0 opacity-0'}`}>
                       <Link
                         href={APP_ROUTE.product}
-                        className="block py-2.5 pl-4 text-sm font-semibold text-black hover:pl-6 transition-all"
+                        className="block py-2.5 pl-4 text-sm font-semibold text-gray-500 hover:text-black hover:pl-6 transition-all"
                         onClick={() => { setOpen(false); setShopOpen(false); }}
                       >
                         All Products

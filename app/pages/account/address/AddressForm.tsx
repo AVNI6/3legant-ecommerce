@@ -135,7 +135,17 @@ const AddressForm = ({ address, submitLabel, isSaving, onSave, onCancel }: Addre
         <button
           disabled={isSaving}
           className="flex-1 px-6 py-3 bg-black text-white rounded-xl font-bold text-sm hover:bg-gray-800 disabled:opacity-50 transition-all shadow-lg active:scale-95 sm:order-2"
-          onClick={() => onSave(localAddress)}
+          onClick={() => {
+            const requiredFields: (keyof AddressType)[] = ["firstName", "lastName", "phone", "street", "city", "state", "zip", "country"];
+            const missing = requiredFields.filter(f => !localAddress[f] || (localAddress[f] as string).trim() === "");
+            if (missing.length > 0) {
+              import("react-toastify").then(({ toast }) => {
+                toast.warning("Please fill in all fields.");
+              });
+              return;
+            }
+            onSave(localAddress);
+          }}
         >
           {isSaving ? "Saving..." : submitLabel.includes("Save") ? "Save Changes" : "Save Address"}
         </button>

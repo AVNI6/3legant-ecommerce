@@ -49,13 +49,13 @@ export default function ForgotPassword() {
   return (
     <div className="flex flex-col lg:flex-row min-h-[50vh]">
 
-      <div className="relative w-full h-[300px] lg:h-screen lg:w-[55%]">
+      <div className="relative w-full h-[50vh] lg:h-screen lg:w-[55%]">
         <Image
           src="/signup.png"
           alt="Signup Image"
           fill
           loading="lazy"
-          className="object-cover"
+          className="object-contain bg-gray-100"
         />
 
         <div className="absolute top-6 left-1/2 -translate-x-1/2">
@@ -65,10 +65,10 @@ export default function ForgotPassword() {
         </div>
       </div>
 
-      <div className="flex flex-1 items-center justify-center px-6 py-10">
+      <div className="flex flex-1 items-center justify-center px-20 py-10">
         <form
           onSubmit={handleSubmit(onSubmit)}
-          className="flex flex-col gap-6 w-full max-w-md" >
+          className="flex flex-col gap-6 w-full max-w-md md:max-w-xl " >
           <h1 className="text-md md:text-3xl font-bold">Forgot Password</h1>
 
           <label htmlFor="forgot-email" className="sr-only">Email address</label>
