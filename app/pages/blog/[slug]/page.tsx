@@ -20,7 +20,7 @@ export default async function BlogDetail({ params }: PageProps) {
   const { slug } = await params
 
   // 🚀 Parallel data fetching for better performance
-  const [articleRes, recentRes] = await Promise.all([
+  const [articleRes, poolRes] = await Promise.all([
     publicSupabase
       .from("blogs")
       .select("id, title, content, author_name, author_image, published_at, created_at")
@@ -32,12 +32,16 @@ export default async function BlogDetail({ params }: PageProps) {
       .select("id, title, slug, created_at, cover_image")
       .eq("status", "published")
       .neq("slug", slug)
-      .order("created_at", { ascending: false })
-      .limit(3)
+      .limit(12) // Fetch a pool of 12 recent articles to randomize from
   ])
 
   const article = articleRes.data
-  const recentArticles = recentRes.data || []
+  const articlePool = poolRes.data || []
+
+  // Randomly shuffle the pool and take 3 unique articles
+  const randomizedArticles = [...articlePool]
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 3)
 
   if (articleRes.error || !article) return notFound()
 
@@ -122,7 +126,7 @@ export default async function BlogDetail({ params }: PageProps) {
           </article>
         </div>
       </div>
-      <ArticlePage title="You might also like" showButton={false} initialArticles={recentArticles as any} />
+      <ArticlePage title="You might also like" showButton={true} showCardButton={false} initialArticles={randomizedArticles as any} />
       <Newsletter />
     </>
   )

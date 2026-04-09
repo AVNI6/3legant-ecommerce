@@ -21,7 +21,8 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
     const from = (currentPage - 1) * PAGE_SIZE
     const to = from + PAGE_SIZE - 1
 
-    const { data: ordersData, error: ordersError, count } = await supabase
+    // Optimized: Fetch orders and refund settings in parallel to reduce waterfall latency
+    const ordersPromise = supabase
         .from("orders")
         .select(`
             id, user_id, total_price, status, order_date, delivered_at, shipping_address,
@@ -32,27 +33,32 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
         `, { count: "exact" })
         .eq("user_id", user.id)
         .order("order_date", { ascending: false })
-        .range(from, to)
+        .range(from, to);
+
+    const refundSettingsPromise = (async () => {
+        try {
+            const { createAdminClient } = await import("@/lib/supabase/admin")
+            const adminSupabase = createAdminClient()
+            const { data: settingData } = await adminSupabase
+                .from("admin_settings")
+                .select("setting_value")
+                .eq("setting_key", "refund_window_days")
+                .single()
+
+            return settingData?.setting_value ? parseInt(settingData.setting_value, 10) : DEFAULT_REFUND_WINDOW_DAYS
+        } catch (error) {
+            console.error("Failed to fetch refund window:", error)
+            return DEFAULT_REFUND_WINDOW_DAYS
+        }
+    })();
+
+    const [
+        { data: ordersData, error: ordersError, count },
+        refundWindowDays
+    ] = await Promise.all([ordersPromise, refundSettingsPromise]);
 
     if (ordersError) {
         console.error("Failed to fetch server-side orders:", ordersError)
-    }
-
-    let refundWindowDays = DEFAULT_REFUND_WINDOW_DAYS
-    try {
-        const { createAdminClient } = await import("@/lib/supabase/admin")
-        const adminSupabase = createAdminClient()
-        const { data: settingData } = await adminSupabase
-            .from("admin_settings")
-            .select("setting_value")
-            .eq("setting_key", "refund_window_days")
-            .single()
-
-        if (settingData?.setting_value) {
-            refundWindowDays = parseInt(settingData.setting_value, 10) || DEFAULT_REFUND_WINDOW_DAYS
-        }
-    } catch (error) {
-        console.error("Failed to fetch refund window:", error)
     }
 
     return (

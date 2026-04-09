@@ -20,7 +20,7 @@ const cardWrapper = "snap-start flex-shrink-0 w-[75%] max-[353px]:w-[85%] sm:w-[
 
 const imageWrapper = "relative w-full overflow-hidden h-[200px] max-[353px]:h-[160px] sm:h-[240px] md:h-[260px] lg:h-[280px]";
 
-const titleStyle = "font-poppins font-semibold uppercase line-clamp-2 text-[14px] leading-[20px] min-h-[40px] max-[353px]:text-[13px] max-[353px]:leading-[18px] max-[353px]:min-h-[36px] sm:text-[16px] sm:leading-[22px] sm:min-h-[44px] md:text-[18px] md:leading-[24px] md:min-h-[48px] lg:text-[20px] lg:leading-[28px] lg:min-h-[56px]";
+const titleStyle = "font-poppins font-medium line-clamp-2 text-[14px] leading-[20px] min-h-[40px] max-[353px]:text-[12px] max-[353px]:leading-[18px] max-[353px]:min-h-[36px] sm:text-[16px] sm:leading-[22px] sm:min-h-[44px] md:text-[18px] md:leading-[24px] md:min-h-[48px] lg:text-[20px] lg:leading-[28px] lg:min-h-[56px]";
 
 const dateStyle = "text-[#6C7275] mt-1 sm:mt-2 text-[11px] max-[353px]:text-[10px] sm:text-[12px] md:text-[13px] lg:text-[14px]";
 
@@ -29,10 +29,12 @@ const buttonStyle =
 const ArticlePage = ({
   title = "Articles",
   showButton = true,
+  showCardButton = true,
   initialArticles = []
 }: {
   title?: string,
   showButton?: boolean,
+  showCardButton?: boolean,
   initialArticles?: HomeArticle[]
 }) => {
   const [displayArticles, setDisplayArticles] = useState<HomeArticle[]>(initialArticles);
@@ -64,16 +66,16 @@ const ArticlePage = ({
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [initialArticles]);
 
   return (
     <section className="px-4 sm:px-12 md:px-10 lg:px-30 overflow-x-hidden">
-      <div className="my-5 md:my-10 gap-1 flex items-center justify-between">
-        <h1 className="font-poppins font-medium text-xl min-[320px]:text-3xl sm:text-[40px] sm:leading-[44px] tracking-[-0.4px]">{title}</h1>
+      <div className="my-5 md:mb-10 gap-1 flex items-center justify-between">
+        <h1 className="font-poppins font-medium text-[20px] md:text-[28px] leading-[34px] tracking-[-0.6px]">{title}</h1>
 
         {showButton && (
           <BlackShopButton
-            className="text-[11px] sm:text-[18px] "
+            className="text-[12px] md:text-[14px] lg:text-[16px] font-medium leading-[28px] tracking-[-0.4px]"
             content="More Articles"
             href={APP_ROUTE.blog}
           />
@@ -117,9 +119,9 @@ const ArticlePage = ({
                   <div className="pt-3 sm:pt-4">
                     <h2 className={titleStyle}>{data.title}</h2>
 
-                    {/* <p className={dateStyle}>{displayDate}</p> */}
+                    <p className={dateStyle}>{displayDate}</p>
 
-                    {showButton && (
+                    {showCardButton && (
                       <div className="mt-2 sm:mt-3">
                         <BlackShopButton
                           className={buttonStyle}

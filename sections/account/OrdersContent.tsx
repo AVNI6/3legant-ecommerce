@@ -280,13 +280,13 @@ export default function OrdersContent({ userId, currentPage, refundWindowDays, i
         </div>
       )}
 
-      <div className="hidden md:grid grid-cols-[1fr_2fr_1.5fr_1.2fr_1.5fr_1fr] text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 pb-4 mb-2 px-4">
+      <div className="hidden md:grid md:grid-cols-[1fr_2.5fr_1.5fr_1fr] lg:grid-cols-[1fr_2fr_1.5fr_1.2fr_1.5fr_1fr] text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 pb-4 mb-2 px-4">
         <p>Order ID</p>
         <p>Date Placed</p>
         <p>Status</p>
         <p>Total Price</p>
-        <p>Items</p>
-        <p className="text-right">Actions</p>
+        <p className="hidden lg:block">Items</p>
+        <p className="hidden lg:block text-right">Actions</p>
       </div>
 
       <div className="">
@@ -303,11 +303,11 @@ export default function OrdersContent({ userId, currentPage, refundWindowDays, i
             >
               <div
                 onClick={() => toggleExpand(order.id)}
-                className="flex flex-col md:grid md:grid-cols-[1fr_2fr_1.5fr_1.2fr_1.5fr_1fr] items-start md:items-center gap-2 md:gap-4 py-4 md:py-6 px-4 cursor-pointer group"
+                className="flex flex-col md:grid md:grid-cols-[1fr_2.5fr_1.5fr_1fr] lg:grid-cols-[1fr_2fr_1.5fr_1.2fr_1.5fr_1fr] items-start md:items-center gap-2 md:gap-4 py-4 md:py-6 px-4 cursor-pointer group transition-colors hover:bg-gray-50/50"
               >
                 <div className="flex justify-between items-center w-full md:w-auto">
                   <p className="font-bold text-black text-base md:text-lg">#{order.id}</p>
-                  <div className={`md:hidden p-1.5 rounded-full bg-gray-50 transition-transform ${isExpanded ? 'rotate-180 text-black' : 'text-gray-300'}`}>
+                  <div className={`lg:hidden p-1.5 rounded-full bg-gray-50 transition-transform ${isExpanded ? 'rotate-180 text-black' : 'text-gray-300'}`}>
                     <FiChevronDown className="w-4 h-4" />
                   </div>
                 </div>
@@ -334,7 +334,7 @@ export default function OrdersContent({ userId, currentPage, refundWindowDays, i
                 </div>
 
                 <p className="hidden md:block font-bold text-black text-base">{formatCurrency(order.total_price)}</p>
-                <div className="hidden md:flex gap-3 overflow-hidden">
+                <div className="hidden lg:flex gap-3 overflow-hidden">
                   {itemsFromSnapshot.slice(0, 2).map((item: any, idx: number) => (
                     <img
                       key={`img-${order.id}-${idx}`}
@@ -350,7 +350,7 @@ export default function OrdersContent({ userId, currentPage, refundWindowDays, i
                   )}
                 </div>
 
-                <div className="hidden md:flex justify-end pr-2">
+                <div className="hidden lg:flex justify-end pr-2">
                   <div className={`p-2 rounded-full transition-all duration-300 ${isExpanded
                     ? 'rotate-180 bg-black text-white'
                     : 'bg-gray-50 text-gray-400 group-hover:bg-gray-100 group-hover:text-black'}`}>
