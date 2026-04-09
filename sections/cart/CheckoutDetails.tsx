@@ -17,10 +17,6 @@ import { useSessionStorage } from "@/lib/hooks/useSessionStorage";
 import CheckoutForm from "./CheckoutForm";
 import CheckoutOrderSummary from "./CheckoutOrderSummary";
 
-// ============================================================
-// TYPE DEFINITIONS
-// ============================================================
-
 export type CheckoutFormData = Address & {
   email: string;
   differentBilling?: boolean;
@@ -32,6 +28,22 @@ export type CheckoutFormData = Address & {
   payment: "card" | "upi";
   sourceAddressId?: string;
 };
+type SavedCheckoutAddress = {
+  id?: string;
+  firstName?: string;
+  lastName?: string;
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  street?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
+  address_label?: string;
+  address_type?: string;
+  is_default?: boolean;
+};
 
 type ShippingMethod = {
   id: number;
@@ -40,10 +52,6 @@ type ShippingMethod = {
   price: number | null;
   percentage: number | null;
 };
-
-// ============================================================
-// LOCATION OPTIONS & CONSTANTS
-// ============================================================
 
 const LOCATION_OPTIONS = {
   india: {
