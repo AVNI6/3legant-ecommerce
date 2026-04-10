@@ -24,7 +24,8 @@ export default function CartDrawer({ isOpen, onClose }: Props) {
   const { user } = useAppSelector((state: any) => state.auth)
 
   const subtotal = cartItems.reduce((sum, i) => sum + i.price * i.quantity, 0)
-  const total = subtotal + shippingCost
+  // 📦 Only add shipping cost if cart has items
+  const total = subtotal + (cartItems.length > 0 ? shippingCost : 0)
 
   const { requireLogin, LoginModal } = useRequireLogin()
 
@@ -136,7 +137,7 @@ export default function CartDrawer({ isOpen, onClose }: Props) {
           </button>
 
           <Link
-            href={APP_ROUTE.cart}
+            href={`${APP_ROUTE.cart}?step=1`}
             onClick={onClose}
             className="w-full text-center text-[10px] min-[375px]:text-sm sm:text-base font-medium text-gray-500 hover:text-black transition-colors block py-2"
           >

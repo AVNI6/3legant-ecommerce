@@ -9,6 +9,7 @@ import StepIndicator from "@/sections/cart/StepIndicator"
 import { useSearchParams } from "next/navigation"
 import { useEffect, useRef } from "react"
 import { setActiveStep, clearCartItems, setShipping, clearCart } from "@/store/slices/cartSlice"
+import { removeCoupon } from "@/store/slices/couponSlice"
 import { toast } from "react-toastify"
 
 const CART_ACTIVE_STEP_STORAGE_KEY = "cart-active-step"
@@ -33,6 +34,8 @@ export default function CartFlowContent() {
 				dispatch(setShipping({ name: "", cost: 0 }))
 				dispatch(setActiveStep(3))
 			}
+
+			dispatch(removeCoupon()); // 🎟️ Clear applied coupon
 
 			if (typeof window !== "undefined") {
 				sessionStorage.setItem(CART_ACTIVE_STEP_STORAGE_KEY, "3")

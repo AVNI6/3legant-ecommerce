@@ -113,6 +113,18 @@ export default function ShoppingCart() {
 		}
 	}, [])
 
+	// 🎟️ Clear coupon and 📦 reset shipping when cart becomes empty
+	useEffect(() => {
+		if (isMounted && cartItems.length === 0) {
+			if (coupon) {
+				dispatch(removeCoupon())
+			}
+			if (shippingCost > 0) {
+				dispatch(setShipping({ name: "Free Shipping", cost: 0 }))
+			}
+		}
+	}, [cartItems.length, coupon, shippingCost, dispatch, isMounted])
+
 	const subtotal = cartItems.reduce((sum: number, i: any) => sum + i.price * i.quantity, 0)
 	const discountAmount = coupon ? coupon.discount : 0
 	const total = subtotal + shippingCost - discountAmount
@@ -252,14 +264,13 @@ export default function ShoppingCart() {
 										</div>
 									</div>
 
-									{/* Desktop only columns (Quantity, Price, Subtotal) */}
 									<div className="hidden lg:flex justify-center w-full">
 										<QuantityInput
 											quantity={item.quantity}
 											variant_id={item.variant_id}
 											stock={item.stock}
 											allowZero={true}
-											maxWidth="w-[85px] xl:w-28"
+											maxWidth="w-[100px] xl:w-28"
 										/>
 									</div>
 

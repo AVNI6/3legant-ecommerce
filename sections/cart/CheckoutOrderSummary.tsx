@@ -7,7 +7,6 @@ import { formatCurrency } from "@/constants/Data";
 import { RxCross2 } from "react-icons/rx";
 import { RiCoupon4Line, RiDiscountPercentLine } from "react-icons/ri";
 import { IoIosArrowDown } from "react-icons/io";
-import { removeFromCart } from "@/store/slices/cartSlice";
 import { validateCoupon } from "@/store/slices/couponSlice";
 import Link from "next/link";
 import { APP_ROUTE } from "@/constants/AppRoutes";
@@ -104,8 +103,6 @@ export default function CheckoutOrderSummary({
   const dispatch = useAppDispatch();
   const shippingDropdownRef = useClickOutside(() => setIsShippingOpen(false));
 
-
-  const handleRemoveItem = (variantId: number) => dispatch(removeFromCart(variantId));
   const currentShipping = useMemo(() => {
     if (selectedShipping) return selectedShipping;
     const fallback = shippingMethods[0];
@@ -113,7 +110,11 @@ export default function CheckoutOrderSummary({
   }, [selectedShipping, shippingCost, shippingMethods]);
 
 
-  const renderShippingCost = (method: { type: "fixed" | "percentage"; price: number | null; percentage: number | null }) => {
+  const renderShippingCost = (method: {
+    type: "fixed" | "percentage";
+    price: number | null;
+    percentage: number | null;
+  }) => {
     if (method.type === "percentage") {
       return `${Number(method.percentage ?? 0)}% of subtotal`;
     }
@@ -129,16 +130,16 @@ export default function CheckoutOrderSummary({
 
         <div className={`space-y-2 min-[375px]:space-y-4 ${cartItems.length > 3 ? "max-h-[360px] overflow-y-auto pr-1" : ""}`}>
           {cartItems.map((item: CartItem) => (
-            <div key={item.variant_id} className="flex max-[342px]:justify-between items-center gap-2 min-[375px]:gap-4 py-2 min-[375px]:py-3 group">
-              <Link href={`${APP_ROUTE.product}/${item.id}?variantId=${item.variant_id}`} className="shrink-0 bg-[#F3F5F7] rounded overflow-hidden flex items-center justify-center">
+            <div key={item.variant_id} className="flex items-stretch gap-3 py-2 group">
+              <Link href={`${APP_ROUTE.product}/${item.id}?variantId=${item.variant_id}`} className="shrink-0 w-12 min-[343px]:w-14 sm:min-[343px]:w-20 min-h-[56px] sm:min-h-[80px] bg-[#F3F5F7] rounded overflow-hidden flex items-center justify-center">
                 <img
                   src={item.image}
-                  className="w-12 h-12 min-[343px]:w-14 min-[343px]:h-14 sm:min-[343px]:w-20 sm:min-[343px]:h-20 object-contain shadow-sm transition-transform group-hover:scale-105 mix-blend-multiply"
+                  className="w-full h-full object-contain shadow-sm transition-transform group-hover:scale-105 mix-blend-multiply"
                   alt={item.name}
                 />
               </Link>
 
-              <div className="flex flex-col flex-1 min-w-0">
+              <div className="flex flex-col flex-1 min-w-0 min-h-[56px] sm:min-h-[80px] justify-between">
                 <div className="flex justify-between items-start gap-1 min-[375px]:gap-2">
                   <Link href={`${APP_ROUTE.product}/${item.id}?variantId=${item.variant_id}`}>
                     <p className="font-semibold text-[10px] min-[375px]:text-xs sm:text-sm md:text-base line-clamp-2 sm:line-clamp-1 group-hover:underline leading-tight mt-0.5">
@@ -152,16 +153,8 @@ export default function CheckoutOrderSummary({
 
                 <p className="text-gray-400 text-[9px] min-[375px]:text-[11px] sm:text-xs mt-0.5 mb-1">Color: {item.color}</p>
 
-                <div className="flex items-center justify-between mt-1 min-[375px]:mt-2">
+                <div className="flex items-center mt-1">
                   <QuantityInput quantity={item.quantity} variant_id={item.variant_id} stock={item.stock} allowZero={true} maxWidth="w-20 sm:w-24" />
-
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveItem(item.variant_id)}
-                    className="text-red-500 text-[9px] min-[375px]:text-[11px] sm:text-xs hover:underline font-medium p-1"
-                  >
-                    Remove
-                  </button>
                 </div>
               </div>
             </div>

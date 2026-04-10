@@ -344,12 +344,7 @@ export async function POST(request: Request) {
       0
     );
 
-    if (stripeTotal <= 0) {
-      return NextResponse.json(
-        { error: "Payable amount must be greater than zero after discounts." },
-        { status: 400 }
-      );
-    }
+    const isFullyDiscountedCheckout = stripeTotal <= 0;
 
     // Stripe requires at least ~USD 0.50 equivalent. For INR this is roughly Rs 50.
     // stripeTotal is in minor units, so Rs 50 == 5000 paise.
@@ -432,6 +427,141 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Failed to initialize order tracking" }, { status: 500 });
       }
       orderId = orderRow.id;
+    }
+
+    if (isFullyDiscountedCheckout) {
+      // Fully discounted orders should be finalized immediately without Stripe redirection.
+      const { error: orderConfirmError } = await authedSupabase
+        .from("orders")
+        .update({
+          status: OrderStatus.CONFIRMED,
+          payment_intent_id: null,
+        })
+        .eq("id", orderId);
+
+      if (orderConfirmError) {
+        console.error("Failed to confirm fully discounted order:", orderConfirmError);
+        return NextResponse.json({ error: "Failed to confirm order" }, { status: 500 });
+      }
+
+      const { error: removeOrderItemsError } = await authedSupabase
+        .from("order_items")
+        .delete()
+        .eq("order_id", orderId);
+
+      if (removeOrderItemsError) {
+        console.error("Failed to reset existing order items:", removeOrderItemsError);
+        return NextResponse.json({ error: "Failed to finalize order items" }, { status: 500 });
+      }
+
+      const orderItemsData = resolvedCartSnapshot.map((item: any) => ({
+        order_id: orderId,
+        product_id: item.id,
+        variant_id: item.variant_id ?? null,
+        price: item.price,
+        quantity: item.quantity,
+        color: item.color,
+      }));
+
+      if (orderItemsData.length > 0) {
+        const { error: orderItemsInsertError } = await authedSupabase
+          .from("order_items")
+          .insert(orderItemsData);
+
+        if (orderItemsInsertError) {
+          console.error("Failed to create order items for fully discounted order:", orderItemsInsertError);
+          return NextResponse.json({ error: "Failed to create order items" }, { status: 500 });
+        }
+      }
+
+      for (const item of resolvedCartSnapshot) {
+        if (item.variant_id) {
+          const { error: stockError } = await authedSupabase.rpc("decrement_stock", {
+            v_id: item.variant_id,
+            quantity: item.quantity,
+          });
+
+          if (stockError) {
+            console.error("Stock decrement failed for fully discounted order:", stockError);
+            return NextResponse.json({ error: "Failed to update stock" }, { status: 500 });
+          }
+        }
+      }
+
+      if (couponCode) {
+        const upperCouponCode = couponCode.toUpperCase();
+        const { data: couponRow, error: couponFetchError } = await supabase
+          .from("coupons")
+          .select("usage_count")
+          .eq("code", upperCouponCode)
+          .maybeSingle();
+
+        if (couponFetchError) {
+          console.error("Failed to fetch coupon usage for fully discounted order:", couponFetchError);
+        } else if (couponRow) {
+          const nextUsageCount = Number(couponRow.usage_count ?? 0) + 1;
+          const { error: couponUpdateError } = await supabase
+            .from("coupons")
+            .update({ usage_count: nextUsageCount })
+            .eq("code", upperCouponCode);
+
+          if (couponUpdateError) {
+            console.error("Failed to increment coupon usage for fully discounted order:", couponUpdateError);
+          }
+        }
+      }
+
+      const freePaymentId = `free_${orderId}_${Date.now()}`;
+
+      await authedSupabase
+        .from("payments")
+        .update({ status: PaymentStatus.EXPIRED })
+        .eq("user_id", metadata.userId)
+        .eq("status", PaymentStatus.PENDING);
+
+      const { error: paymentInsertError } = await authedSupabase.from("payments").insert({
+        payment_id: freePaymentId,
+        order_id: orderId,
+        transaction_id: null,
+        method: paymentMethod,
+        status: PaymentStatus.SUCCESS,
+        user_id: metadata.userId,
+        amount: 0,
+        currency,
+        details: {
+          items,
+          cartSnapshot: resolvedCartSnapshot,
+          shippingAmount,
+          discountAmount: finalDiscount,
+          totalAmount: 0,
+          country,
+          shippingAddress,
+          billingAddress,
+          couponCode: couponCode ? couponCode.toUpperCase() : null,
+          shippingMethod,
+          orderSnapshot,
+          checkoutType: "fully_discounted",
+        },
+      });
+
+      if (paymentInsertError) {
+        console.error("Failed to create payment record for fully discounted order:", paymentInsertError);
+        return NextResponse.json({ error: "Failed to save payment record" }, { status: 500 });
+      }
+
+      const { error: cartClearError } = await authedSupabase
+        .from("cart")
+        .delete()
+        .eq("user_id", metadata.userId);
+
+      if (cartClearError) {
+        console.error("Failed to clear cart for fully discounted order:", cartClearError);
+      }
+
+      return NextResponse.json({
+        orderPlaced: true,
+        orderId,
+      });
     }
 
     // Update metadata to use final server-calculated values

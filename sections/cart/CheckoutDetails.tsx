@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useRef } from "react"
+import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { APP_ROUTE } from "@/constants/AppRoutes"
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -118,6 +119,7 @@ const writeShippingMethodsCache = (methods: ShippingMethod[]) => {
 
 function CheckoutDetail() {
   const dispatch = useAppDispatch();
+  const router = useRouter();
   const { user, loading: authLoading } = useAppSelector((state: any) => state.auth);
   const cartItems = useAppSelector((state: any) => state.cart.items);
   const shippingCost = useAppSelector((state: any) => state.cart.shippingCost);
@@ -147,6 +149,15 @@ function CheckoutDetail() {
   const addresses = useAppSelector(selectAddresses);
   const addressLoading = useAppSelector((state: any) => state.addresses.loading);
   const isSyncing = cartLoading || couponLoading;
+
+  useEffect(() => {
+    if (!isMounted) return;
+    if (authLoading || cartLoading) return;
+
+    if (cartItems.length === 0) {
+      router.replace(`${APP_ROUTE.cart}?step=1`);
+    }
+  }, [isMounted, authLoading, cartLoading, cartItems.length, router]);
 
   const subtotal = useMemo(() =>
     cartItems.reduce((acc: number, item: any) => acc + item.price * item.quantity, 0),
@@ -302,7 +313,7 @@ function CheckoutDetail() {
       if (!draftHydrated) {
         reset(checkoutDraft as CheckoutFormData, { keepDefaultValues: true });
         setDraftHydrated(true);
-        hydrationRef.current = true; // 🛡️ LOCK: Only hydrate once
+        hydrationRef.current = true;
       }
       return;
     }
@@ -327,7 +338,7 @@ function CheckoutDetail() {
       // Update session storage immediately to reflect the new source ID
       setCheckoutDraft(finalData);
       setDraftHydrated(true);
-      hydrationRef.current = true; // 🛡️ LOCK: Only hydrate once
+      hydrationRef.current = true; 
     } else {
       if (!draftHydrated) {
         setDraftHydrated(true);
@@ -524,6 +535,11 @@ function CheckoutDetail() {
         throw new Error(payload.error || "Checkout failed");
       }
 
+      if (payload?.orderPlaced && payload?.orderId) {
+        router.push(`${APP_ROUTE.cart}?checkout=success&orderId=${payload.orderId}`);
+        return;
+      }
+
       const { url } = payload;
       if (url) {
         window.location.href = url;
@@ -546,22 +562,7 @@ function CheckoutDetail() {
 
   return (
     <form onSubmit={handleSubmit(handleCheckout)} onKeyDown={handleFormKeyDown}>
-      {cartItems.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 w-full text-center space-y-6">
-          <div className="space-y-2">
-            <h2 className="text-3xl font-bold text-gray-900 line-clamp-1">No products added</h2>
-            <p className="text-gray-500 max-w-md mx-auto">
-              Your checkout list is currently empty. Please add some items to your cart before proceeding to payment.
-            </p>
-          </div>
-          <Link
-            href="/pages/product"
-            className="bg-black text-white px-10 py-4 rounded-xl font-bold hover:bg-gray-800 transition shadow-lg hover:scale-105 active:scale-95"
-          >
-            Go to Shop
-          </Link>
-        </div>
-      ) : (
+      {cartItems.length === 0 ? null : (
         <div className="flex flex-col lg:flex-row gap-4 min-[375px]:gap-6 lg:gap-6 xl:gap-10 px-3 min-[375px]:px-5 sm:px-10 lg:px-10 xl:px-30 items-start my-4 min-[375px]:my-6 sm:my-10">
           <CheckoutForm
             register={register}

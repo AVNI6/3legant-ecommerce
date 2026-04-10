@@ -4,7 +4,8 @@ import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { supabase } from "@/lib/supabase/client"
 import { AccountDetailsSkeleton } from "@/components/ui/skeleton"
-import { useAppSelector } from "@/store/hooks"
+import { useAppDispatch, useAppSelector } from "@/store/hooks"
+import { setAuth } from "@/store/slices/authSlice"
 
 import { toast } from "react-toastify"
 import { HiOutlineEye, HiOutlineEyeOff } from "react-icons/hi"
@@ -20,9 +21,12 @@ type FormData = {
 }
 
 export default function AccountDetails() {
-  const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm<FormData>()
+  const dispatch = useAppDispatch()
+  const { register, reset, watch, trigger, getValues, formState: { errors } } = useForm<FormData>()
   const { user, loading: authLoading } = useAppSelector((state: any) => state.auth)
   const [updateError, setUpdateError] = useState("")
+  const [isSavingDetails, setIsSavingDetails] = useState(false)
+  const [isSavingPassword, setIsSavingPassword] = useState(false)
 
   const [showOldPassword, setShowOldPassword] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
@@ -35,6 +39,20 @@ export default function AccountDetails() {
   const watchOld = watch("oldPassword")
   const watchNew = watch("newPassword")
   const watchRepeat = watch("repeatPassword")
+  const firstNameValue = watch("firstName")
+  const lastNameValue = watch("lastName")
+  const displayNameValue = watch("displayName")
+  const currentName = (user?.user_metadata?.name || "").trim()
+  const currentNameParts = currentName.split(" ")
+  const currentFirstName = currentNameParts[0] || ""
+  const currentLastName = currentNameParts.slice(1).join(" ") || ""
+  const normalizedFirstName = (firstNameValue || "").trim()
+  const normalizedLastName = (lastNameValue || "").trim()
+  const normalizedDisplayName = (displayNameValue || "").trim()
+  const isDetailsUnchanged =
+    normalizedFirstName === currentFirstName &&
+    normalizedLastName === currentLastName &&
+    normalizedDisplayName === currentName
 
   const showUpdateError = (message: string) => {
     setUpdateError(message)
@@ -61,49 +79,43 @@ export default function AccountDetails() {
     })
   }, [user, reset])
 
-  const onSubmit = async (formData: FormData) => {
+  const saveAccountDetails = async () => {
     setUpdateError("")
+    const isValid = await trigger(["firstName", "lastName", "displayName"])
+    if (!isValid) return
+
+    const formData = getValues()
+
+    const normalizedFirst = (formData.firstName || "").trim()
+    const normalizedLast = (formData.lastName || "").trim()
+    const normalizedDisplay = (formData.displayName || "").trim()
+    const combinedName = `${normalizedFirst} ${normalizedLast}`.trim()
+
+    // If display name wasn't manually changed from current value, keep it in sync with split name fields.
+    // If user explicitly clears display name, keep it empty.
+    const nextDisplayName =
+      normalizedDisplay === currentName ? combinedName : normalizedDisplay
+
+    const hasAnyChange =
+      normalizedFirst !== currentFirstName ||
+      normalizedLast !== currentLastName ||
+      nextDisplayName !== currentName
+
+    if (!hasAnyChange) {
+      toast.info("No changes to save")
+      return
+    }
+
+    setIsSavingDetails(true)
 
     try {
 
       const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser()
       if (userError || !currentUser) throw new Error("No active session found. Please log in again.")
 
-      // 2. Handle Password Verification (Optional for password changes)
-      if (formData.newPassword) {
-        if (!formData.oldPassword) {
-          showUpdateError("Current password is required to set a new one")
-          return
-        }
-        if (formData.newPassword !== formData.repeatPassword) {
-          showUpdateError("New passwords do not match")
-          return
-        }
-        if (formData.newPassword === formData.oldPassword) {
-          showUpdateError("New password should be different from the old password.")
-          return
-        }
+      const nameToSave = nextDisplayName
 
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: currentUser.email!,
-          password: formData.oldPassword
-        })
-
-        if (signInError) {
-          showUpdateError("Incorrect current password. Please try again.")
-          return
-        }
-      }
-
-      const combinedName = `${formData.firstName} ${formData.lastName}`.trim()
-      const currentName = user?.user_metadata?.name || ""
-      const nameToSave = (formData.displayName === currentName)
-        ? combinedName
-        : (formData.displayName || combinedName)
-
-      // 3. Update Auth User (Metadata + optional local email/password change)
       const { error: authError } = await supabase.auth.updateUser({
-        password: formData.newPassword || undefined,
         data: {
           name: nameToSave
         }
@@ -123,7 +135,7 @@ export default function AccountDetails() {
           id: currentUser.id,
           name: nameToSave,
           email: formData.email,
-        })
+        }, { onConflict: "id" })
 
       if (profileError) {
         console.error("Profile sync error details:", profileError)
@@ -132,16 +144,94 @@ export default function AccountDetails() {
 
       toast.success("Account details saved successfully!")
 
+      const { data: refreshedUserData } = await supabase.auth.getUser()
+      if (refreshedUserData?.user) {
+        const { data: refreshedSessionData } = await supabase.auth.getSession()
+        dispatch(setAuth({ user: refreshedUserData.user, session: refreshedSessionData.session }))
+      }
+
       reset({
         ...formData,
+        firstName: normalizedFirst,
+        lastName: normalizedLast,
         displayName: nameToSave,
-        oldPassword: "",
-        newPassword: "",
-        repeatPassword: ""
       })
     } catch (err: any) {
       const message = err?.message || "An error occurred during update"
       showUpdateError(message)
+    } finally {
+      setIsSavingDetails(false)
+    }
+  }
+
+  const savePassword = async () => {
+    setUpdateError("")
+    const isValid = await trigger(["oldPassword", "newPassword", "repeatPassword"])
+    if (!isValid) return
+
+    const formData = getValues()
+
+    if (!formData.newPassword || !formData.repeatPassword) {
+      showUpdateError("Please enter and confirm your new password")
+      return
+    }
+
+    if (!formData.oldPassword) {
+      showUpdateError("Current password is required to set a new one")
+      return
+    }
+
+    if (formData.newPassword !== formData.repeatPassword) {
+      showUpdateError("New passwords do not match")
+      return
+    }
+
+    if (formData.newPassword === formData.oldPassword) {
+      showUpdateError("New password should be different from the old password.")
+      return
+    }
+
+    setIsSavingPassword(true)
+
+    try {
+      const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser()
+      if (userError || !currentUser) throw new Error("No active session found. Please log in again.")
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: currentUser.email!,
+        password: formData.oldPassword,
+      })
+
+      if (signInError) {
+        showUpdateError("Incorrect current password. Please try again.")
+        return
+      }
+
+      const { error: authError } = await supabase.auth.updateUser({
+        password: formData.newPassword,
+      })
+
+      if (authError) {
+        const authMessage = authError.message || "Unable to update password"
+        if (authMessage.toLowerCase().includes("new password should be different")) {
+          showUpdateError("New password should be different from the old password.")
+          return
+        }
+        throw new Error(authMessage)
+      }
+
+      toast.success("Password updated successfully!")
+      reset({
+        ...formData,
+        oldPassword: "",
+        newPassword: "",
+        repeatPassword: "",
+      })
+    } catch (err: any) {
+      const message = err?.message || "An error occurred while updating password"
+      showUpdateError(message)
+    } finally {
+      setIsSavingPassword(false)
     }
   }
 
@@ -151,7 +241,7 @@ export default function AccountDetails() {
 
   return (
     <div className="max-w-5xl lg:mx-auto px-4 ">
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 text-gray-500 ">
+      <form className="space-y-8 text-gray-500 ">
         <h2 className="font-inter font-semibold text-[20px] leading-[32px] tracking-normal text-black">Account Details</h2>
         <div className="space-y-6">
           <div className="flex flex-col">
@@ -170,11 +260,7 @@ export default function AccountDetails() {
             <input
               id="account-last-name"
               autoComplete="family-name"
-              {...register("lastName", {
-                required: "Last name is required",
-                validate: value =>
-                  value.length >= 2 || "Last name must be at least 2 characters"
-              })}
+              {...register("lastName")}
               className="border border-gray-200 py-3 px-4 text-black focus:outline-none focus:ring-2 focus:ring-black/5 rounded-xl transition-all"
             />
             {errors.lastName && <p className="text-red-500 text-xs mt-1">{errors.lastName.message}</p>}
@@ -185,7 +271,7 @@ export default function AccountDetails() {
             <input
               id="account-display-name"
               {...register("displayName", {
-                minLength: { value: 3, message: "Min 3 characters" }
+                validate: (value) => !value || value.trim().length >= 3 || "Min 3 characters"
               })}
               placeholder="Full Name (Visible to others)"
               className="border border-gray-200 py-3 px-4 text-black focus:outline-none focus:ring-2 focus:ring-black/5 rounded-xl transition-all"
@@ -203,6 +289,14 @@ export default function AccountDetails() {
               title="Email cannot be changed directly"
             />
           </div>
+          <button
+            type="button"
+            onClick={saveAccountDetails}
+            disabled={isSavingDetails || isSavingPassword || isDetailsUnchanged}
+            className="flex-1 sm:flex-none bg-black text-white px-8 py-3.5 rounded-xl shadow-lg hover:shadow-2xl hover:-translate-y-1 active:scale-95 transition-all duration-200 disabled:opacity-100 disabled:bg-black disabled:text-white disabled:translate-y-0 disabled:cursor-not-allowed text-sm font-bold"
+          >
+            {isSavingDetails ? "Saving Details..." : "Save Account Details"}
+          </button>
         </div>
         <div className="border-t border-gray-100 pt-3 space-y-6">
           <h2 className="text-2xl font-semibold text-black">Password Change</h2>
@@ -315,17 +409,19 @@ export default function AccountDetails() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4 pb-4">
+          
           <button
-            type="submit"
-            disabled={isSubmitting}
+            type="button"
+            onClick={savePassword}
+            disabled={isSavingDetails || isSavingPassword}
             className="flex-1 sm:flex-none bg-black text-white px-8 py-3.5 rounded-xl shadow-lg hover:shadow-2xl hover:-translate-y-1 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:translate-y-0 text-sm font-bold"
           >
-            {isSubmitting ? "Saving..." : "Save Changes"}
+            {isSavingPassword ? "Saving Password..." : "Save Password"}
           </button>
           <button
             type="button"
             onClick={() => reset()}
-            disabled={isSubmitting}
+            disabled={isSavingDetails || isSavingPassword}
             className="flex-1 sm:flex-none border border-gray-200 px-8 py-3.5 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all active:scale-95 disabled:opacity-50"
           >
             Cancel

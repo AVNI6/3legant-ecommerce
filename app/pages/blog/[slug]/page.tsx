@@ -9,6 +9,7 @@ import { MDXRemote } from 'next-mdx-remote/rsc'
 import Image from "next/image"
 import { FaArrowLeftLong } from "react-icons/fa6";
 import { publicSupabase } from "@/lib/supabase/public"
+import React from "react"
 
 export const revalidate = 3600 // Revalidate every hour
 
@@ -119,7 +120,17 @@ export default async function BlogDetail({ params }: PageProps) {
                       </div>
                     );
                   },
-                  p: (props: any) => <p {...props} className="mb-4 last:mb-0" />
+                  p: (props: any) => {
+                    const hasParagraphChild = React.Children.toArray(props.children).some(
+                      (child: any) => React.isValidElement(child) && child.type === "p"
+                    )
+
+                    if (hasParagraphChild) {
+                      return <div {...props} className="mb-4 last:mb-0" />
+                    }
+
+                    return <p {...props} className="mb-4 last:mb-0" />
+                  }
                 }}
               />
             </div>

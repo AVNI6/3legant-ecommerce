@@ -45,7 +45,27 @@ function StoreInitializer({ children }: { children: React.ReactNode }) {
     if (authSetupAttempted.current) return;
     authSetupAttempted.current = true;
 
+    const bootstrapSession = async () => {
+      const { data } = await supabase.auth.getSession()
+      const initialSession = data.session ?? null
+      const initialUser = initialSession?.user ?? null
+      dispatch(setAuth({ user: initialUser, session: initialSession }))
+
+      if (initialUser && lastFetchedUserIdRef.current !== initialUser.id) {
+        lastFetchedUserIdRef.current = initialUser.id
+        dispatch(fetchCart(initialUser.id))
+        dispatch(fetchWishlist(initialUser.id))
+      }
+    }
+
+    void bootstrapSession()
+
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      // Ignore transient null sessions from non-signout events to prevent accidental logged-out UI flashes.
+      if (!session && event !== "SIGNED_OUT") {
+        return
+      }
+
       const changedUser = session?.user ?? null
 
       // Update store with new session info

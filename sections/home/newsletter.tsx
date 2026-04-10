@@ -121,7 +121,7 @@ const Newsletter = () => {
 							disabled={loading}
 							suppressHydrationWarning
 						>
-							{loading ? "Signing" : "Signup"}
+							{loading ? "Subscribing..." : "Subscribe"}
 						</button>
 					</div>
 

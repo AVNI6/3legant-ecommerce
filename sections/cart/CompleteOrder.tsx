@@ -6,6 +6,7 @@ import { formatCurrency } from "@/constants/Data";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { setActiveStep, clearCartItems } from "@/store/slices/cartSlice";
+import { removeCoupon } from "@/store/slices/couponSlice";
 import { CompleteOrderSkeleton } from "@/components/ui/skeleton";
 
 interface OrderItem {
@@ -67,6 +68,7 @@ export default function CompleteOrder() {
     if (currentStep !== 3) {
       dispatch(setActiveStep(3));
       dispatch(clearCartItems()); // 🧺 Clear cart state + guest storage
+      dispatch(removeCoupon()); // 🎟️ Clear applied coupon
     }
 
     if (lastFetchedOrderRef.current) return;
@@ -389,7 +391,7 @@ export default function CompleteOrder() {
         </p>
 
         <p>
-          <span className="font-medium">Payment Status:</span> {paymentInfo?.status || "unknown"}
+          <span className="font-medium">Payment Status:</span> {paymentInfo?.status || "Free"}
         </p>
       </div>
 

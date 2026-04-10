@@ -41,8 +41,11 @@ const authSlice = createSlice({
       // Only update if something actually changed to prevent app-wide re-render loops
       const userChanged = (state.user?.id !== newUser?.id);
       const sessionChanged = (state.session?.access_token !== newSession?.access_token);
+      const userUpdatedAtChanged = (state.user?.updated_at !== newUser?.updated_at);
+      const userMetadataChanged = JSON.stringify(state.user?.user_metadata || {}) !== JSON.stringify(newUser?.user_metadata || {});
+      const appMetadataChanged = JSON.stringify(state.user?.app_metadata || {}) !== JSON.stringify(newUser?.app_metadata || {});
 
-      if (userChanged || sessionChanged || state.loading) {
+      if (userChanged || sessionChanged || userUpdatedAtChanged || userMetadataChanged || appMetadataChanged || state.loading) {
         state.user = newUser;
         state.session = newSession;
         state.loading = false;
