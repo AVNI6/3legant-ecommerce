@@ -43,7 +43,7 @@ export default function BlogArticle({ data, gridType = "three" }: ArticleProps) 
                         ? "flex gap-6 items-center"
                         : ""
                         }`}>
-                        <Link href={`${APP_ROUTE.blog}/${article.slug}`} className={["horizontal", "vertical"].includes(gridType) ? "flex gap-4" : ""}>
+                        <Link href={`${APP_ROUTE.blog}/${article.slug}`} className={["horizontal", "vertical"].includes(gridType) ? "flex gap-4 items-start" : ""}>
                             <div className={`relative overflow-hidden flex-shrink-0 ${gridType === "horizontal" || gridType === "vertical"
                                 ? "w-[250px] h-[200px]"
                                 : "w-full h-[283px]"
@@ -56,7 +56,7 @@ export default function BlogArticle({ data, gridType = "three" }: ArticleProps) 
                                 />
                             </div>
                             <div className={`pt-4 ${gridType === "horizontal" ? "flex-1 pt-0" : ""}`}>
-                                <h2 className="font-medium text-[13px] sm:text-[18px] lg:text-[20px] mb-2 hover:text-gray-600 transition-colors uppercase">{article.title}</h2>
+                                <h2 className="font-medium text-[13px] md:text-[18px]  lg:text-[19px] mb-2 hover:text-gray-600 transition-colors uppercase">{article.title}</h2>
                                 <p className="text-[#6C7275] text-[10px] sm:text-sm md:text-base lg:text-lg">{displayDate}</p>
                             </div>
                         </Link>
