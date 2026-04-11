@@ -1,10 +1,12 @@
 import BlackShopButton from "@/components/blackbutton";
 import Image from "next/image";
+import { APP_ROUTE } from "@/constants/AppRoutes";
+
 const Hundreds = ({ initialBanner }: { initialBanner?: any }) => {
 	const imageUrl = "/home2.png";
 	const title = initialBanner?.title || "HUNDREDS of";
 	const subtitle = initialBanner?.subtitle || "New lower prices!";
-	const link = initialBanner?.link_url || "/shop";
+	const link = initialBanner?.link_url || APP_ROUTE.product;
 
 	return (
 		<section className="w-full flex flex-col md:flex-row">

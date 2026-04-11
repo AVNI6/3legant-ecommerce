@@ -203,6 +203,10 @@ export default function ProductSearch() {
                           validationTill: product.validation_till
                         });
 
+                        const totalStock = (product as any).product_variant && (product as any).product_variant.length > 0
+                          ? (product as any).product_variant.reduce((acc: number, v: any) => acc + Number(v.stock || 0), 0)
+                          : Number(product.stock || 0);
+
                         return (
                           <div
                             key={product.variant_id}
@@ -221,7 +225,7 @@ export default function ProductSearch() {
                                 sizes="(max-width: 768px) 50vw, 25vw"
                               />
 
-                              {Number(product.stock) <= 0 && (
+                              {totalStock <= 0 && (
                                 <span className="absolute top-3 right-3 bg-red-500 text-white text-[9px] sm:text-[10px] font-black px-2 py-1 uppercase tracking-widest rounded-sm shadow-sm">
                                   Out of Stock
                                 </span>

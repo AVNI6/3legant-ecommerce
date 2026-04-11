@@ -109,7 +109,14 @@ const Products = ({ products, grid = "4", variant = "grid", isLoading }: Props) 
       const stock = Number(product.stock ?? 0);
       const inCart = cartQtyByVariant[variantId] ?? 0;
       const isBlocked = stock <= 0 || inCart >= stock;
-      return { variantId, stock, inCart, isBlocked };
+      
+      // Aggregate stock check for the product as a whole
+      const totalStock = product.product_variant && product.product_variant.length > 0
+        ? product.product_variant.reduce((acc, v) => acc + Number(v.stock || 0), 0)
+        : stock;
+      const isActuallyOutOfStock = totalStock <= 0;
+
+      return { variantId, stock, inCart, isBlocked, isActuallyOutOfStock, totalStock };
     },
     [cartQtyByVariant]
   );
@@ -277,8 +284,7 @@ const Products = ({ products, grid = "4", variant = "grid", isLoading }: Props) 
           const discountPercent = Math.round(((product.old_price - product.price) / product.old_price) * 100);
           const effectiveVariantId = product.variant_id || product.id;
           const inWishlist = isInWishlist(product.variant_id);
-          const isOutOfStock = Number(product.stock) <= 0;
-          const { variantId, isBlocked } = getStockState(product);
+          const { variantId, isBlocked, isActuallyOutOfStock } = getStockState(product);
           const isPending = !!pendingAdd[variantId];
 
           const cardContent = (
@@ -320,7 +326,15 @@ const Products = ({ products, grid = "4", variant = "grid", isLoading }: Props) 
                     {isPending ? "Adding..." : "Add to cart"}
                   </button>
                 )}
-                {isBlocked && grid !== "three" && grid !== "four" && (
+                {isBlocked && !isActuallyOutOfStock && grid !== "three" && grid !== "four" && (
+                  <button
+                    type="button"
+                    className="w-[90%] absolute z-20 bottom-4 left-1/2 -translate-x-1/2 text-white py-2 rounded-lg text-xs sm:text-sm md:text-base bg-black hover:bg-gray-800 opacity-0 group-hover:opacity-100 transition shadow-lg"
+                  >
+                    View Details
+                  </button>
+                )}
+                {isActuallyOutOfStock && grid !== "three" && grid !== "four" && (
                   <button
                     type="button"
                     disabled
@@ -333,7 +347,7 @@ const Products = ({ products, grid = "4", variant = "grid", isLoading }: Props) 
                 <img
                   src={product.image}
                   alt={product.name}
-                  className={`rounded-lg transition-transform duration-500 ${isOutOfStock ? "opacity-60" : "hover:scale-105"} mix-blend-multiply ${grid === "four" ? "max-w-full max-h-full h-auto w-auto object-contain p-2" : grid === "three" ? "w-full h-[180px] min-[350px]:h-[220px] sm:h-[280px] md:h-[250px] xl:h-[280px] object-contain p-2" : "w-full aspect-[4/5] max-h-[250px] min-[350px]:max-h-[300px] sm:h-[300px] lg:h-[220px] xl:h-[300px] object-contain p-2"}`}
+                  className={`rounded-lg transition-transform duration-500 ${isActuallyOutOfStock ? "opacity-60" : "hover:scale-105"} mix-blend-multiply ${grid === "four" ? "max-w-full max-h-full h-auto w-auto object-contain p-2" : grid === "three" ? "w-full h-[180px] min-[350px]:h-[220px] sm:h-[280px] md:h-[250px] xl:h-[280px] object-contain p-2" : "w-full aspect-[4/5] max-h-[250px] min-[350px]:max-h-[300px] sm:h-[300px] lg:h-[220px] xl:h-[300px] object-contain p-2"}`}
                 />
               </div>
 
@@ -373,10 +387,10 @@ const Products = ({ products, grid = "4", variant = "grid", isLoading }: Props) 
                         e.stopPropagation();
                         handleAddToCart(e, product, effectivePrice, productReviewStats);
                       }}
-                      className={`py-1.5 sm:py-2 rounded-lg w-full md:w-full lg:w-[50%] transition text-xs sm:text-sm md:text-xs lg:text-sm text-white ${isBlocked ? "bg-gray-400 cursor-not-allowed" : isPending ? "bg-gray-500 cursor-wait" : "bg-black hover:bg-gray-800"}`}
-                      disabled={isBlocked || isPending}
+                      className={`py-1.5 sm:py-2 rounded-lg w-full md:w-full lg:w-[50%] transition text-xs sm:text-sm md:text-xs lg:text-sm text-white ${isActuallyOutOfStock ? "bg-gray-400 cursor-not-allowed" : isPending ? "bg-gray-500 cursor-wait" : "bg-black hover:bg-gray-800"}`}
+                      disabled={isActuallyOutOfStock || isPending}
                     >
-                      {isBlocked ? "Out of Stock" : isPending ? "Adding..." : "Add to cart"}
+                      {isActuallyOutOfStock ? "Out of Stock" : isBlocked ? "View Details" : isPending ? "Adding..." : "Add to cart"}
                     </button>
                     <button
                       onClick={(e) => {

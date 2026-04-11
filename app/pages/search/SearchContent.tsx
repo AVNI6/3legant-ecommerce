@@ -156,15 +156,21 @@ export default function SearchContent() {
                     )}
                   </div>
 
-                  {product.stock && product.stock > 0 ? (
-                    <span className="text-xs text-green-600 font-medium">
-                      In Stock
-                    </span>
-                  ) : (
-                    <span className="text-xs text-red-600 font-medium">
-                      Out of Stock
-                    </span>
-                  )}
+                  {(() => {
+                    const totalStock = (product as any).product_variant && (product as any).product_variant.length > 0
+                      ? (product as any).product_variant.reduce((acc: number, v: any) => acc + Number(v.stock || 0), 0)
+                      : Number(product.stock || 0);
+
+                    return totalStock > 0 ? (
+                      <span className="text-xs text-green-600 font-medium">
+                        In Stock
+                      </span>
+                    ) : (
+                      <span className="text-xs text-red-600 font-medium">
+                        Out of Stock
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
             </div>

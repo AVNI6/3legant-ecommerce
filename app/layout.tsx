@@ -4,7 +4,7 @@ import "./globals.css";
 import { ReduxProvider } from "@/store/StoreProvider";
 import ClientWrapper from "@/client/ClientWrapper";
 import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",

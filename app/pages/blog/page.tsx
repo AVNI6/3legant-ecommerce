@@ -2,6 +2,7 @@ import BlogCards from "@/sections/blog/BlogCards";
 import Newsletter from "@/sections/home/newsletter";
 import Link from "next/link";
 import { publicSupabase } from "@/lib/supabase/public";
+import Image from "next/image";
 
 export const revalidate = 60;
 
@@ -24,11 +25,14 @@ export default async function BlogPage() {
     return (
         <div className="w-full">
             <div className="mb-10">
-                <div className="relative w-full h-[392px] mb-10">
-                    <img
+                <div className="relative w-full h-[320px] lg:h-[392px] mb-10 overflow-hidden">
+                    <Image
                         src={bannerImg}
                         alt="Banner"
-                        className="object-cover w-full h-full  px-4 sm:px-10 lg:px-30"
+                        fill
+                        priority
+                        className="object-cover px-4 sm:px-10 lg:px-30"
+                        sizes="100vw"
                     />
 
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4 gap-3">

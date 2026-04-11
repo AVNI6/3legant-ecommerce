@@ -125,14 +125,18 @@ function CheckoutDetail() {
   const shippingCost = useAppSelector((state: any) => state.cart.shippingCost);
   const selectedShipping = useAppSelector((state: any) => state.cart.selectedShipping);
   const [shippingMethods, setShippingMethods] = useState<ShippingMethod[]>(() => {
-    const cached = readShippingMethodsCache();
-    if (cached.length > 0) return cached;
+    // Return a default initial value for the first render (SSR/Hydration consistency)
     return [{ id: 1, name: "Free Shipping", type: "fixed", price: 0, percentage: null }];
   });
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
+    // Hydrate from cache on mount to avoid initial mismatch while still getting performance
+    const cached = readShippingMethodsCache();
+    if (cached.length > 0) {
+      setShippingMethods(cached);
+    }
   }, []);
 
   // Auto-set Free Shipping if none selected (for direct checkout access)

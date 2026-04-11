@@ -62,7 +62,8 @@ function StoreInitializer({ children }: { children: React.ReactNode }) {
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       // Ignore transient null sessions from non-signout events to prevent accidental logged-out UI flashes.
-      if (!session && event !== "SIGNED_OUT") {
+      // Allow INITIAL_SESSION even if session is null to ensure guest cart/wishlist are loaded.
+      if (!session && event !== "SIGNED_OUT" && event !== "INITIAL_SESSION") {
         return
       }
 

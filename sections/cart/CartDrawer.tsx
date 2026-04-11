@@ -139,7 +139,7 @@ export default function CartDrawer({ isOpen, onClose }: Props) {
           <Link
             href={`${APP_ROUTE.cart}?step=1`}
             onClick={onClose}
-            className="w-full text-center text-[10px] min-[375px]:text-sm sm:text-base font-medium text-gray-500 hover:text-black transition-colors block py-2"
+            className="w-full text-center text-[10px] min-[375px]:text-sm sm:text-base font-medium text-gray-500 hover:text-black transition-colors block py-2 hover:underline"
           >
             View Cart
           </Link>
